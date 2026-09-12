@@ -196,6 +196,159 @@ Display basic public profile information and library/activity where appropriate.
 
 ---
 
+
+## 8. Gamification System
+
+Kuro Shelf will include an optional gamification system designed to reward
+meaningful community participation.
+
+### User Profile
+
+Profiles may display:
+
+- Avatar
+- Username
+- Bio
+- Favorite anime
+- Bookmarked anime
+- Ratings
+- Likes
+- Badges
+- XP
+- Level
+- Coins
+- Current streak
+- Recent activity
+- Achievement showcase
+
+### Coins
+
+Users can earn Kuro Coins through legitimate activities.
+
+Potential rewards include:
+
+- Daily check-in
+- Maintaining a streak
+- Rating anime
+- Adding anime to a shelf
+- Participating in polls
+- Completing missions
+- Writing meaningful community comments
+- Completing special events
+
+The reward values must be configurable by the server/admin system.
+
+Users must never be able to directly award coins to themselves from client-side code.
+
+### Missions
+
+Missions can be:
+
+- Daily
+- Weekly
+- Seasonal
+- Event-based
+- One-time achievements
+
+Each mission should define:
+
+- Name
+- Description
+- Objective
+- Reward
+- Start time
+- End time
+- Completion requirements
+- Maximum completions
+- Active/inactive state
+
+### Streaks
+
+Kuro Shelf should support activity streaks.
+
+Potential milestones:
+
+- 3 days
+- 7 days
+- 30 days
+- 100 days
+- 365 days
+
+Streak calculations must be performed server-side using reliable timestamps.
+
+### Badges
+
+Badges can be awarded for:
+
+- Streak milestones
+- Community participation
+- Comment milestones
+- Likes received
+- Anime discovery
+- Anime collection milestones
+- Poll participation
+- Special events
+- Seasonal achievements
+- Staff/admin awards
+
+Badges should have:
+
+- Name
+- Description
+- Icon
+- Category
+- Requirement
+- Rarity
+- Award date
+
+### XP and Levels
+
+Kuro Shelf may use XP separately from coins.
+
+XP represents long-term user progression.
+
+Coins are a reward currency.
+
+XP and coins must not be treated as real-world currency.
+
+### Anti-Abuse
+
+The gamification system must include server-side validation.
+
+Do not reward:
+
+- Unlimited comments
+- Repeated identical actions
+- Automated activity
+- Artificial screen-time
+- Client-side reward requests
+- Suspicious repeated actions
+
+Coin changes should be recorded in an immutable-style transaction ledger.
+
+Example:
+
+coin_transactions:
+
+- id
+- user_id
+- amount
+- transaction_type
+- source
+- reference_id
+- created_at
+
+The system should make it possible for administrators to investigate suspicious rewards and reverse fraudulent transactions.
+
+### Screen-Time
+
+Kuro Shelf may track approximate active usage for analytics and optional achievements.
+
+Screen-time should not be used to encourage excessive usage.
+
+Prefer achievements based on active days rather than rewarding extremely long sessions.
+
+
 ## 8. Prediction Polls
 
 Kuro Shelf should include fun prediction polls.
