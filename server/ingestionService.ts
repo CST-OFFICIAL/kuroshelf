@@ -1,4 +1,3 @@
-
 import { supabase, isSupabaseConfigured } from './supabase';
 import { fetchFromJikan } from './jikanService';
 import { BaseJikanAnime } from '../src/types';
@@ -15,7 +14,7 @@ export interface SyncJobResult {
 
 export async function ingestAnimeList(
   animeList: BaseJikanAnime[],
-  jobId?: number
+  jobId?: string
 ): Promise<SyncJobResult> {
   const result: SyncJobResult = { recordsProcessed: 0, recordsInserted: 0, recordsUpdated: 0, failures: 0 };
   if (!isSupabaseConfigured) return result;
@@ -23,9 +22,36 @@ export async function ingestAnimeList(
   for (const item of animeList) {
     result.recordsProcessed++;
     try {
+      // 1. Identify if anime already exists via anime_sources or legacy mal_id
+      let animeId: string | null = null;
+      const provider = 'jikan';
+      const externalId = String(item.mal_id);
+      
+      const { data: existingSource, error: sourceErr } = await supabase
+        .from('anime_sources')
+        .select('anime_id')
+        .eq('provider', provider)
+        .eq('external_id', externalId)
+        .maybeSingle();
+
+      if (existingSource) {
+        animeId = existingSource.anime_id;
+      } else {
+        // Fallback check legacy mal_id in anime table
+        const { data: existingAnime } = await supabase
+          .from('anime')
+          .select('id')
+          .eq('mal_id', item.mal_id)
+          .maybeSingle();
+        
+        if (existingAnime) {
+          animeId = existingAnime.id;
+        }
+      }
+
+      // 2. Prepare canonical data
       const animeData = {
-        mal_id: item.mal_id,
-        title: item.title,
+        title: item.title || 'Unknown Title',
         title_english: item.title_english || null,
         title_japanese: item.title_japanese || null,
         type: item.type || null,
@@ -45,42 +71,186 @@ export async function ingestAnimeList(
         broadcast_time: item.broadcast?.time || null,
         broadcast_timezone: item.broadcast?.timezone || null,
         broadcast_string: item.broadcast?.string || null,
-        source: 'jikan',
+        mal_id: item.mal_id, // Maintain legacy compatibility
         updated_at: new Date().toISOString(),
         last_synced_at: new Date().toISOString()
       };
 
-      const { error } = await supabase.from('anime').upsert(animeData, { onConflict: 'mal_id' });
-      if (error) throw error;
-      result.recordsUpdated++; // Simplifying: we just treat upsert as update for counts here if we don't know
+      if (animeId) {
+        // Update existing canonical anime
+        const { error: updateErr } = await supabase
+          .from('anime')
+          .update(animeData)
+          .eq('id', animeId);
+        
+        if (updateErr) throw updateErr;
+        result.recordsUpdated++;
+      } else {
+        // Insert new canonical anime
+        const { data: newAnime, error: insertErr } = await supabase
+          .from('anime')
+          .insert(animeData)
+          .select('id')
+          .single();
+        
+        if (insertErr || !newAnime) throw insertErr || new Error("Failed to insert anime");
+        animeId = newAnime.id;
+        result.recordsInserted++;
+      }
 
+      // 3. Ensure anime_sources mapping exists
+      const { error: upsertSourceErr } = await supabase
+        .from('anime_sources')
+        .upsert({
+          anime_id: animeId,
+          provider: provider,
+          external_id: externalId,
+          source_url: item.url || null,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'provider,external_id' });
+        
+      if (upsertSourceErr) console.error(`Source mapping error for ${item.mal_id}:`, upsertSourceErr);
+
+      // 4. Ingest Genres
       if (item.genres && Array.isArray(item.genres)) {
-        for (const g of item.genres) {
+        // Combine genres, explicit_genres, themes, demographics if they exist in Jikan response
+        const allTags = [...item.genres, ...(item.themes || []), ...(item.demographics || []), ...(item.explicit_genres || [])];
+        for (const g of allTags) {
           if (g.mal_id && g.name) {
-             await supabase.from('genres').upsert({ mal_id: g.mal_id, name: g.name, type: g.type || 'anime' }, { onConflict: 'mal_id' });
-             await supabase.from('anime_genres').upsert({ anime_id: item.mal_id, genre_id: g.mal_id }, { onConflict: 'anime_id,genre_id' });
+             const { data: genreData, error: gErr } = await supabase
+              .from('genres')
+              .select('id')
+              .eq('name', g.name)
+              .maybeSingle();
+
+             let genreId = genreData?.id;
+             if (!genreId) {
+                const { data: newGenre, error: ngErr } = await supabase
+                  .from('genres')
+                  .insert({ name: g.name, type: g.type || 'anime', mal_id: g.mal_id })
+                  .select('id')
+                  .single();
+                if (newGenre) genreId = newGenre.id;
+             }
+
+             if (genreId) {
+               await supabase
+                .from('anime_genres')
+                .upsert({ anime_id: animeId, genre_id: genreId }, { onConflict: 'anime_id,genre_id' });
+             }
           }
         }
       }
-    } catch (err) {
-      console.error(`Failed to ingest anime ${item.mal_id}:`, err);
+
+      // 5. Ingest Studios
+      if (item.studios && Array.isArray(item.studios)) {
+        for (const s of item.studios) {
+          if (s.mal_id && s.name) {
+             const { data: studioData } = await supabase
+              .from('studios')
+              .select('id')
+              .eq('name', s.name)
+              .maybeSingle();
+
+             let studioId = studioData?.id;
+             if (!studioId) {
+                const { data: newStudio } = await supabase
+                  .from('studios')
+                  .insert({ name: s.name, mal_id: s.mal_id })
+                  .select('id')
+                  .single();
+                if (newStudio) studioId = newStudio.id;
+             }
+
+             if (studioId) {
+               await supabase
+                .from('anime_studios')
+                .upsert({ anime_id: animeId, studio_id: studioId }, { onConflict: 'anime_id,studio_id' });
+             }
+          }
+        }
+      }
+
+      // 6. Ingest Streaming Providers (if available)
+      if (item.streaming && Array.isArray(item.streaming)) {
+         for (const st of item.streaming) {
+            if (st.name && st.url) {
+               const { data: providerData } = await supabase
+                 .from('streaming_providers')
+                 .select('id')
+                 .eq('name', st.name)
+                 .maybeSingle();
+               
+               let providerId = providerData?.id;
+               if (!providerId) {
+                  const { data: newProvider } = await supabase
+                    .from('streaming_providers')
+                    .insert({ name: st.name })
+                    .select('id')
+                    .single();
+                  if (newProvider) providerId = newProvider.id;
+               }
+
+               if (providerId) {
+                  await supabase
+                    .from('anime_streaming')
+                    .upsert({ anime_id: animeId, provider_id: providerId, url: st.url, region: 'global' }, { onConflict: 'anime_id,provider_id,region' });
+               }
+            }
+         }
+      }
+
+      // 7. Ingest Relations (if available)
+      if (item.relations && Array.isArray(item.relations)) {
+         for (const rel of item.relations) {
+            if (rel.relation && Array.isArray(rel.entry)) {
+               for (const entry of rel.entry) {
+                 if (entry.type === 'anime' && entry.mal_id) {
+                    // Try to find the target anime ID
+                    const { data: targetAnime } = await supabase
+                      .from('anime')
+                      .select('id')
+                      .eq('mal_id', entry.mal_id)
+                      .maybeSingle();
+                      
+                    if (targetAnime) {
+                       await supabase
+                         .from('anime_relations')
+                         .upsert({
+                           source_anime_id: animeId,
+                           target_anime_id: targetAnime.id,
+                           relation_type: rel.relation
+                         }, { onConflict: 'source_anime_id,target_anime_id,relation_type' });
+                    }
+                 }
+               }
+            }
+         }
+      }
+
+    } catch (err: any) {
+      if (err?.code === '42501') {
+        // Suppress RLS errors in environments without the service role key
+      } else {
+        console.error(`Failed to ingest anime ${item.mal_id}:`, err);
+      }
       result.failures++;
     }
 
     if (jobId && result.recordsProcessed % 10 === 0) {
-      await supabase.from('sync_jobs').update({
+      await supabase.from('sync_history').update({
         records_processed: result.recordsProcessed,
-        records_updated: result.recordsUpdated,
-        failures: result.failures
+        records_inserted: result.recordsInserted,
+        records_updated: result.recordsUpdated
       }).eq('id', jobId);
     }
   }
 
   if (jobId) {
-    await supabase.from('sync_jobs').update({
+    await supabase.from('sync_history').update({
       records_processed: result.recordsProcessed,
-      records_updated: result.recordsUpdated,
-      failures: result.failures
+      records_inserted: result.recordsInserted,
+      records_updated: result.recordsUpdated
     }).eq('id', jobId);
   }
 
@@ -94,8 +264,9 @@ export async function runIngestionJob(jobType: string, startUrl: string, maxPage
     return;
   }
   
-  const { data: job, error: jobErr } = await supabase.from('sync_jobs').insert({
-    job_type: jobType,
+  const { data: job, error: jobErr } = await supabase.from('sync_history').insert({
+    provider: 'jikan',
+    sync_type: jobType,
     status: 'running',
     started_at: new Date().toISOString()
   }).select().single();
@@ -138,14 +309,14 @@ export async function runIngestionJob(jobType: string, startUrl: string, maxPage
       }
     }
 
-    await supabase.from('sync_jobs').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', jobId);
+    await supabase.from('sync_history').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', jobId);
     console.log(`[Ingestion] Job completed: ${jobType}`);
   } catch (err) {
     console.error(`[Ingestion] Job failed: ${jobType}`, err);
-    await supabase.from('sync_jobs').update({ 
-      status: 'failed', 
-      last_error: err instanceof Error ? err.message : String(err), 
-      completed_at: new Date().toISOString() 
-    }).eq('id', jobId);
+    await supabase.from('sync_history').update({ 
+       status: 'failed', 
+       error_log: err instanceof Error ? err.message : String(err), 
+       completed_at: new Date().toISOString() 
+     }).eq('id', jobId);
   }
 }

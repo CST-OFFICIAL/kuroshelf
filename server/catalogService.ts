@@ -4,6 +4,24 @@ import { AnimeItem, JikanPagination } from '../src/types';
 import { serverSearchAnime as jikanSearch, serverGetAnimeDetails as jikanGetById, serverGetTopAnime, serverGetSeasonalAnime, serverGetUpcomingAnime } from './jikanService';
 import { ingestAnimeList } from './ingestionService';
 
+
+function mapDbToAnime(row: any): AnimeItem {
+  return {
+    ...row,
+    images: row.images_json,
+    trailer: {
+      url: row.trailer_url,
+      images: row.trailer_images_json
+    },
+    broadcast: {
+      day: row.broadcast_day,
+      time: row.broadcast_time,
+      timezone: row.broadcast_timezone,
+      string: row.broadcast_string
+    }
+  };
+}
+
 export async function getCatalogTopAnime(filter: string = 'bypopularity', page: number = 1, limit: number = 24): Promise<{ data: AnimeItem[], pagination: JikanPagination }> {
   console.log('getCatalogTopAnime called, isSupabaseConfigured:', isSupabaseConfigured);
   if (!isSupabaseConfigured) {
@@ -28,12 +46,33 @@ export async function getCatalogTopAnime(filter: string = 'bypopularity', page: 
   const { data, count, error } = await query.range(offset, offset + limit - 1);
   if (error) {
     console.error('getCatalogTopAnime error:', error);
-    return { data: [], pagination: { last_visible_page: 1, has_next_page: false, current_page: 1, items: { count: 0, total: 0, per_page: limit } } };
+  }
+
+  // Fallback to Jikan if Supabase DB is empty
+  if ((!data || data.length === 0) && page === 1) {
+    console.log(`[Catalog] Local DB empty for filter '${filter}', falling back to Jikan...`);
+    let jikanResult;
+    if (filter === 'airing') {
+      jikanResult = await serverGetSeasonalAnime(page, limit);
+    } else if (filter === 'upcoming') {
+      jikanResult = await serverGetUpcomingAnime(page, limit);
+    } else {
+      jikanResult = await serverGetTopAnime(filter, page, limit);
+    }
+    
+    if (jikanResult && jikanResult.data && jikanResult.data.length > 0) {
+      // Background ingestion
+      ingestAnimeList(jikanResult.data).catch(err => console.error('Fallback ingestion error:', err));
+      return {
+        data: jikanResult.data as any[],
+        pagination: jikanResult.pagination || { last_visible_page: 1, has_next_page: false, current_page: 1, items: { count: jikanResult.data.length, total: jikanResult.data.length, per_page: limit } }
+      };
+    }
   }
 
   // TODO: genres fetching
   return {
-    data: data as any[],
+    data: (data || []).map(mapDbToAnime) as any[],
     pagination: {
       last_visible_page: Math.ceil((count || 0) / limit),
       has_next_page: offset + limit < (count || 0),
@@ -98,7 +137,7 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
   }
 
   return {
-    data: (data || []) as any[],
+    data: (data || []).map(mapDbToAnime) as any[],
     pagination: {
       last_visible_page: Math.ceil((count || 0) / limit),
       has_next_page: offset + limit < (count || 0),
@@ -113,7 +152,7 @@ export async function getCatalogAnimeById(id: number): Promise<{ data: BaseJikan
   const { data, error } = await supabase.from('anime').select('*').eq('mal_id', id).single();
   
   if (data) {
-    return { data: data as any };
+    return { data: mapDbToAnime(data) as any };
   }
 
   const jikanRes = await jikanGetById(id);
