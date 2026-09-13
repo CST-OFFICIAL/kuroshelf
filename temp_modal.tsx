@@ -194,8 +194,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
               )}
 
               {tab === 'login' ? (
-                <>
-<form onSubmit={handleLogin} className="space-y-4">
+                <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-xs text-neutral-400 font-medium block">
                       Email or Username
@@ -265,7 +264,6 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
         </svg>
         Continue with Google
       </button>
-</>
 
               ) : (
                 <form onSubmit={handleRegister} className="space-y-4">
@@ -300,42 +298,3 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                         required
                         minLength={3}
                         className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs text-neutral-400 font-medium block">
-                      Password (min 8 characters)
-                    </label>
-                    <div className="relative">
-                      <Lock className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        required
-                        minLength={8}
-                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs transition-colors shadow-md shadow-rose-950/50"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    <span>{loading ? 'Creating Account...' : 'Create Kuro Shelf Account'}</span>
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}

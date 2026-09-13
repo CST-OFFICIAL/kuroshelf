@@ -1,6 +1,7 @@
 import { AnimeItem, ShelfStatus } from '../types';
 import { Play, Plus, Check, Star, Calendar, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { MediaImage } from './MediaImage';
 
 interface HeroBannerProps {
   anime: AnimeItem | null;
@@ -40,19 +41,19 @@ export function HeroBanner({ anime, onSelect, onAddToShelf, isSavedInShelf }: He
     );
   }
 
-  const imageUrl =
-    anime.images.webp?.large_image_url ||
-    anime.images.jpg.large_image_url ||
-    anime.images.jpg.image_url;
-
   return (
     <div className="relative w-full rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 shadow-2xl">
       {/* Background Image with layered gradient overlays */}
       <div className="absolute inset-0 z-0">
-        <img
-          src={imageUrl}
+        <MediaImage
+          malId={anime.mal_id}
+          images={anime.images}
           alt={anime.title}
-          referrerPolicy="no-referrer"
+          title={anime.title}
+          mediaType="anime"
+          showFallbackTitle={false}
+          aspectRatio="h-full w-full"
+          containerClassName="w-full h-full"
           className="w-full h-full object-cover object-center opacity-25 filter blur-sm scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/80 to-transparent" />
@@ -66,10 +67,13 @@ export function HeroBanner({ anime, onSelect, onAddToShelf, isSavedInShelf }: He
           onClick={() => onSelect(anime)}
           className="shrink-0 w-36 sm:w-44 md:w-52 aspect-[2/3] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-700/60 cursor-pointer group relative"
         >
-          <img
-            src={imageUrl}
+          <MediaImage
+            malId={anime.mal_id}
+            images={anime.images}
             alt={anime.title}
-            referrerPolicy="no-referrer"
+            title={anime.title}
+            mediaType="anime"
+            aspectRatio="aspect-[2/3]"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

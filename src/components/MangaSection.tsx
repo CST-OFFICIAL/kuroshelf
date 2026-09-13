@@ -3,6 +3,7 @@ import { MangaItem } from '../types';
 import { getTopManga, searchManga } from '../services/jikan';
 import { BookOpen, Star, ExternalLink, Search, ShoppingBag } from 'lucide-react';
 import { siteConfig } from '../config/site';
+import { MediaImage } from './MediaImage';
 
 interface MangaSectionProps {
   onSelectManga?: (manga: MangaItem) => void;
@@ -99,11 +100,6 @@ export function MangaSection({ onSelectManga }: MangaSectionProps) {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {mangaList.map((manga, idx) => {
-            const imageUrl =
-              manga.images.webp?.large_image_url ||
-              manga.images.jpg.large_image_url ||
-              manga.images.jpg.image_url;
-
             const amazonUrl = `https://www.amazon.com/s?k=${encodeURIComponent(`${manga.title} manga volume 1`)}&tag=kuroshelf-20`;
 
             return (
@@ -113,11 +109,14 @@ export function MangaSection({ onSelectManga }: MangaSectionProps) {
               >
                 {/* Poster */}
                 <div className="relative aspect-[3/4] w-full overflow-hidden bg-neutral-950">
-                  <img
-                    src={imageUrl}
+                  <MediaImage
+                    malId={manga.mal_id}
+                    images={manga.images}
                     alt={manga.title}
+                    title={manga.title}
+                    mediaType="manga"
+                    aspectRatio="aspect-[3/4]"
                     loading="lazy"
-                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   {manga.score && (

@@ -3,33 +3,16 @@ import path from 'path';
 import crypto from 'crypto';
 import cookieParser from 'cookie-parser';
 import { createServer as createViteServer } from 'vite';
+import { getUserBookmarks, upsertBookmark, deleteBookmark, getUserLikes, toggleLike, getUserRatings, setRating, removeRating, getPolls, votePoll } from './server/db';
 import {
-  initDatabase,
-  createUser,
-  getUserByEmail,
-  getUserByUsername,
-  verifyPassword,
-  createSession,
-  getSessionUser,
-  deleteSession,
-  getUserBookmarks,
-  upsertBookmark,
-  deleteBookmark,
-  getUserLikes,
-  toggleLike,
-  getUserRatings,
-  setRating,
-  removeRating,
-  getPolls,
-  votePoll,
-  UserRow,
-} from './server/db';
+  getCatalogTopAnime,
+  searchCatalogAnime,
+  getCatalogAnimeById
+} from './server/catalogService';
+import { runIngestionJob } from './server/ingestionService';
 import {
-  serverSearchAnime,
-  serverGetTopAnime,
   serverGetSeasonalAnime,
   serverGetUpcomingAnime,
-  serverGetAnimeDetails,
   serverGetAnimeCharacters,
   serverGetAnimeGenres,
   serverGetTopManga,
@@ -38,19 +21,20 @@ import {
 
 // Extend Express Request type with authenticated user
 export interface AuthenticatedRequest extends Request {
+  user?: { id: string, email?: string, raw_user_meta_data?: any } | null;
   user?: Omit<UserRow, 'password_hash' | 'salt'> | null;
   voterHash?: string;
 }
 
 async function startServer() {
   // Initialize Database schemas & seeds
-  initDatabase();
 
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
   app.use(cookieParser());
+  app.get('/api/ping', (req, res) => res.send('pong'));
 
   // Security & Voter-Hash Middleware
   app.use((req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
@@ -204,16 +188,43 @@ async function startServer() {
     });
   });
 
+  // ---------------- Admin / Synchronization ----------------
+  app.post('/api/admin/sync', (req: Request, res: Response) => {
+    const type = req.query.type as string; // 'popular', 'airing', 'upcoming', 'all'
+    const pages = Number(req.query.pages) || 1;
+
+    let urls: string[] = [];
+    if (type === 'popular') urls.push('/top/anime?filter=bypopularity');
+    if (type === 'airing') urls.push('/top/anime?filter=airing');
+    if (type === 'upcoming') urls.push('/top/anime?filter=upcoming');
+    if (type === 'all' || !type) {
+      urls = [
+        '/top/anime?filter=bypopularity',
+        '/top/anime?filter=airing',
+        '/top/anime?filter=upcoming'
+      ];
+    }
+
+    res.json({ success: true, message: `Sync started for ${urls.length} jobs` });
+
+    // Run async
+    (async () => {
+      for (const url of urls) {
+        await runIngestionJob(url.includes('airing') ? 'airing' : url.includes('upcoming') ? 'upcoming' : 'popular', url, pages);
+      }
+    })().catch(e => console.error('Sync job failed:', e));
+  });
+
   // ---------------- Personal Shelf / Bookmarks ----------------
 
   // Get Shelf Items
-  app.get('/api/shelf', (req: AuthenticatedRequest, res: Response): void => {
+  app.get('/api/shelf', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     if (!req.user) {
       res.json({ success: true, data: [] });
       return;
     }
     try {
-      const items = getUserBookmarks(req.user.id);
+      const items = await getUserBookmarks(req.user.id);
       res.json({ success: true, data: items });
     } catch (err) {
       console.error('[Shelf GET] Error:', err);
@@ -222,7 +233,7 @@ async function startServer() {
   });
 
   // Upsert Shelf Item
-  app.post('/api/shelf', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+  app.post('/api/shelf', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const { mediaId, mediaType, title, imageUrl, status, progress, totalEpisodes, notes } = req.body || {};
 
     if (!mediaId || typeof mediaId !== 'number') {
@@ -239,7 +250,7 @@ async function startServer() {
     }
 
     try {
-      const record = upsertBookmark({
+      const record = await upsertBookmark({
         userId: req.user!.id,
         mediaId,
         mediaType,
@@ -259,7 +270,7 @@ async function startServer() {
   });
 
   // Remove from Shelf
-  app.delete('/api/shelf/:mediaType/:mediaId', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+  app.delete('/api/shelf/:mediaType/:mediaId', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const mediaId = Number(req.params.mediaId);
     const mediaType = req.params.mediaType as 'anime' | 'manga';
 
@@ -269,7 +280,7 @@ async function startServer() {
     }
 
     try {
-      deleteBookmark(req.user!.id, mediaId, mediaType);
+      await deleteBookmark(req.user!.id, mediaId, mediaType);
       res.json({ success: true, message: 'Removed from shelf' });
     } catch (err) {
       console.error('[Shelf Delete] Error:', err);
@@ -279,37 +290,37 @@ async function startServer() {
 
   // ---------------- Likes ----------------
 
-  app.get('/api/likes', (req: AuthenticatedRequest, res: Response): void => {
+  app.get('/api/likes', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     if (!req.user) {
       res.json({ success: true, data: [] });
       return;
     }
-    const likes = getUserLikes(req.user.id);
+    const likes = await getUserLikes(req.user.id);
     res.json({ success: true, data: likes });
   });
 
-  app.post('/api/likes/toggle', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+  app.post('/api/likes/toggle', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const { mediaId, mediaType, title, imageUrl } = req.body || {};
     if (!mediaId || typeof mediaId !== 'number' || (mediaType !== 'anime' && mediaType !== 'manga')) {
       res.status(400).json({ success: false, error: 'Valid mediaId and mediaType required' });
       return;
     }
-    const result = toggleLike(req.user!.id, mediaId, mediaType, title || 'Unknown Title', imageUrl);
+    const result = await toggleLike(req.user!.id, mediaId, mediaType, title || 'Unknown Title', imageUrl);
     res.json({ success: true, liked: result.liked });
   });
 
   // ---------------- Ratings ----------------
 
-  app.get('/api/ratings', (req: AuthenticatedRequest, res: Response): void => {
+  app.get('/api/ratings', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     if (!req.user) {
       res.json({ success: true, data: [] });
       return;
     }
-    const ratings = getUserRatings(req.user.id);
+    const ratings = await getUserRatings(req.user.id);
     res.json({ success: true, data: ratings });
   });
 
-  app.post('/api/ratings', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+  app.post('/api/ratings', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const { mediaId, mediaType, rating } = req.body || {};
     const numRating = Number(rating);
     if (!mediaId || typeof mediaId !== 'number' || (mediaType !== 'anime' && mediaType !== 'manga')) {
@@ -320,26 +331,26 @@ async function startServer() {
       res.status(400).json({ success: false, error: 'Rating must be an integer between 1 and 10' });
       return;
     }
-    setRating(req.user!.id, mediaId, mediaType, Math.round(numRating));
+    await setRating(req.user!.id, mediaId, mediaType, Math.round(numRating));
     res.json({ success: true, rating: Math.round(numRating) });
   });
 
-  app.delete('/api/ratings/:mediaType/:mediaId', requireAuth, (req: AuthenticatedRequest, res: Response): void => {
+  app.delete('/api/ratings/:mediaType/:mediaId', requireAuth, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const mediaId = Number(req.params.mediaId);
     const mediaType = req.params.mediaType as 'anime' | 'manga';
     if (isNaN(mediaId) || (mediaType !== 'anime' && mediaType !== 'manga')) {
       res.status(400).json({ success: false, error: 'Invalid parameters' });
       return;
     }
-    removeRating(req.user!.id, mediaId, mediaType);
+    await removeRating(req.user!.id, mediaId, mediaType);
     res.json({ success: true, message: 'Rating removed' });
   });
 
   // ---------------- Community Prediction Polls ----------------
 
-  app.get('/api/polls', (req: AuthenticatedRequest, res: Response): void => {
+  app.get('/api/polls', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const polls = getPolls(req.user?.id || null, req.voterHash);
+      const polls = await getPolls(req.user?.id || null, req.voterHash);
       res.json({ success: true, data: polls });
     } catch (err) {
       console.error('[Polls GET] Error:', err);
@@ -347,7 +358,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/polls/:id/vote', (req: AuthenticatedRequest, res: Response): void => {
+  app.post('/api/polls/:id/vote', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const pollId = Number(req.params.id);
     const optionId = Number(req.body?.optionId);
 
@@ -356,14 +367,14 @@ async function startServer() {
       return;
     }
 
-    const result = votePoll(pollId, optionId, req.user?.id || null, req.voterHash!);
+    const result = await votePoll(pollId, optionId, req.user?.id || null, req.voterHash!);
     if (!result.success) {
       res.status(400).json({ success: false, error: result.message || 'Failed to submit vote' });
       return;
     }
 
     // Return updated poll data
-    const polls = getPolls(req.user?.id || null, req.voterHash);
+    const polls = await getPolls(req.user?.id || null, req.voterHash);
     const updated = polls.find((p) => p.id === pollId);
     res.json({ success: true, data: updated });
   });
@@ -382,7 +393,7 @@ async function startServer() {
     const sort = typeof req.query.sort === 'string' ? req.query.sort : undefined;
 
     try {
-      const result = await serverSearchAnime({
+      const result = await searchCatalogAnime({
         query,
         page,
         limit,
@@ -406,7 +417,7 @@ async function startServer() {
     const limit = Number(req.query.limit) || 24;
 
     try {
-      const result = await serverGetTopAnime(filter, page, limit);
+      const result = await getCatalogTopAnime(filter, page, limit);
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
       console.warn('[API /api/anime/top] Error:', err);
@@ -420,7 +431,7 @@ async function startServer() {
     const limit = Number(req.query.limit) || 24;
 
     try {
-      const result = await serverGetSeasonalAnime(page, limit);
+      const result = await getCatalogTopAnime('airing', page, limit);
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
       console.warn('[API /api/anime/seasonal] Error:', err);
@@ -434,7 +445,7 @@ async function startServer() {
     const limit = Number(req.query.limit) || 24;
 
     try {
-      const result = await serverGetUpcomingAnime(page, limit);
+      const result = await getCatalogTopAnime('upcoming', page, limit);
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
       console.warn('[API /api/anime/upcoming] Error:', err);
@@ -454,6 +465,22 @@ async function startServer() {
   });
 
   // Anime Details (Full with Relations and Streaming)
+  app.get('/api/anime/:id/pictures', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { serverGetAnimePictures } = await import('./server/jikanService');
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ success: false, error: 'Invalid ID' });
+        return;
+      }
+      const data = await serverGetAnimePictures(id);
+      res.json({ success: true, data });
+    } catch (err) {
+      console.error('[API /api/anime/:id/pictures] Error:', err);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  });
+
   app.get('/api/anime/:id', async (req: Request, res: Response): Promise<void> => {
     const id = Number(req.params.id);
     if (isNaN(id)) {
@@ -462,7 +489,7 @@ async function startServer() {
     }
 
     try {
-      const data = await serverGetAnimeDetails(id);
+      const { data } = await getCatalogAnimeById(id);
       if (!data) {
         res.status(404).json({ success: false, data: null, error: 'Anime not found' });
         return;
@@ -539,3 +566,20 @@ async function startServer() {
 }
 
 startServer();
+
+// ---------------- Scheduled Sync Worker ----------------
+// Note: In a production Supabase environment, this would ideally be
+// triggered by pg_cron calling a Supabase Edge Function.
+// For this environment, we simulate the scheduled ingestion worker
+// by running it periodically from the Express server.
+const SYNC_INTERVAL_MS = 1000 * 60 * 60 * 24; // 24 hours
+
+setInterval(() => {
+  if (process.env.VITE_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.log('[Cron] Starting scheduled catalog synchronization...');
+    const { runIngestionJob } = require('./server/ingestionService');
+    runIngestionJob('airing', '/top/anime?filter=airing', 1)
+      .then(() => runIngestionJob('upcoming', '/top/anime?filter=upcoming', 1))
+      .catch(e => console.error('[Cron] Sync job failed:', e));
+  }
+}, SYNC_INTERVAL_MS);

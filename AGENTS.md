@@ -59,3 +59,16 @@ Kuro Shelf is an anime and manga discovery, tracking, and community platform.
 If a requirement is ambiguous, make the safest reasonable assumption and clearly state it.
 
 Do not claim that something works unless it has been tested or verified.
+
+## Infrastructure
+- **Backend:** Node.js Express server + Supabase (PostgreSQL).
+- **Authentication:** Supabase Auth (JWT). Handled client-side, passed via Bearer token to Express when needed.
+- **Data Ingestion:** Automated catalog synchronization from Jikan API via \`ingestionService.ts\` and \`catalogService.ts\`.
+- **Database:** Raw Supabase Client. No ORM is used.
+- **Migrations:** Managed via \`supabase/migrations/\`. Do not use Prisma or Drizzle to avoid conflicts.
+- **Testing limitations:** In AI Studio, database connection fails if environment variables are not provided by the user. Do not fabricate successful DB runs.
+
+## Architecture Notes
+- The Vite frontend reads the catalog via Express APIs.
+- Express APIs proxy or directly query the Supabase database.
+- RLS policies restrict profile/bookmarks/likes modifications strictly to the authenticated user.

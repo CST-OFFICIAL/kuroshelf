@@ -12,6 +12,7 @@ import {
   BarChart2,
   Clock
 } from 'lucide-react';
+import { MediaImage } from './MediaImage';
 
 export type ShelfViewFilterTab = 'all' | ShelfStatus | 'favorites' | 'bookmarks' | 'rated' | 'profile';
 
@@ -338,10 +339,13 @@ export function ShelfView({
                     onClick={() => onSelectMedia(item.id)}
                     className="shrink-0 w-24 aspect-[2/3] rounded-xl overflow-hidden bg-neutral-950 cursor-pointer relative"
                   >
-                    <img
+                    <MediaImage
+                      malId={item.id}
                       src={item.image}
                       alt={item.title}
-                      referrerPolicy="no-referrer"
+                      title={item.title}
+                      mediaType={item.mediaType}
+                      aspectRatio="aspect-[2/3]"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <span className="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-bold rounded bg-black/80 text-rose-400 uppercase">

@@ -1,0 +1,10 @@
+import { DatabaseSync } from 'node:sqlite';
+import path from 'node:path';
+const dbPath = path.join(process.cwd(), 'data', 'kuroshelf.db');
+const db = new DatabaseSync(dbPath);
+db.exec('DROP TABLE IF EXISTS anime_genres;');
+db.exec('DROP TABLE IF EXISTS anime_studios;');
+db.exec('DROP TABLE IF EXISTS genres;');
+db.exec('DROP TABLE IF EXISTS studios;');
+db.exec('DROP TABLE IF EXISTS anime;');
+console.log("Dropped old tables");

@@ -497,3 +497,12 @@ Avoid having two AI systems simultaneously modify the same branch.
 Do NOT attempt to build the entire platform in one operation.
 
 The immediate goal is to establish a clean, maintainable project foundation and then build Kuro Shelf incrementally.
+
+---
+
+## 21. Backend Evolution (Supabase Migration)
+The project architecture has transitioned from a primarily frontend/Jikan-driven prototype with SQLite to a production-ready **Supabase PostgreSQL** architecture. 
+- **Database:** Supabase PostgreSQL is the primary database, managing the anime catalog, user profiles, and interactions.
+- **Auth:** Supabase Auth is used for user authentication (Google OAuth & Email).
+- **Ingestion:** An automated ingestion worker periodically pulls and normalizes data from Jikan into Supabase.
+- **Frontend Access:** The UI reads primarily from the internal database (via Express APIs) to prevent rate limiting and ensure performance.

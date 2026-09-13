@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AnimeItem, ShelfStatus } from '../types';
 import { Star, Heart, Bookmark, Check } from 'lucide-react';
+import { MediaImage } from './MediaImage';
 
 interface AnimeCardProps {
   anime: AnimeItem;
@@ -21,11 +22,6 @@ export const AnimeCard = React.memo(function AnimeCard({
 }: AnimeCardProps) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
 
-  const imageUrl =
-    anime.images.webp?.large_image_url ||
-    anime.images.jpg.large_image_url ||
-    anime.images.jpg.image_url;
-
   const statuses: { value: ShelfStatus; label: string }[] = [
     { value: 'watching', label: 'Watching' },
     { value: 'plan_to_watch', label: 'Plan to Watch' },
@@ -41,11 +37,14 @@ export const AnimeCard = React.memo(function AnimeCard({
         onClick={() => onSelect(anime)}
         className="relative aspect-[3/4] w-full overflow-hidden bg-neutral-950 cursor-pointer"
       >
-        <img
-          src={imageUrl}
+        <MediaImage
+          malId={anime.mal_id}
+          images={anime.images}
           alt={anime.title}
+          title={anime.title}
+          mediaType="anime"
+          aspectRatio="aspect-[3/4]"
           loading="lazy"
-          referrerPolicy="no-referrer"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
 

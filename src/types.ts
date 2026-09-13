@@ -96,7 +96,7 @@ export interface JikanPagination {
 }
 
 export interface AuthUser {
-  id: number;
+  id: string;
   email: string;
   username: string;
   avatar_url?: string | null;

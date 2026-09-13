@@ -20,6 +20,7 @@ import {
 import { AnimeItem, CharacterItem, ShelfStatus, WatchPlatform } from '../types';
 import { getAnimeCharacters, getAnimeById } from '../services/jikan';
 import { siteConfig } from '../config/site';
+import { MediaImage } from './MediaImage';
 
 interface AnimeDetailModalProps {
   anime: AnimeItem | null;
@@ -206,11 +207,6 @@ export function AnimeDetailModal({
 
   if (!anime) return null;
 
-  const imageUrl =
-    anime.images?.webp?.large_image_url ||
-    anime.images?.jpg?.large_image_url ||
-    anime.images?.jpg?.image_url;
-
   // Build where to watch list
   const directStreamingLinks = anime.streaming || [];
   const searchPlatforms: WatchPlatform[] = [
@@ -284,10 +280,13 @@ export function AnimeDetailModal({
           <div className="flex flex-col md:flex-row gap-6 items-start">
             {/* Poster Thumbnail */}
             <div className="shrink-0 w-44 sm:w-52 aspect-[2/3] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-800 mx-auto md:mx-0 bg-neutral-900">
-              <img
-                src={imageUrl}
+              <MediaImage
+                malId={anime.mal_id}
+                images={anime.images}
                 alt={anime.title}
-                referrerPolicy="no-referrer"
+                title={anime.title}
+                mediaType="anime"
+                aspectRatio="aspect-[2/3]"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -757,11 +756,14 @@ export function AnimeDetailModal({
                       className="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-center space-y-2"
                     >
                       <div className="aspect-square w-full rounded-lg overflow-hidden bg-neutral-950">
-                        <img
-                          src={char.character.images.jpg.image_url}
+                        <MediaImage
+                          malId={char.character.mal_id}
+                          images={char.character.images}
                           alt={char.character.name}
+                          title={char.character.name}
+                          mediaType="character"
+                          aspectRatio="aspect-square"
                           loading="lazy"
-                          referrerPolicy="no-referrer"
                           className="w-full h-full object-cover"
                         />
                       </div>

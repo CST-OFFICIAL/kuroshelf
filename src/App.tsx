@@ -30,6 +30,7 @@ import { MangaSection } from './components/MangaSection';
 import { Footer } from './components/Footer';
 import { InfoModal, InfoModalType } from './components/InfoModal';
 import { AuthModal } from './components/AuthModal';
+import { AdminSyncPage } from './components/AdminSyncPage';
 import { 
   Flame, 
   Sparkles, 
@@ -601,7 +602,8 @@ export function App() {
         ) : (
           <>
             {/* 2. TAB: HOME (DISCOVER) */}
-            {activeTab === 'home' && (
+            {activeTab === 'admin' && <AdminSyncPage />}
+        {activeTab === 'home' && (
               loadingInitial ? (
                 <div className="space-y-8 animate-pulse">
                   <div className="w-full h-80 sm:h-96 rounded-2xl bg-neutral-900 border border-neutral-800" />

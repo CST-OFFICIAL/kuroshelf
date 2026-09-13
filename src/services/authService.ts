@@ -1,30 +1,21 @@
+
+import { supabase } from '../lib/supabase';
 import { AuthUser } from '../types';
 
-const TOKEN_STORAGE_KEY = 'kuroshelf_auth_token';
-
-let cachedToken: string | null = null;
-
 export function getStoredAuthToken(): string | null {
-  if (cachedToken) return cachedToken;
-  try {
-    cachedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
-    return cachedToken;
-  } catch {
-    return null;
+  // Supabase handles session storage. We just need to attach the token if we want to call our own API.
+  const sessionStr = localStorage.getItem('sb-' + (import.meta.env.VITE_SUPABASE_URL ? new URL(import.meta.env.VITE_SUPABASE_URL).hostname.split('.')[0] : 'placeholder') + '-auth-token');
+  if (sessionStr) {
+    try {
+      const parsed = JSON.parse(sessionStr);
+      return parsed.access_token || null;
+    } catch {}
   }
+  return null;
 }
 
-export function setStoredAuthToken(token: string | null) {
-  cachedToken = token;
-  try {
-    if (token) {
-      localStorage.setItem(TOKEN_STORAGE_KEY, token);
-    } else {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-    }
-  } catch {
-    // Storage access unavailable
-  }
+export function setStoredAuthToken(_token: string | null) {
+  // NO-OP, Supabase handles it
 }
 
 export function getAuthHeaders(): HeadersInit {
@@ -39,71 +30,75 @@ export function getAuthHeaders(): HeadersInit {
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  try {
-    const res = await fetch('/api/auth/me', {
-      headers: getAuthHeaders(),
-      credentials: 'include',
-    });
-    if (!res.ok) return null;
-    const json = await res.json();
-    return json.user || null;
-  } catch {
-    return null;
-  }
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) return null;
+  return {
+    id: user.id ,
+    email: user.email!,
+    username: user.user_metadata?.user_name || user.email?.split('@')[0] || 'User',
+    avatar_url: user.user_metadata?.avatar_url || null,
+    created_at: user.created_at || new Date().toISOString(),
+  };
 }
 
 export async function registerUser(email: string, username: string, password: string): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
-  try {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email, username, password }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      return { success: false, error: json.error || 'Failed to register account' };
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        user_name: username,
+      }
     }
-    if (json.token) {
-      setStoredAuthToken(json.token);
-    }
-    return { success: true, user: json.user };
-  } catch (err) {
-    return { success: false, error: 'Network error connecting to registration server' };
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
   }
+
+  return { success: true, user: data.user ? {
+    id: data.user.id ,
+    email: data.user.email!,
+    username: username,
+    created_at: data.user.created_at || new Date().toISOString(),
+  } : undefined };
 }
 
 export async function loginUser(identifier: string, password: string): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ identifier, password }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      return { success: false, error: json.error || 'Invalid credentials' };
-    }
-    if (json.token) {
-      setStoredAuthToken(json.token);
-    }
-    return { success: true, user: json.user };
-  } catch (err) {
-    return { success: false, error: 'Network error connecting to login server' };
+  // Note: Supabase supports login with email, not username by default.
+  // We'll treat identifier as email here.
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: identifier,
+    password,
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
   }
+
+  return { success: true, user: data.user ? {
+    id: data.user.id ,
+    email: data.user.email!,
+    username: data.user.user_metadata?.user_name || data.user.email?.split('@')[0] || 'User',
+    avatar_url: data.user.user_metadata?.avatar_url || null,
+    created_at: data.user.created_at || new Date().toISOString(),
+  } : undefined };
 }
 
 export async function logoutUser(): Promise<void> {
-  try {
-    await fetch('/api/auth/logout', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      credentials: 'include',
-    });
-  } catch {
-    // Ignore network error on logout
-  } finally {
-    setStoredAuthToken(null);
+  await supabase.auth.signOut();
+}
+
+export async function loginWithGoogle(): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin,
+    }
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
   }
+  return { success: true };
 }
