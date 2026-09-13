@@ -1,48 +1,8 @@
-import { AnimeItem, MangaItem, CharacterItem, JikanGenre } from '../types';
+import { AnimeItem, MangaItem, CharacterItem, JikanGenre, JikanPagination } from '../types';
 
 // In-memory cache to avoid duplicate calls during session
-const memoryCache = new Map<string, { data: unknown; timestamp: number }>();
+const memoryCache = new Map<string, { data: unknown; pagination?: JikanPagination; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes cache
-
-// Persistent cache in localStorage for resilience across sessions/outages
-const PERSISTENT_CACHE_PREFIX = 'kuroshelf_data_';
-
-function getStoredCache<T>(key: string, allowStale: boolean = false): T | null {
-  // 1. Check memory cache
-  const mem = memoryCache.get(key);
-  if (mem && (allowStale || Date.now() - mem.timestamp < CACHE_TTL_MS)) {
-    return mem.data as T;
-  }
-
-  // 2. Check localStorage / sessionStorage
-  try {
-    const raw = localStorage.getItem(PERSISTENT_CACHE_PREFIX + key) || sessionStorage.getItem(key);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (allowStale || Date.now() - parsed.timestamp < CACHE_TTL_MS) {
-        memoryCache.set(key, parsed);
-        return parsed.data as T;
-      }
-    }
-  } catch {
-    // Storage access fallback
-  }
-  return null;
-}
-
-function saveToCache(key: string, data: unknown) {
-  const payload = { data, timestamp: Date.now() };
-  memoryCache.set(key, payload);
-  try {
-    localStorage.setItem(PERSISTENT_CACHE_PREFIX + key, JSON.stringify(payload));
-  } catch {
-    try {
-      sessionStorage.setItem(key, JSON.stringify(payload));
-    } catch {
-      // Quota exceeded
-    }
-  }
-}
 
 function deduplicateByMalId<T extends { mal_id: number }>(items: T[]): T[] {
   if (!Array.isArray(items)) return [];
@@ -56,13 +16,14 @@ function deduplicateByMalId<T extends { mal_id: number }>(items: T[]): T[] {
   });
 }
 
-// Client service calling our internal server API layer
-async function fetchFromApi<T>(endpoint: string, fallbackData?: T): Promise<T> {
+async function fetchFromApi<T>(
+  endpoint: string,
+  fallbackData?: T
+): Promise<{ data: T; pagination?: JikanPagination }> {
   const cacheKey = endpoint;
-
-  const cached = getStoredCache<T>(cacheKey, false);
-  if (cached !== null) {
-    return cached;
+  const mem = memoryCache.get(cacheKey);
+  if (mem && Date.now() - mem.timestamp < CACHE_TTL_MS) {
+    return { data: mem.data as T, pagination: mem.pagination };
   }
 
   try {
@@ -72,81 +33,149 @@ async function fetchFromApi<T>(endpoint: string, fallbackData?: T): Promise<T> {
     }
     const json = await res.json();
     const data = (json.data ?? fallbackData) as T;
-    saveToCache(cacheKey, data);
-    return data;
+    const pagination = json.pagination as JikanPagination | undefined;
+    memoryCache.set(cacheKey, { data, pagination, timestamp: Date.now() });
+    return { data, pagination };
   } catch (err) {
-    console.warn(`[Client Service Notice] Endpoint ${endpoint} failed, falling back to local cache:`, err);
-    const stale = getStoredCache<T>(cacheKey, true);
-    if (stale !== null) return stale;
-    if (fallbackData !== undefined) return fallbackData;
+    console.warn(`[Client Service] Endpoint ${endpoint} failed:`, err);
+    if (mem) {
+      return { data: mem.data as T, pagination: mem.pagination };
+    }
+    if (fallbackData !== undefined) {
+      return { data: fallbackData };
+    }
     throw err;
   }
 }
 
-// Service Methods
+export interface SearchOptions {
+  query?: string;
+  page?: number;
+  limit?: number;
+  type?: string;
+  status?: string;
+  genres?: string;
+  orderBy?: string;
+  sort?: string;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  pagination?: JikanPagination;
+}
+
+export async function searchAnime(
+  queryOrOptions: string | SearchOptions,
+  limit: number = 24
+): Promise<AnimeItem[]> {
+  const options: SearchOptions = typeof queryOrOptions === 'string'
+    ? { query: queryOrOptions, limit }
+    : queryOrOptions;
+
+  const result = await searchAnimePaginated(options);
+  return result.data;
+}
+
+export async function searchAnimePaginated(
+  options: SearchOptions
+): Promise<PaginatedResult<AnimeItem>> {
+  const params = new URLSearchParams();
+  if (options.query?.trim()) params.set('q', options.query.trim());
+  if (options.page) params.set('page', String(options.page));
+  if (options.limit) params.set('limit', String(options.limit));
+  if (options.type && options.type !== 'all') params.set('type', options.type);
+  if (options.status && options.status !== 'all') params.set('status', options.status);
+  if (options.genres && options.genres !== 'all') params.set('genres', options.genres);
+  if (options.orderBy) params.set('order_by', options.orderBy);
+  if (options.sort) params.set('sort', options.sort);
+
+  const endpoint = `/api/anime/search?${params.toString()}`;
+  const res = await fetchFromApi<AnimeItem[]>(endpoint, []);
+  return {
+    data: deduplicateByMalId(Array.isArray(res.data) ? res.data : []),
+    pagination: res.pagination,
+  };
+}
+
 export async function getTopAnime(
   filter: 'airing' | 'bypopularity' | 'favorite' | 'upcoming' = 'bypopularity',
-  limit: number = 20
+  limit: number = 20,
+  page: number = 1
 ): Promise<AnimeItem[]> {
-  try {
-    const data = await fetchFromApi<AnimeItem[]>(`/api/anime/top?filter=${filter}&limit=${limit}`, []);
-    const unique = deduplicateByMalId(Array.isArray(data) ? data : []);
-    return unique.slice(0, limit);
-  } catch (err) {
-    console.warn('Failed to fetch top anime:', err);
-    return [];
-  }
+  const res = await getTopAnimePaginated(filter, page, limit);
+  return res.data;
 }
 
-export async function getSeasonalAnime(limit: number = 20): Promise<AnimeItem[]> {
-  const data = await fetchFromApi<AnimeItem[]>(`/api/anime/seasonal?limit=${limit}`, []);
-  const unique = deduplicateByMalId(Array.isArray(data) ? data : []);
-  return unique.slice(0, limit);
+export async function getTopAnimePaginated(
+  filter: string = 'bypopularity',
+  page: number = 1,
+  limit: number = 24
+): Promise<PaginatedResult<AnimeItem>> {
+  const endpoint = `/api/anime/top?filter=${filter}&page=${page}&limit=${limit}`;
+  const res = await fetchFromApi<AnimeItem[]>(endpoint, []);
+  return {
+    data: deduplicateByMalId(Array.isArray(res.data) ? res.data : []),
+    pagination: res.pagination,
+  };
 }
 
-export async function getUpcomingAnime(limit: number = 20): Promise<AnimeItem[]> {
-  const data = await fetchFromApi<AnimeItem[]>(`/api/anime/upcoming?limit=${limit}`, []);
-  const unique = deduplicateByMalId(Array.isArray(data) ? data : []);
-  return unique.slice(0, limit);
+export async function getSeasonalAnime(limit: number = 20, page: number = 1): Promise<AnimeItem[]> {
+  const res = await getSeasonalAnimePaginated(page, limit);
+  return res.data;
 }
 
-export async function searchAnime(query: string, limit: number = 24): Promise<AnimeItem[]> {
-  const clean = query.trim();
-  if (!clean) {
-    return getTopAnime('bypopularity', limit);
-  }
-  const encoded = encodeURIComponent(clean);
-  const data = await fetchFromApi<AnimeItem[]>(`/api/anime/search?q=${encoded}&limit=${limit}`, []);
-  const unique = deduplicateByMalId(Array.isArray(data) ? data : []);
-  return unique.slice(0, limit);
+export async function getSeasonalAnimePaginated(
+  page: number = 1,
+  limit: number = 24
+): Promise<PaginatedResult<AnimeItem>> {
+  const endpoint = `/api/anime/seasonal?page=${page}&limit=${limit}`;
+  const res = await fetchFromApi<AnimeItem[]>(endpoint, []);
+  return {
+    data: deduplicateByMalId(Array.isArray(res.data) ? res.data : []),
+    pagination: res.pagination,
+  };
 }
 
-export async function getTopManga(limit: number = 20): Promise<MangaItem[]> {
-  const data = await fetchFromApi<MangaItem[]>(`/api/manga/top?limit=${limit}`, []);
-  const unique = deduplicateByMalId(Array.isArray(data) ? data : []);
-  return unique.slice(0, limit);
+export async function getUpcomingAnime(limit: number = 20, page: number = 1): Promise<AnimeItem[]> {
+  const res = await getUpcomingAnimePaginated(page, limit);
+  return res.data;
 }
 
-export async function searchManga(query: string, limit: number = 20): Promise<MangaItem[]> {
-  const clean = query.trim();
-  if (!clean) {
-    return getTopManga(limit);
-  }
-  const encoded = encodeURIComponent(clean);
-  const data = await fetchFromApi<MangaItem[]>(`/api/manga/search?q=${encoded}&limit=${limit}`, []);
-  const unique = deduplicateByMalId(Array.isArray(data) ? data : []);
-  return unique.slice(0, limit);
+export async function getUpcomingAnimePaginated(
+  page: number = 1,
+  limit: number = 24
+): Promise<PaginatedResult<AnimeItem>> {
+  const endpoint = `/api/anime/upcoming?page=${page}&limit=${limit}`;
+  const res = await fetchFromApi<AnimeItem[]>(endpoint, []);
+  return {
+    data: deduplicateByMalId(Array.isArray(res.data) ? res.data : []),
+    pagination: res.pagination,
+  };
 }
 
 export async function getAnimeById(id: number): Promise<AnimeItem | null> {
-  return fetchFromApi<AnimeItem | null>(`/api/anime/${id}`, null);
+  const res = await fetchFromApi<AnimeItem | null>(`/api/anime/${id}`, null);
+  return res.data;
 }
 
 export async function getAnimeCharacters(id: number): Promise<CharacterItem[]> {
-  const data = await fetchFromApi<CharacterItem[]>(`/api/anime/${id}/characters`, []);
-  return Array.isArray(data) ? data : [];
+  const res = await fetchFromApi<CharacterItem[]>(`/api/anime/${id}/characters`, []);
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function getAnimeGenres(): Promise<JikanGenre[]> {
-  return [];
+  const res = await fetchFromApi<JikanGenre[]>('/api/anime/genres', []);
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function getTopManga(limit: number = 20, page: number = 1): Promise<MangaItem[]> {
+  const res = await fetchFromApi<MangaItem[]>(`/api/manga/top?page=${page}&limit=${limit}`, []);
+  return deduplicateByMalId(Array.isArray(res.data) ? res.data : []).slice(0, limit);
+}
+
+export async function searchManga(query: string, limit: number = 20, page: number = 1): Promise<MangaItem[]> {
+  const clean = query.trim();
+  if (!clean) return getTopManga(limit, page);
+  const res = await fetchFromApi<MangaItem[]>(`/api/manga/search?q=${encodeURIComponent(clean)}&page=${page}&limit=${limit}`, []);
+  return deduplicateByMalId(Array.isArray(res.data) ? res.data : []).slice(0, limit);
 }

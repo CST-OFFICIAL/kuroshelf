@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { MangaItem } from '../types';
 import { getTopManga, searchManga } from '../services/jikan';
 import { BookOpen, Star, ExternalLink, Search, ShoppingBag } from 'lucide-react';
+import { siteConfig } from '../config/site';
 
 interface MangaSectionProps {
   onSelectManga?: (manga: MangaItem) => void;
@@ -71,12 +72,14 @@ export function MangaSection({ onSelectManga }: MangaSectionProps) {
         <div className="flex items-center gap-3">
           <ShoppingBag className="w-5 h-5 text-amber-400 shrink-0" />
           <p className="text-neutral-300">
-            Official localized English & Japanese volumes can be purchased directly through Amazon affiliate links to support the mangaka.
+            Official localized English & Japanese volumes can be purchased directly through verified retail links to support the mangaka.
           </p>
         </div>
-        <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">
-          Amazon Associate Affiliate System
-        </span>
+        {siteConfig.affiliate.amazonAssociatesActive && (
+          <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">
+            Amazon Associate Affiliate System
+          </span>
+        )}
       </div>
 
       {/* Manga Grid */}

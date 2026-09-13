@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShelfEntry, ShelfStatus, UserActivity } from '../types';
 import { 
   Bookmark, 
@@ -7,33 +7,53 @@ import {
   Trash2, 
   Plus, 
   Minus, 
-  History 
+  History,
+  User,
+  BarChart2,
+  Clock
 } from 'lucide-react';
+
+export type ShelfViewFilterTab = 'all' | ShelfStatus | 'favorites' | 'bookmarks' | 'rated' | 'profile';
 
 interface ShelfViewProps {
   shelf: ShelfEntry[];
   activities: UserActivity[];
+  activeSubTab?: ShelfViewFilterTab;
   onSelectMedia: (id: number) => void;
   onUpdateStatus: (id: number, mediaType: 'anime' | 'manga', status: ShelfStatus) => void;
   onUpdateRating: (id: number, mediaType: 'anime' | 'manga', rating: number) => void;
   onUpdateProgress: (id: number, mediaType: 'anime' | 'manga', progress: number) => void;
   onRemove: (id: number, mediaType: 'anime' | 'manga') => void;
   onToggleLike: (id: number, mediaType: 'anime' | 'manga', title: string, image: string) => void;
+  onTabChange?: (tab: ShelfViewFilterTab) => void;
 }
-
-type FilterTab = 'all' | ShelfStatus | 'favorites';
 
 export function ShelfView({
   shelf,
   activities,
+  activeSubTab,
   onSelectMedia,
   onUpdateStatus,
   onUpdateProgress,
   onRemove,
   onToggleLike,
+  onTabChange,
 }: ShelfViewProps) {
-  const [filterTab, setFilterTab] = useState<FilterTab>('all');
+  const [filterTab, setFilterTab] = useState<ShelfViewFilterTab>(activeSubTab || 'all');
   const [mediaFilter, setMediaFilter] = useState<'all' | 'anime' | 'manga'>('all');
+
+  useEffect(() => {
+    if (activeSubTab) {
+      setFilterTab(activeSubTab);
+    }
+  }, [activeSubTab]);
+
+  const handleTabClick = (tab: ShelfViewFilterTab) => {
+    setFilterTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
+
+  const ratedItems = shelf.filter((item) => typeof item.userRating === 'number' && item.userRating > 0);
 
   const filteredItems = shelf.filter((item) => {
     if (mediaFilter !== 'all' && item.mediaType !== mediaFilter) {
@@ -42,7 +62,13 @@ export function ShelfView({
     if (filterTab === 'favorites') {
       return item.isLiked;
     }
-    if (filterTab !== 'all') {
+    if (filterTab === 'bookmarks') {
+      return item.status === 'plan_to_watch';
+    }
+    if (filterTab === 'rated') {
+      return typeof item.userRating === 'number' && item.userRating > 0;
+    }
+    if (filterTab !== 'all' && filterTab !== 'profile') {
       return item.status === filterTab;
     }
     return true;
@@ -56,12 +82,22 @@ export function ShelfView({
     on_hold: shelf.filter((i) => i.status === 'on_hold').length,
     dropped: shelf.filter((i) => i.status === 'dropped').length,
     favorites: shelf.filter((i) => i.isLiked).length,
+    bookmarks: shelf.filter((i) => i.status === 'plan_to_watch').length,
+    rated: ratedItems.length,
   };
 
-  const tabs: { id: FilterTab; label: string; count: number }[] = [
+  const totalProgressUnits = shelf.reduce((acc, item) => acc + (item.progress || 0), 0);
+  const averageRating =
+    ratedItems.length > 0
+      ? (ratedItems.reduce((acc, item) => acc + (item.userRating || 0), 0) / ratedItems.length).toFixed(1)
+      : 'N/A';
+
+  const tabs: { id: ShelfViewFilterTab; label: string; count?: number; icon?: typeof User }[] = [
     { id: 'all', label: 'All Items', count: counts.all },
+    { id: 'profile', label: 'Profile & Stats', icon: User },
+    { id: 'bookmarks', label: 'Bookmarks', count: counts.bookmarks },
+    { id: 'rated', label: 'Ratings', count: counts.rated },
     { id: 'watching', label: 'Watching', count: counts.watching },
-    { id: 'plan_to_watch', label: 'Plan to Watch', count: counts.plan_to_watch },
     { id: 'completed', label: 'Completed', count: counts.completed },
     { id: 'favorites', label: 'Favorites', count: counts.favorites },
     { id: 'on_hold', label: 'On Hold', count: counts.on_hold },
@@ -105,27 +141,179 @@ export function ShelfView({
 
       {/* Tabs bar */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setFilterTab(tab.id)}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
-              filterTab === tab.id
-                ? 'bg-neutral-800 text-white border-neutral-600 shadow-sm'
-                : 'bg-neutral-950 text-neutral-400 border-neutral-800/80 hover:bg-neutral-900 hover:text-neutral-200'
-            }`}
-          >
-            <span>{tab.label}</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-              filterTab === tab.id ? 'bg-rose-500 text-white' : 'bg-neutral-800 text-neutral-400'
-            }`}>
-              {tab.count}
-            </span>
-          </button>
-        ))}
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => handleTabClick(tab.id)}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
+                filterTab === tab.id
+                  ? 'bg-neutral-800 text-white border-neutral-600 shadow-sm'
+                  : 'bg-neutral-950 text-neutral-400 border-neutral-800/80 hover:bg-neutral-900 hover:text-neutral-200'
+              }`}
+            >
+              {Icon && <Icon className="w-3.5 h-3.5 text-rose-400" />}
+              <span>{tab.label}</span>
+              {typeof tab.count === 'number' && (
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  filterTab === tab.id ? 'bg-rose-500 text-white' : 'bg-neutral-800 text-neutral-400'
+                }`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+      {filterTab === 'profile' ? (
+        /* Profile & Library Analytics View (Product Spec Section 4 & 7) */
+        <div className="space-y-6">
+          {/* User Profile Card */}
+          <div className="p-6 rounded-2xl bg-neutral-900/80 border border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-600 to-neutral-900 border border-rose-500/30 flex items-center justify-center text-white text-2xl font-extrabold shadow-lg shadow-rose-950/40">
+                黒
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-white font-display">Local Library Profile</h2>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-neutral-800 text-neutral-300 border border-neutral-700">
+                    Local Storage
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-400">
+                  Your personal shelf library is stored locally in your browser. Cloud-synced profiles and account authentication will launch in Phase 3.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleTabClick('bookmarks')}
+                className="px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold transition-colors border border-neutral-700"
+              >
+                View Bookmarks
+              </button>
+              <button
+                onClick={() => handleTabClick('rated')}
+                className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold transition-colors shadow-md shadow-rose-950/40"
+              >
+                View Ratings
+              </button>
+            </div>
+          </div>
+
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-1">
+              <div className="flex items-center justify-between text-neutral-400">
+                <span className="text-xs font-medium">Total Titles</span>
+                <Bookmark className="w-4 h-4 text-rose-400" />
+              </div>
+              <p className="text-2xl font-black text-white font-display">{counts.all}</p>
+              <span className="text-[10px] text-neutral-500">In personal library</span>
+            </div>
+
+            <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-1">
+              <div className="flex items-center justify-between text-neutral-400">
+                <span className="text-xs font-medium">Units Logged</span>
+                <Clock className="w-4 h-4 text-purple-400" />
+              </div>
+              <p className="text-2xl font-black text-white font-display">{totalProgressUnits}</p>
+              <span className="text-[10px] text-neutral-500">Episodes & chapters</span>
+            </div>
+
+            <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-1">
+              <div className="flex items-center justify-between text-neutral-400">
+                <span className="text-xs font-medium">Average Score</span>
+                <Star className="w-4 h-4 text-amber-400" />
+              </div>
+              <p className="text-2xl font-black text-amber-400 font-display">
+                {averageRating !== 'N/A' ? `${averageRating}/10` : '—'}
+              </p>
+              <span className="text-[10px] text-neutral-500">{counts.rated} titles rated</span>
+            </div>
+
+            <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-1">
+              <div className="flex items-center justify-between text-neutral-400">
+                <span className="text-xs font-medium">Favorites</span>
+                <Heart className="w-4 h-4 text-rose-500" />
+              </div>
+              <p className="text-2xl font-black text-white font-display">{counts.favorites}</p>
+              <span className="text-[10px] text-neutral-500">Liked anime & manga</span>
+            </div>
+          </div>
+
+          {/* Breakdown Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-5 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-4">
+              <h3 className="text-sm font-bold text-white font-display flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-rose-400" />
+                <span>Library Status Breakdown</span>
+              </h3>
+              <div className="space-y-2.5 text-xs">
+                <div className="flex items-center justify-between p-2 rounded-lg bg-neutral-950/60 border border-neutral-800/80">
+                  <span className="text-neutral-300">Watching / Reading</span>
+                  <span className="font-bold text-white px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">
+                    {counts.watching}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-lg bg-neutral-950/60 border border-neutral-800/80">
+                  <span className="text-neutral-300">Plan to Watch / Bookmarks</span>
+                  <span className="font-bold text-white px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">
+                    {counts.plan_to_watch}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-lg bg-neutral-950/60 border border-neutral-800/80">
+                  <span className="text-neutral-300">Completed</span>
+                  <span className="font-bold text-white px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                    {counts.completed}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-lg bg-neutral-950/60 border border-neutral-800/80">
+                  <span className="text-neutral-300">On Hold</span>
+                  <span className="font-bold text-white px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                    {counts.on_hold}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2 rounded-lg bg-neutral-950/60 border border-neutral-800/80">
+                  <span className="text-neutral-300">Dropped</span>
+                  <span className="font-bold text-white px-2 py-0.5 rounded bg-neutral-800 text-neutral-400">
+                    {counts.dropped}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Activity stream in profile */}
+            <div className="p-5 rounded-2xl bg-neutral-900/60 border border-neutral-800 space-y-4">
+              <h3 className="text-sm font-bold text-white font-display flex items-center gap-2">
+                <History className="w-4 h-4 text-rose-400" />
+                <span>Account Activity History</span>
+              </h3>
+              {activities.length === 0 ? (
+                <p className="text-xs text-neutral-500 py-6 text-center">
+                  No activity logged yet. Add anime to your shelf or cast a prediction vote to begin tracking.
+                </p>
+              ) : (
+                <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                  {activities.map((act) => (
+                    <div key={act.id} className="text-xs border-b border-neutral-800/60 pb-2 space-y-0.5">
+                      <p className="text-neutral-300">{act.details}</p>
+                      <span className="text-[10px] text-neutral-500 block">
+                        {new Date(act.timestamp).toLocaleDateString()} at {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
         {/* Shelf Items Grid (3 columns on lg) */}
         <div className="lg:col-span-3 space-y-4">
           {filteredItems.length === 0 ? (
@@ -279,6 +467,7 @@ export function ShelfView({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

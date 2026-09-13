@@ -1,57 +1,208 @@
-export function Footer() {
+import { siteConfig, getActiveSocials } from '../config/site';
+import { Camera, Hash, Video, MessageCircle, ExternalLink } from 'lucide-react';
+
+interface FooterProps {
+  onNavigateTab: (tab: string, subTab?: string) => void;
+  onOpenInfoModal: (type: 'about' | 'privacy' | 'terms' | 'contact') => void;
+}
+
+export function Footer({ onNavigateTab, onOpenInfoModal }: FooterProps) {
+  const activeSocials = getActiveSocials();
+
+  const handleNavClick = (tab: string, subTab?: string) => {
+    onNavigateTab(tab, subTab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const socialIconMap = {
+    instagram: Camera,
+    twitter: Hash,
+    youtube: Video,
+    discord: MessageCircle,
+  };
+
   return (
     <footer className="border-t border-neutral-800/80 bg-neutral-950 mt-16 text-neutral-400 text-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          {/* Brand */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded bg-rose-600 flex items-center justify-center text-white text-xs font-black">
+        <div className="flex flex-col lg:flex-row items-start justify-between gap-8">
+          {/* Brand & Mission Statement */}
+          <div className="space-y-2.5 max-w-sm">
+            <div 
+              onClick={() => handleNavClick('home')}
+              className="flex items-center gap-2 cursor-pointer group select-none inline-flex"
+            >
+              <span className="w-6 h-6 rounded bg-rose-600 flex items-center justify-center text-white text-xs font-black shadow-sm group-hover:scale-105 transition-transform">
                 黒
               </span>
-              <span className="font-display font-extrabold text-white text-base tracking-tight">
+              <span className="font-display font-extrabold text-white text-base tracking-tight group-hover:text-rose-400 transition-colors">
                 KURO<span className="text-rose-500">SHELF</span>
               </span>
             </div>
-            <p className="text-neutral-400 max-w-sm text-[11px] leading-relaxed">
-              Modern anime & manga discovery, personal shelf tracking, community predictions, and where-to-watch streaming directory.
+            <p className="text-neutral-400 text-[11px] leading-relaxed">
+              {siteConfig.description}
             </p>
           </div>
 
-          {/* Quick Links */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 text-[11px]">
-            <div className="space-y-1.5">
+          {/* Structured Navigation Columns */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-6 text-[11px] flex-1 max-w-3xl">
+            {/* 1. Platform */}
+            <div className="space-y-2">
               <span className="font-bold text-neutral-200 uppercase tracking-wider block">
                 Platform
               </span>
-              <div className="space-y-1">
-                <a href="#discover" className="block text-neutral-400 hover:text-white transition-colors">Discover</a>
-                <a href="#seasonal" className="block text-neutral-400 hover:text-white transition-colors">Seasonal Anime</a>
-                <a href="#rankings" className="block text-neutral-400 hover:text-white transition-colors">Top Rankings</a>
+              <div className="space-y-1.5 flex flex-col items-start">
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('home')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Discover
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('seasonal')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Seasonal Anime
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('rankings')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Top Rankings
+                </button>
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            {/* 2. My Kuro Shelf */}
+            <div className="space-y-2">
+              <span className="font-bold text-neutral-200 uppercase tracking-wider block">
+                My Kuro Shelf
+              </span>
+              <div className="space-y-1.5 flex flex-col items-start">
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('shelf', 'all')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Personal Shelf
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('shelf', 'profile')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Profile
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('shelf', 'bookmarks')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Bookmarks
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('shelf', 'rated')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Ratings
+                </button>
+              </div>
+            </div>
+
+            {/* 3. Community */}
+            <div className="space-y-2">
               <span className="font-bold text-neutral-200 uppercase tracking-wider block">
                 Community
               </span>
-              <div className="space-y-1">
-                <a href="#polls" className="block text-neutral-400 hover:text-white transition-colors">Prediction Polls</a>
-                <a href="#shelf" className="block text-neutral-400 hover:text-white transition-colors">Personal Shelf</a>
-                <a href="#disqus" className="block text-neutral-400 hover:text-white transition-colors">Disqus Forum</a>
+              <div className="space-y-1.5 flex flex-col items-start">
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('polls')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Prediction Polls
+                </button>
+                {/* Only render Discussions / Comments if an actual Disqus / community URL is configured */}
+                {siteConfig.disqusUrl ? (
+                  <a
+                    href={siteConfig.disqusUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-neutral-400 hover:text-white transition-colors flex items-center gap-1"
+                  >
+                    <span>Discussions / Comments</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                ) : null}
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            {/* 4. Legal & Info */}
+            <div className="space-y-2">
               <span className="font-bold text-neutral-200 uppercase tracking-wider block">
                 Legal & Info
               </span>
-              <div className="space-y-1">
-                <span className="block text-neutral-400">About Kuro Shelf</span>
-                <span className="block text-neutral-400">Privacy Policy</span>
-                <span className="block text-neutral-400">Terms of Service</span>
+              <div className="space-y-1.5 flex flex-col items-start">
+                <button
+                  type="button"
+                  onClick={() => onOpenInfoModal('about')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  About Kuro Shelf
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenInfoModal('privacy')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Privacy Policy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenInfoModal('terms')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Terms of Service
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenInfoModal('contact')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Contact
+                </button>
               </div>
             </div>
+
+            {/* 5. Follow Kuro Shelf (Only displayed when actual URLs are configured) */}
+            {activeSocials.length > 0 && (
+              <div className="space-y-2 col-span-2 sm:col-span-1">
+                <span className="font-bold text-neutral-200 uppercase tracking-wider block">
+                  Follow Kuro Shelf
+                </span>
+                <div className="space-y-1.5 flex flex-col items-start">
+                  {activeSocials.map((social) => {
+                    const Icon = socialIconMap[social.platform];
+                    return (
+                      <a
+                        key={social.platform}
+                        href={social.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-neutral-400 hover:text-white transition-colors flex items-center gap-1.5"
+                      >
+                        <Icon className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                        <span>{social.name}</span>
+                        <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -60,9 +211,13 @@ export function Footer() {
           <p>
             © {new Date().getFullYear()} Kuro Shelf. All rights reserved. Digital anime and manga library.
           </p>
-          <p className="text-center sm:text-right max-w-lg">
-            As an Amazon Associate, Kuro Shelf earns from qualifying purchases made through book and manga affiliate links.
-          </p>
+
+          {/* Only render Amazon Associate disclosure when active */}
+          {siteConfig.affiliate.amazonAssociatesActive ? (
+            <p className="text-center sm:text-right max-w-lg text-neutral-400">
+              {siteConfig.affiliate.disclosureText}
+            </p>
+          ) : null}
         </div>
       </div>
     </footer>

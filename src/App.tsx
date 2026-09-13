@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AnimeItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll } from './types';
+import { AnimeItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll, AuthUser } from './types';
 import { 
   getTopAnime, 
   getSeasonalAnime, 
@@ -18,14 +18,18 @@ import {
   getUserVotes,
   castPollVote,
 } from './services/shelfStorage';
+import { getCurrentUser, getAuthHeaders } from './services/authService';
+import { fetchServerPolls, voteInPoll } from './services/pollService';
 import { Navbar } from './components/Navbar';
 import { HeroBanner } from './components/HeroBanner';
 import { AnimeCard } from './components/AnimeCard';
 import { AnimeDetailModal } from './components/AnimeDetailModal';
-import { ShelfView } from './components/ShelfView';
+import { ShelfView, ShelfViewFilterTab } from './components/ShelfView';
 import { PollsView } from './components/PollsView';
 import { MangaSection } from './components/MangaSection';
 import { Footer } from './components/Footer';
+import { InfoModal, InfoModalType } from './components/InfoModal';
+import { AuthModal } from './components/AuthModal';
 import { 
   Flame, 
   Sparkles, 
@@ -40,6 +44,8 @@ import {
 export function App() {
   // Navigation
   const [activeTab, setActiveTab] = useState<string>('home');
+  const [shelfSubTab, setShelfSubTab] = useState<ShelfViewFilterTab>('all');
+  const [infoModalType, setInfoModalType] = useState<InfoModalType>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
@@ -62,6 +68,8 @@ export function App() {
   const [searchError, setSearchError] = useState<string | null>(null);
 
   // Shelf & User state
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [shelf, setShelf] = useState<ShelfEntry[]>([]);
   const [activities, setActivities] = useState<UserActivity[]>([]);
   const [polls, setPolls] = useState<PredictionPoll[]>([]);
@@ -70,13 +78,118 @@ export function App() {
   // Modal detail view
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
 
-  // Initialize shelf data from local storage
+  // Sync user data from backend database
+  const syncUserData = useCallback(async (user: AuthUser | null) => {
+    if (!user) return;
+    try {
+      const [shelfRes, likesRes, ratingsRes] = await Promise.all([
+        fetch('/api/shelf', { headers: getAuthHeaders(), credentials: 'include' }).then((r) => r.json()).catch(() => null),
+        fetch('/api/likes', { headers: getAuthHeaders(), credentials: 'include' }).then((r) => r.json()).catch(() => null),
+        fetch('/api/ratings', { headers: getAuthHeaders(), credentials: 'include' }).then((r) => r.json()).catch(() => null),
+      ]);
+
+      const likesMap = new Set<string>();
+      if (likesRes?.success && Array.isArray(likesRes.data)) {
+        likesRes.data.forEach((l: { media_type: string; media_id: number }) => {
+          likesMap.add(`${l.media_type}_${l.media_id}`);
+        });
+      }
+
+      const ratingsMap = new Map<string, number>();
+      if (ratingsRes?.success && Array.isArray(ratingsRes.data)) {
+        ratingsRes.data.forEach((r: { media_type: string; media_id: number; rating: number }) => {
+          ratingsMap.set(`${r.media_type}_${r.media_id}`, r.rating);
+        });
+      }
+
+      if (shelfRes?.success && Array.isArray(shelfRes.data)) {
+        interface ServerBookmark {
+          media_id: number;
+          media_type: 'anime' | 'manga';
+          title: string;
+          image_url?: string;
+          status: ShelfStatus;
+          progress?: number;
+          total_episodes?: number;
+          notes?: string;
+          updated_at: string;
+        }
+
+        const serverShelf: ShelfEntry[] = (shelfRes.data as ServerBookmark[]).map((item) => ({
+          id: item.media_id,
+          mediaType: item.media_type,
+          title: item.title,
+          image: item.image_url || '',
+          status: item.status,
+          progress: item.progress || 0,
+          totalUnits: item.total_episodes,
+          notes: item.notes,
+          userRating: ratingsMap.get(`${item.media_type}_${item.media_id}`),
+          isLiked: likesMap.has(`${item.media_type}_${item.media_id}`),
+          updatedAt: new Date(item.updated_at).getTime(),
+        }));
+
+        // Merge with local shelf to preserve unsynced offline items
+        const local = getStoredShelf();
+        const merged = [...serverShelf];
+        local.forEach((loc) => {
+          if (!merged.some((m) => m.id === loc.id && m.mediaType === loc.mediaType)) {
+            merged.push(loc);
+          }
+        });
+
+        setShelf(merged);
+      }
+    } catch (err) {
+      console.warn('[Sync] Server shelf sync notice:', err);
+    }
+  }, []);
+
+  // Initialize shelf data from local storage & load server auth/polls
   useEffect(() => {
     setShelf(getStoredShelf());
     setActivities(getStoredActivities());
     setPolls(getStoredPolls());
     setUserVotes(getUserVotes());
-  }, []);
+
+    // Check user auth session
+    getCurrentUser().then((user) => {
+      setCurrentUser(user);
+      if (user) {
+        syncUserData(user);
+      }
+    });
+
+    // Load server prediction polls
+    fetchServerPolls().then((serverPolls) => {
+      if (serverPolls && serverPolls.length > 0) {
+        const mappedPolls: PredictionPoll[] = serverPolls.map((p) => ({
+          id: String(p.id),
+          question: p.question,
+          animeTitle: p.title,
+          status: p.status === 'active' ? 'active' : 'closed',
+          endsAt: p.ends_at,
+          totalVotes: p.total_votes,
+          options: p.options.map((opt) => ({
+            id: String(opt.id),
+            text: opt.option_text,
+            votes: opt.votes,
+          })),
+        }));
+        setPolls(mappedPolls);
+
+        const votesMap: Record<string, string> = {};
+        serverPolls.forEach((p) => {
+          if (p.user_voted_option_id) {
+            votesMap[String(p.id)] = String(p.user_voted_option_id);
+          }
+        });
+        if (Object.keys(votesMap).length > 0) {
+          setUserVotes((prev) => ({ ...prev, ...votesMap }));
+        }
+      }
+    });
+  }, [syncUserData]);
 
   // Fetch initial anime datasets
   const loadInitialData = useCallback(async () => {
@@ -132,7 +245,7 @@ export function App() {
     setLoadingRankings(true);
     getTopAnime(rankingFilter, 24)
       .then((data) => setTopRankedAnime(data))
-      .catch((err) => console.error(err))
+      .catch((err) => console.warn('[Rankings] Notice:', err))
       .finally(() => setLoadingRankings(false));
   }, [rankingFilter, activeTab]);
 
@@ -213,6 +326,23 @@ export function App() {
     });
     setShelf(updated);
     setActivities(getStoredActivities());
+
+    if (currentUser) {
+      fetch('/api/shelf', {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          mediaId: anime.mal_id,
+          mediaType: 'anime',
+          title: anime.title,
+          imageUrl: poster,
+          status,
+          progress: 0,
+          totalEpisodes: anime.episodes,
+        }),
+      }).catch((e) => console.warn('Failed to sync shelf item with server:', e));
+    }
   };
 
   const handleUpdateShelfStatus = (anime: AnimeItem, status: ShelfStatus) => {
@@ -228,6 +358,20 @@ export function App() {
     const updated = toggleShelfLike(anime.mal_id, 'anime', anime.title, poster);
     setShelf(updated);
     setActivities(getStoredActivities());
+
+    if (currentUser) {
+      fetch('/api/likes/toggle', {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          mediaId: anime.mal_id,
+          mediaType: 'anime',
+          title: anime.title,
+          imageUrl: poster,
+        }),
+      }).catch((e) => console.warn('Failed to toggle like on server:', e));
+    }
   };
 
   const handleUpdateRating = (anime: AnimeItem, rating: number) => {
@@ -239,20 +383,96 @@ export function App() {
     const updated = setShelfRating(anime.mal_id, 'anime', rating, anime.title, poster);
     setShelf(updated);
     setActivities(getStoredActivities());
+
+    if (currentUser) {
+      fetch('/api/ratings', {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          mediaId: anime.mal_id,
+          mediaType: 'anime',
+          rating,
+          title: anime.title,
+          imageUrl: poster,
+        }),
+      }).catch((e) => console.warn('Failed to update rating on server:', e));
+    }
   };
 
   const handleUpdateProgress = (id: number, mediaType: 'anime' | 'manga', progress: number) => {
     const updated = updateShelfProgress(id, mediaType, progress);
     setShelf(updated);
+
+    if (currentUser) {
+      const item = updated.find((i) => i.id === id && i.mediaType === mediaType);
+      if (item) {
+        fetch('/api/shelf', {
+          method: 'POST',
+          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            mediaId: id,
+            mediaType,
+            title: item.title,
+            imageUrl: item.image,
+            status: item.status,
+            progress,
+            totalEpisodes: item.totalUnits,
+          }),
+        }).catch((e) => console.warn('Failed to update progress on server:', e));
+      }
+    }
   };
 
   const handleRemoveFromShelf = (id: number, mediaType: 'anime' | 'manga') => {
     const updated = removeShelfEntry(id, mediaType);
     setShelf(updated);
     setActivities(getStoredActivities());
+
+    if (currentUser) {
+      fetch(`/api/shelf/${mediaType}/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+      }).catch((e) => console.warn('Failed to delete shelf item on server:', e));
+    }
   };
 
-  const handleVotePoll = (pollId: string, optionId: string) => {
+  const handleVotePoll = async (pollId: string, optionId: string) => {
+    const numPollId = Number(pollId);
+    const numOptId = Number(optionId);
+
+    // Call server API for live database voting
+    if (!isNaN(numPollId) && !isNaN(numOptId)) {
+      try {
+        const res = await voteInPoll(numPollId, numOptId);
+        if (res.success && res.data) {
+          const updated = res.data;
+          setPolls((prev) =>
+            prev.map((p) =>
+              p.id === pollId
+                ? {
+                    ...p,
+                    totalVotes: updated.total_votes,
+                    options: updated.options.map((o) => ({
+                      id: String(o.id),
+                      text: o.option_text,
+                      votes: o.votes,
+                    })),
+                  }
+                : p
+            )
+          );
+          setUserVotes((prev) => ({ ...prev, [pollId]: optionId }));
+          return;
+        }
+      } catch (err) {
+        console.warn('Server vote submission note:', err);
+      }
+    }
+
+    // Fallback to local vote tallying if server is unavailable
     const { polls: updatedPolls, votes: updatedVotes } = castPollVote(pollId, optionId);
     setPolls(updatedPolls);
     setUserVotes(updatedVotes);
@@ -278,6 +498,8 @@ export function App() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onSearchSubmit={handleSearchSubmit}
+        currentUser={currentUser}
+        onOpenAuth={() => setAuthModalOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -704,6 +926,8 @@ export function App() {
               <ShelfView
                 shelf={shelf}
                 activities={activities}
+                activeSubTab={shelfSubTab}
+                onTabChange={(tab) => setShelfSubTab(tab)}
                 onSelectMedia={(id) => {
                   const item = shelf.find((s) => s.id === id);
                   if (item) {
@@ -766,7 +990,36 @@ export function App() {
       )}
 
       {/* Footer */}
-      <Footer />
+      <Footer
+        onNavigateTab={(tab, subTab) => {
+          setActiveTab(tab);
+          if (subTab) {
+            setShelfSubTab(subTab as ShelfViewFilterTab);
+          }
+          handleClearSearch();
+        }}
+        onOpenInfoModal={(type) => setInfoModalType(type)}
+      />
+
+      {/* Legal & Info Modal */}
+      <InfoModal
+        type={infoModalType}
+        onClose={() => setInfoModalType(null)}
+      />
+
+      {/* User Account / Sign In Modal */}
+      {authModalOpen && (
+        <AuthModal
+          currentUser={currentUser}
+          onClose={() => setAuthModalOpen(false)}
+          onAuthSuccess={(user) => {
+            setCurrentUser(user);
+            if (user) {
+              syncUserData(user);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -11,17 +11,29 @@ export function PollsView({ polls, userVotes, onVote }: PollsViewProps) {
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="border-b border-neutral-800/80 pb-6">
-        <div className="flex items-center gap-2 text-rose-400 text-xs uppercase font-bold tracking-wider mb-1">
-          <Vote className="w-4 h-4" />
-          <span>Community Predictions</span>
+      <div className="border-b border-neutral-800/80 pb-6 space-y-3">
+        <div>
+          <div className="flex items-center gap-2 text-rose-400 text-xs uppercase font-bold tracking-wider mb-1">
+            <Vote className="w-4 h-4" />
+            <span>Community Predictions</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-display">
+            Anime & Manga Prediction Polls
+          </h1>
+          <p className="text-xs sm:text-sm text-neutral-400 mt-1">
+            Predict upcoming story arcs, box office achievements, and anime milestones.
+          </p>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-display">
-          Anime & Manga Prediction Polls
-        </h1>
-        <p className="text-xs sm:text-sm text-neutral-400 mt-1">
-          Predict future plot twists, box office records, and anime arc adaptations. Cast your vote and see community consensus.
-        </p>
+
+        {/* Database-Backed Community Notice */}
+        <div className="p-3 rounded-xl bg-neutral-900/90 border border-neutral-800 text-[11px] text-neutral-400 flex items-center gap-2.5">
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/15 text-rose-400 border border-rose-500/25 shrink-0">
+            Live Polls
+          </span>
+          <span>
+            Community predictions are synchronized with Kuro Shelf&apos;s database. Votes are validated and tallied in real-time.
+          </span>
+        </div>
       </div>
 
       {/* Polls list */}
@@ -51,7 +63,7 @@ export function PollsView({ polls, userVotes, onVote }: PollsViewProps) {
                 <div className="flex items-center gap-2 shrink-0 text-xs">
                   <span className="flex items-center gap-1 text-neutral-400 px-2.5 py-1 rounded-md bg-neutral-950 border border-neutral-800">
                     <Clock className="w-3.5 h-3.5 text-neutral-500" />
-                    <span>{poll.totalVotes.toLocaleString()} votes</span>
+                    <span>{poll.totalVotes === 0 ? 'No votes yet' : `${poll.totalVotes.toLocaleString()} votes`}</span>
                   </span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     {poll.status}

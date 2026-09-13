@@ -8,8 +8,10 @@ import {
   Bookmark, 
   Search, 
   Menu, 
-  X
+  X,
+  User as UserIcon
 } from 'lucide-react';
+import { AuthUser } from '../types';
 
 interface NavbarProps {
   activeTab: string;
@@ -18,6 +20,8 @@ interface NavbarProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onSearchSubmit: (query: string) => void;
+  currentUser: AuthUser | null;
+  onOpenAuth: () => void;
 }
 
 export function Navbar({
@@ -27,6 +31,8 @@ export function Navbar({
   searchQuery,
   onSearchChange,
   onSearchSubmit,
+  currentUser,
+  onOpenAuth,
 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -137,6 +143,24 @@ export function Navbar({
           </form>
         </div>
 
+        {/* User Account / Sign In Button */}
+        <div className="hidden sm:flex items-center">
+          <button
+            id="nav-auth-button"
+            onClick={onOpenAuth}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+              currentUser
+                ? 'bg-neutral-900 border-neutral-700 text-rose-300 hover:border-rose-500/50'
+                : 'bg-rose-600 border-rose-500 text-white hover:bg-rose-500 shadow-sm'
+            }`}
+          >
+            <UserIcon className="w-3.5 h-3.5" />
+            <span className="truncate max-w-[100px]">
+              {currentUser ? currentUser.username : 'Sign In'}
+            </span>
+          </button>
+        </div>
+
         {/* Mobile menu button */}
         <button
           id="mobile-menu-toggle"
@@ -151,6 +175,22 @@ export function Navbar({
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-neutral-800 bg-neutral-950 px-4 pt-2 pb-4 space-y-1">
+          {/* Mobile Auth Button */}
+          <button
+            onClick={() => {
+              onOpenAuth();
+              setMobileMenuOpen(false);
+            }}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium bg-neutral-900 text-white border border-neutral-800 mb-2"
+          >
+            <div className="flex items-center gap-3">
+              <UserIcon className="w-4 h-4 text-rose-400" />
+              <span>{currentUser ? `Account (${currentUser.username})` : 'Sign In / Register'}</span>
+            </div>
+            {currentUser && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            )}
+          </button>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;

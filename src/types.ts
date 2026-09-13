@@ -71,6 +71,36 @@ export interface AnimeItem {
   genres?: JikanGenre[];
   themes?: JikanGenre[];
   demographics?: JikanGenre[];
+  relations?: {
+    relation: string;
+    entry: {
+      mal_id: number;
+      type: string;
+      name: string;
+      url: string;
+    }[];
+  }[];
+  streaming?: { name: string; url: string }[];
+  external?: { name: string; url: string }[];
+}
+
+export interface JikanPagination {
+  last_visible_page: number;
+  has_next_page: boolean;
+  current_page: number;
+  items?: {
+    count: number;
+    total: number;
+    per_page: number;
+  };
+}
+
+export interface AuthUser {
+  id: number;
+  email: string;
+  username: string;
+  avatar_url?: string | null;
+  created_at: string;
 }
 
 export interface MangaItem {
@@ -151,6 +181,8 @@ export interface WatchPlatform {
   name: string;
   url: string;
   region: string;
-  type: 'Subscription' | 'Free with Ads' | 'Purchase';
-  verified: boolean;
+  type: 'Subscription' | 'Free with Ads' | 'Purchase' | 'Platform Search';
+  isOfficialSearchDirectory?: boolean;
+  directTitleAvailable?: boolean;
+  lastVerified?: string;
 }

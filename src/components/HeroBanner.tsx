@@ -84,7 +84,7 @@ export function HeroBanner({ anime, onSelect, onAddToShelf, isSavedInShelf }: He
           {/* Metadata badges */}
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-xs">
             <span className="px-2.5 py-1 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold uppercase tracking-wider text-[11px]">
-              Spotlight #{anime.rank ? anime.rank : 'Top'}
+              Featured Selection
             </span>
             {anime.score && (
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">
