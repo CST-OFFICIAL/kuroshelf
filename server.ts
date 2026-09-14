@@ -22,7 +22,6 @@ import {
 // Extend Express Request type with authenticated user
 export interface AuthenticatedRequest extends Request {
   user?: { id: string, email?: string, raw_user_meta_data?: any } | null;
-  user?: Omit<UserRow, 'password_hash' | 'salt'> | null;
   voterHash?: string;
 }
 
@@ -37,7 +36,7 @@ async function startServer() {
   app.get('/api/ping', (req, res) => res.send('pong'));
 
   // Security & Voter-Hash Middleware
-  app.use((req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
+  app.use(async (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
     // Generate an anonymous device/IP voter hash for rate limiting & guest voting
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
     const userAgent = req.headers['user-agent'] || '';
@@ -46,7 +45,8 @@ async function startServer() {
     // Extract auth token from cookie or Authorization header
     const token = req.cookies?.kuro_token || req.headers.authorization?.replace(/^Bearer\s+/, '');
     if (token) {
-      req.user = getSessionUser(token);
+      const { data } = await import('./server/supabase').then(m => m.supabase.auth.getUser(token));
+      req.user = data.user ? { id: data.user.id, email: data.user.email, raw_user_meta_data: data.user.user_metadata } : null;
     } else {
       req.user = null;
     }
@@ -68,123 +68,6 @@ async function startServer() {
       status: 'ok',
       service: 'kuroshelf-api',
       timestamp: new Date().toISOString(),
-    });
-  });
-
-  // ---------------- Authentication Endpoints ----------------
-
-  // Register
-  app.post('/api/auth/register', (req: AuthenticatedRequest, res: Response): void => {
-    const { email, username, password } = req.body || {};
-
-    if (!email || typeof email !== 'string' || !email.includes('@')) {
-      res.status(400).json({ success: false, error: 'A valid email address is required.' });
-      return;
-    }
-    if (!username || typeof username !== 'string' || username.trim().length < 3 || username.trim().length > 30) {
-      res.status(400).json({ success: false, error: 'Username must be between 3 and 30 characters.' });
-      return;
-    }
-    if (!password || typeof password !== 'string' || password.length < 8) {
-      res.status(400).json({ success: false, error: 'Password must be at least 8 characters.' });
-      return;
-    }
-
-    // Check unique email and username
-    if (getUserByEmail(email)) {
-      res.status(409).json({ success: false, error: 'An account with this email already exists.' });
-      return;
-    }
-    if (getUserByUsername(username)) {
-      res.status(409).json({ success: false, error: 'This username is already taken.' });
-      return;
-    }
-
-    try {
-      const user = createUser(email, username, password);
-      const token = createSession(user.id);
-
-      res.cookie('kuro_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-      });
-
-      res.status(201).json({
-        success: true,
-        user: {
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          avatar_url: user.avatar_url,
-          created_at: user.created_at,
-        },
-        token,
-      });
-    } catch (err) {
-      console.error('[Auth Register] Error:', err);
-      res.status(500).json({ success: false, error: 'Failed to create user account.' });
-    }
-  });
-
-  // Login
-  app.post('/api/auth/login', (req: AuthenticatedRequest, res: Response): void => {
-    const { identifier, password } = req.body || {};
-
-    if (!identifier || typeof identifier !== 'string' || !password || typeof password !== 'string') {
-      res.status(400).json({ success: false, error: 'Email/username and password are required.' });
-      return;
-    }
-
-    const user = identifier.includes('@') ? getUserByEmail(identifier) : getUserByUsername(identifier);
-    if (!user) {
-      res.status(401).json({ success: false, error: 'Invalid credentials.' });
-      return;
-    }
-
-    const valid = verifyPassword(password, user.password_hash, user.salt);
-    if (!valid) {
-      res.status(401).json({ success: false, error: 'Invalid credentials.' });
-      return;
-    }
-
-    const token = createSession(user.id);
-    res.cookie('kuro_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
-
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        avatar_url: user.avatar_url,
-        created_at: user.created_at,
-      },
-      token,
-    });
-  });
-
-  // Logout
-  app.post('/api/auth/logout', (req: AuthenticatedRequest, res: Response): void => {
-    const token = req.cookies?.kuro_token || req.headers.authorization?.replace(/^Bearer\s+/, '');
-    if (token) {
-      deleteSession(token);
-    }
-    res.clearCookie('kuro_token');
-    res.json({ success: true, message: 'Logged out successfully' });
-  });
-
-  // Get Current User Profile
-  app.get('/api/auth/me', (req: AuthenticatedRequest, res: Response): void => {
-    res.json({
-      success: true,
-      user: req.user || null,
     });
   });
 

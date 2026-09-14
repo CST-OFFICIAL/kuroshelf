@@ -23,7 +23,7 @@ export interface PredictionPollItem {
 export async function fetchServerPolls(): Promise<PredictionPollItem[]> {
   try {
     const res = await fetch('/api/polls', {
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
       credentials: 'include',
     });
     if (!res.ok) return [];
@@ -39,7 +39,7 @@ export async function voteInPoll(pollId: number, optionId: number): Promise<{ su
   try {
     const res = await fetch(`/api/polls/${pollId}/vote`, {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
       credentials: 'include',
       body: JSON.stringify({ optionId }),
     });

@@ -2,24 +2,17 @@
 import { supabase } from '../lib/supabase';
 import { AuthUser } from '../types';
 
-export function getStoredAuthToken(): string | null {
-  // Supabase handles session storage. We just need to attach the token if we want to call our own API.
-  const sessionStr = localStorage.getItem('sb-' + (import.meta.env.VITE_SUPABASE_URL ? new URL(import.meta.env.VITE_SUPABASE_URL).hostname.split('.')[0] : 'placeholder') + '-auth-token');
-  if (sessionStr) {
-    try {
-      const parsed = JSON.parse(sessionStr);
-      return parsed.access_token || null;
-    } catch {}
-  }
-  return null;
+export async function getStoredAuthToken(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token || null;
 }
 
 export function setStoredAuthToken(_token: string | null) {
-  // NO-OP, Supabase handles it
+  // NO-OP
 }
 
-export function getAuthHeaders(): HeadersInit {
-  const token = getStoredAuthToken();
+export async function getAuthHeaders(): Promise<HeadersInit> {
+  const token = await getStoredAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };

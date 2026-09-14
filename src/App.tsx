@@ -84,9 +84,9 @@ export function App() {
     if (!user) return;
     try {
       const [shelfRes, likesRes, ratingsRes] = await Promise.all([
-        fetch('/api/shelf', { headers: getAuthHeaders(), credentials: 'include' }).then((r) => r.json()).catch(() => null),
-        fetch('/api/likes', { headers: getAuthHeaders(), credentials: 'include' }).then((r) => r.json()).catch(() => null),
-        fetch('/api/ratings', { headers: getAuthHeaders(), credentials: 'include' }).then((r) => r.json()).catch(() => null),
+        fetch('/api/shelf', { headers: await getAuthHeaders(), credentials: 'include' }).then((r) => r.json()).catch(() => null),
+        fetch('/api/likes', { headers: await getAuthHeaders(), credentials: 'include' }).then((r) => r.json()).catch(() => null),
+        fetch('/api/ratings', { headers: await getAuthHeaders(), credentials: 'include' }).then((r) => r.json()).catch(() => null),
       ]);
 
       const likesMap = new Set<string>();
@@ -153,7 +153,28 @@ export function App() {
     setPolls(getStoredPolls());
     setUserVotes(getUserVotes());
 
-    // Check user auth session
+    // Check user auth session and subscribe to changes
+    import('./lib/supabase').then(({ supabase }) => {
+      supabase.auth.onAuthStateChange(async (_event, session) => {
+        if (session?.user) {
+          const user = {
+            id: session.user.id,
+            email: session.user.email!,
+            username: session.user.user_metadata?.user_name || session.user.email?.split('@')[0] || 'User',
+            avatar_url: session.user.user_metadata?.avatar_url || null,
+            created_at: session.user.created_at || new Date().toISOString(),
+          };
+          setCurrentUser(user);
+          syncUserData(user);
+        } else {
+          setCurrentUser(null);
+          setShelf([]);
+          setActivities([]);
+          setUserVotes({});
+        }
+      });
+    });
+
     getCurrentUser().then((user) => {
       setCurrentUser(user);
       if (user) {
@@ -309,7 +330,7 @@ export function App() {
   };
 
   // Shelf handlers
-  const handleAddToShelf = (anime: AnimeItem, status: ShelfStatus) => {
+  const handleAddToShelf = async (anime: AnimeItem, status: ShelfStatus) => {
     const poster =
       anime.images.webp?.large_image_url ||
       anime.images.jpg.large_image_url ||
@@ -331,7 +352,7 @@ export function App() {
     if (currentUser) {
       fetch('/api/shelf', {
         method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           mediaId: anime.mal_id,
@@ -350,7 +371,7 @@ export function App() {
     handleAddToShelf(anime, status);
   };
 
-  const handleToggleLike = (anime: AnimeItem) => {
+  const handleToggleLike = async (anime: AnimeItem) => {
     const poster =
       anime.images.webp?.large_image_url ||
       anime.images.jpg.large_image_url ||
@@ -363,7 +384,7 @@ export function App() {
     if (currentUser) {
       fetch('/api/likes/toggle', {
         method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           mediaId: anime.mal_id,
@@ -375,7 +396,7 @@ export function App() {
     }
   };
 
-  const handleUpdateRating = (anime: AnimeItem, rating: number) => {
+  const handleUpdateRating = async (anime: AnimeItem, rating: number) => {
     const poster =
       anime.images.webp?.large_image_url ||
       anime.images.jpg.large_image_url ||
@@ -388,7 +409,7 @@ export function App() {
     if (currentUser) {
       fetch('/api/ratings', {
         method: 'POST',
-        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           mediaId: anime.mal_id,
@@ -401,7 +422,7 @@ export function App() {
     }
   };
 
-  const handleUpdateProgress = (id: number, mediaType: 'anime' | 'manga', progress: number) => {
+  const handleUpdateProgress = async (id: number, mediaType: "anime" | "manga", progress: number) => {
     const updated = updateShelfProgress(id, mediaType, progress);
     setShelf(updated);
 
@@ -410,7 +431,7 @@ export function App() {
       if (item) {
         fetch('/api/shelf', {
           method: 'POST',
-          headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+          headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
             mediaId: id,
@@ -426,7 +447,7 @@ export function App() {
     }
   };
 
-  const handleRemoveFromShelf = (id: number, mediaType: 'anime' | 'manga') => {
+  const handleRemoveFromShelf = async (id: number, mediaType: "anime" | "manga") => {
     const updated = removeShelfEntry(id, mediaType);
     setShelf(updated);
     setActivities(getStoredActivities());
@@ -434,7 +455,7 @@ export function App() {
     if (currentUser) {
       fetch(`/api/shelf/${mediaType}/${id}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
+        headers: await getAuthHeaders(),
         credentials: 'include',
       }).catch((e) => console.warn('Failed to delete shelf item on server:', e));
     }
