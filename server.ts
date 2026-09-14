@@ -405,7 +405,7 @@ async function startServer() {
       });
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
-      console.warn('[API /api/anime/search] Error:', err);
+      // console.warn('[API /api/anime/search] Search unavailable:', err.message || err);
       res.status(500).json({ success: false, data: [], error: 'Catalog search currently unavailable' });
     }
   });
@@ -420,7 +420,7 @@ async function startServer() {
       const result = await getCatalogTopAnime(filter, page, limit);
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
-      console.warn('[API /api/anime/top] Error:', err);
+      // console.warn('[API /api/anime/top] Fetch unavailable:', err.message || err);
       res.status(500).json({ success: false, data: [], error: 'Failed to fetch rankings' });
     }
   });
@@ -434,7 +434,7 @@ async function startServer() {
       const result = await getCatalogTopAnime('airing', page, limit);
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
-      console.warn('[API /api/anime/seasonal] Error:', err);
+      // console.warn('[API /api/anime/seasonal] Fetch unavailable:', err.message || err);
       res.status(500).json({ success: false, data: [], error: 'Failed to fetch seasonal anime' });
     }
   });
@@ -448,7 +448,7 @@ async function startServer() {
       const result = await getCatalogTopAnime('upcoming', page, limit);
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
-      console.warn('[API /api/anime/upcoming] Error:', err);
+      // console.warn('[API /api/anime/upcoming] Fetch unavailable:', err.message || err);
       res.status(500).json({ success: false, data: [], error: 'Failed to fetch upcoming anime' });
     }
   });
@@ -459,7 +459,7 @@ async function startServer() {
       const genres = await serverGetAnimeGenres();
       res.json({ success: true, data: genres });
     } catch (err) {
-      console.warn('[API /api/anime/genres] Error:', err);
+      // console.warn('[API /api/anime/genres] Fetch unavailable:', err.message || err);
       res.status(500).json({ success: false, data: [], error: 'Failed to fetch genres' });
     }
   });
@@ -526,7 +526,7 @@ async function startServer() {
       const result = await serverGetTopManga(page, limit);
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
-      console.warn('[API /api/manga/top] Error:', err);
+      // console.warn('[API /api/manga/top] Fetch unavailable:', err.message || err);
       res.status(500).json({ success: false, data: [], error: 'Failed to fetch manga' });
     }
   });
@@ -540,7 +540,7 @@ async function startServer() {
       const result = await serverSearchManga(query, page, limit);
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
-      console.warn('[API /api/manga/search] Error:', err);
+      // console.warn('[API /api/manga/search] Fetch unavailable:', err.message || err);
       res.status(500).json({ success: false, data: [], error: 'Failed to search manga' });
     }
   });

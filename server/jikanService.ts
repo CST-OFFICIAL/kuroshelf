@@ -126,6 +126,26 @@ function getVerifiedSeedFallback<T>(endpoint: string): { data: T, pagination: an
   if (endpoint.includes('upcoming') || endpoint.includes('seasons/upcoming')) return { data: VERIFIED_SEED_ANIME as any, pagination: undefined };
   if (endpoint.includes('bypopularity') || endpoint.includes('top/anime')) return { data: VERIFIED_SEED_ANIME as any, pagination: undefined };
   
+  // search fallback
+  if (endpoint.startsWith('/anime?')) {
+    const url = new URL(endpoint, 'http://localhost');
+    let q = url.searchParams.get('q')?.toLowerCase();
+    if (q) {
+      q = q.replace(/[^a-z0-9]/g, '');
+      const results = VERIFIED_SEED_ANIME.filter(a => {
+        const t1 = a.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const t2 = a.title_english ? a.title_english.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+        const t3 = a.title_japanese ? a.title_japanese.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+        return t1.includes(q) || t2.includes(q) || t3.includes(q);
+      });
+      
+      if (results.length > 0) {
+        return { data: results as any, pagination: undefined };
+      }
+      return null;
+    }
+  }
+
   // detail fallback
   const match = endpoint.match(/\/anime\/(\d+)\/(full)?/);
   if (match) {
@@ -280,6 +300,10 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
 
   const endpoint = `/anime?${params.toString()}`;
   const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, SEARCH_CACHE_TTL_MS);
+
+  if (res.data === null) {
+    throw new Error('Jikan API search unavailable');
+  }
 
   return {
     data: deduplicateByMalId(Array.isArray(res.data) ? res.data : []),
