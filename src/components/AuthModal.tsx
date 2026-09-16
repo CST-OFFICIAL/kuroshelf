@@ -121,18 +121,31 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
     }
   };
 
+  const [displayName, setDisplayName] = useState('');
+
   const handleSetupProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!username.trim() || username.trim().length < 3 || username.trim().length > 30) {
-      setError('Username must be between 3 and 30 characters.');
+    if (!username.trim() || username.trim().length < 4 || username.trim().length > 30) {
+      setError('Username must be between 4 and 30 characters.');
       return;
     }
+    if (!displayName.trim() || displayName.trim().length < 2 || displayName.trim().length > 50) {
+      setError('Display name must be between 2 and 50 characters.');
+      return;
+    }
+    
+    // Check for alphanumeric in username (no spaces)
+    if (!/^[a-zA-Z0-9_.]+$/.test(username.trim())) {
+      setError('Username can only contain letters, numbers, and underscores.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await updateProfileSetup(username.trim(), password || undefined);
+      const res = await updateProfileSetup(username.trim(), displayName.trim(), password || undefined);
       if (res.success) {
-        onAuthSuccess(currentUser ? { ...currentUser, username: username.trim(), profile_setup_complete: true } : null);
+        onAuthSuccess(currentUser ? { ...currentUser, username: username.trim(), display_name: displayName.trim(), profile_setup_complete: true } : null);
         onClose();
       } else {
         setError(res.error || 'Failed to complete profile setup');
@@ -194,14 +207,14 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
             <div className="space-y-6">
               <div className="flex items-center gap-4 p-4 rounded-xl bg-neutral-900 border border-neutral-800">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-red-700 flex items-center justify-center text-white font-extrabold text-xl shadow-md">
-                  {currentUser.username.charAt(0).toUpperCase()}
+                  {(currentUser.display_name || currentUser.username).charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="text-base font-bold text-white truncate">
-                    {currentUser.username}
+                    {currentUser.display_name || currentUser.username}
                   </h4>
                   <p className="text-xs text-neutral-400 truncate mt-0.5">
-                    {currentUser.email}
+                    @{currentUser.username}
                   </p>
                   <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-medium mt-1">
                     <CheckCircle2 className="w-3 h-3" />
@@ -246,17 +259,17 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
               <form onSubmit={handleSetupProfile} className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-xs text-neutral-400 font-medium block">
-                    Username
+                    Display Name
                   </label>
                   <div className="relative">
-                    <User className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <User className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="otaku_explorer"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Otaku Explorer"
                       required
-                      minLength={3}
+                      minLength={2}
                       className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500"
                     />
                   </div>
@@ -264,10 +277,29 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
 
                 <div className="space-y-1">
                   <label className="text-xs text-neutral-400 font-medium block">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <span className="text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold">@</span>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_.]/g, ''))}
+                      placeholder="otaku_explorer"
+                      required
+                      minLength={3}
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                  <p className="text-[10px] text-neutral-400 mt-1">Unique identifier. Only letters, numbers, and underscores.</p>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs text-neutral-400 font-medium block">
                     Set a Password (Optional)
                   </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={password}
@@ -279,7 +311,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-300"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -316,7 +348,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                     Verification Code
                   </label>
                   <div className="relative">
-                    <KeyRound className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <KeyRound className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       value={otp}
@@ -341,7 +373,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                   type="button"
                   onClick={handleSendOtp}
                   disabled={loading || countdown > 0}
-                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-neutral-400 hover:text-white transition-colors disabled:opacity-50 disabled:hover:text-neutral-500"
+                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-neutral-400 hover:text-white transition-colors disabled:opacity-50 disabled:hover:text-neutral-400"
                 >
                   <span>{countdown > 0 ? `Resend code in ${countdown}s` : "Didn't receive the code? Resend"}</span>
                 </button>
@@ -359,7 +391,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                   className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${
                     tab === 'login'
                       ? 'bg-neutral-800 text-white shadow-sm'
-                      : 'text-neutral-500 hover:text-neutral-300'
+                      : 'text-neutral-400 hover:text-neutral-300'
                   }`}
                 >
                   Sign In
@@ -372,7 +404,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                   className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${
                     tab === 'register'
                       ? 'bg-neutral-800 text-white shadow-sm'
-                      : 'text-neutral-500 hover:text-neutral-300'
+                      : 'text-neutral-400 hover:text-neutral-300'
                   }`}
                 >
                   Create Account
@@ -392,7 +424,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                       Email Address
                     </label>
                     <div className="relative">
-                      <Mail className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="text" inputMode="email" autoCapitalize="none" autoCorrect="off"
                         value={identifier}
@@ -409,7 +441,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                       Password
                     </label>
                     <div className="relative">
-                      <Lock className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={password}
@@ -421,7 +453,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-300"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -444,7 +476,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                       Email Address
                     </label>
                     <div className="relative">
-                      <Mail className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
                         type="text" inputMode="email" autoCapitalize="none" autoCorrect="off"
                         value={email}

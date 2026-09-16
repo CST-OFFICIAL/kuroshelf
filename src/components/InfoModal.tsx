@@ -108,7 +108,7 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
           {type === 'privacy' && (
             <div className="space-y-4">
               <div>
-                <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold block">Last Updated: September 2026</span>
+                <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold block">Last Updated: September 2026</span>
                 <h3 className="text-sm font-bold text-white font-display mt-1">Our Privacy Commitment</h3>
               </div>
 
@@ -145,7 +145,7 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
           {type === 'terms' && (
             <div className="space-y-4">
               <div>
-                <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold block">Last Updated: September 2026</span>
+                <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold block">Last Updated: September 2026</span>
                 <h3 className="text-sm font-bold text-white font-display mt-1">Terms of Service</h3>
               </div>
 

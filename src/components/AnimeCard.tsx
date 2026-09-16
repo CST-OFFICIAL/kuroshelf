@@ -51,7 +51,7 @@ export const AnimeCard = React.memo(function AnimeCard({
         {/* Top Badges */}
         <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
           {anime.score ? (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-950/80 backdrop-blur-md border border-amber-500/30 text-amber-300 font-bold text-xs shadow-sm">
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-950/80 backdrop-blur-md border border-amber-500/30 text-amber-300 font-bold text-xs shadow-sm" title="Global Rating">
               <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
               <span>{anime.score.toFixed(1)}</span>
             </div>
@@ -146,6 +146,11 @@ export const AnimeCard = React.memo(function AnimeCard({
           >
             {anime.title}
           </h3>
+          {anime.title_english && anime.title_english !== anime.title && (
+            <p className="text-[10px] text-neutral-400 line-clamp-1 mt-0.5" title={anime.title_english}>
+              {anime.title_english}
+            </p>
+          )}
           <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 mt-1">
             <span>{anime.type || 'Anime'}</span>
             {anime.episodes ? <span>• {anime.episodes} eps</span> : null}

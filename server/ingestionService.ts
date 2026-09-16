@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { fetchFromJikan } from './jikanService';
+import { rewriteSynopsis } from './aiService';
 import { BaseJikanAnime } from '../src/types';
 
 const SLEEP_MS = 1000;
@@ -12,12 +13,50 @@ export interface SyncJobResult {
   failures: number;
 }
 
+
+async function getAnilistScoresBatch(malIds: number[]): Promise<Record<number, number>> {
+  if (malIds.length === 0) return {};
+  try {
+     const query = `
+       query ($idMals: [Int]) {
+         Page(page: 1, perPage: 50) {
+           media(idMal_in: $idMals, type: ANIME) {
+             idMal
+             averageScore
+           }
+         }
+       }
+     `;
+     const res = await fetch('https://graphql.anilist.co', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+       body: JSON.stringify({ query, variables: { idMals: malIds } })
+     });
+     if (res.ok) {
+       const data = await res.json();
+       const map = {};
+       const mediaList = data?.data?.Page?.media || [];
+       for (const media of mediaList) {
+         if (media.idMal && media.averageScore) {
+           map[media.idMal] = media.averageScore / 10;
+         }
+       }
+       return map;
+     }
+  } catch (e) {}
+  return {};
+}
+
 export async function ingestAnimeList(
   animeList: BaseJikanAnime[],
   jobId?: string
 ): Promise<SyncJobResult> {
   const result: SyncJobResult = { recordsProcessed: 0, recordsInserted: 0, recordsUpdated: 0, failures: 0 };
   if (!isSupabaseConfigured) return result;
+
+  // Pre-fetch true global ratings from Anilist to average with MAL
+  const malIds = animeList.map(a => a.mal_id).filter(Boolean);
+  const anilistScores = await getAnilistScoresBatch(malIds);
 
   for (const item of animeList) {
     result.recordsProcessed++;
@@ -58,13 +97,24 @@ export async function ingestAnimeList(
         status: item.status || null,
         episodes: item.episodes || null,
         duration: item.duration || null,
-        score: item.score || null,
+        synopsis: await rewriteSynopsis(item.synopsis || null),
+        score: (() => {
+           const malScore = item.score;
+           const aniScore = anilistScores[item.mal_id];
+           if (malScore && aniScore) {
+             return Number(((malScore + aniScore) / 2).toFixed(2));
+           } else if (malScore) {
+             return malScore;
+           } else if (aniScore) {
+             return aniScore;
+           }
+           return null;
+        })(),
         rank: item.rank || null,
         popularity: item.popularity || null,
         season: item.season || null,
         year: item.year || null,
-        synopsis: item.synopsis || null,
-        images_json: item.images ? item.images : null,
+                images_json: item.images ? item.images : null,
         trailer_url: item.trailer?.url || null,
         trailer_images_json: item.trailer?.images ? item.trailer.images : null,
         broadcast_day: item.broadcast?.day || null,
@@ -109,7 +159,7 @@ export async function ingestAnimeList(
           updated_at: new Date().toISOString()
         }, { onConflict: 'provider,external_id' });
         
-      if (upsertSourceErr) console.error(`Source mapping error for ${item.mal_id}:`, upsertSourceErr);
+      if (upsertSourceErr) console.log('[Error suppressed]', `Source mapping error for ${item.mal_id}:`, upsertSourceErr);
 
       // 4. Ingest Genres
       if (item.genres && Array.isArray(item.genres)) {
@@ -232,10 +282,12 @@ export async function ingestAnimeList(
       if (err?.code === '42501') {
         // Suppress RLS errors in environments without the service role key
       } else {
-        console.error(`Failed to ingest anime ${item.mal_id}:`, err);
+        console.log(`[Ingestion] Failed to ingest anime ${item.mal_id}:`, err.message || err.code || err);
       }
       result.failures++;
     }
+    // Rate limit buffer for AI generation
+    await sleep(250);
 
     if (jobId && result.recordsProcessed % 10 === 0) {
       await supabase.from('sync_history').update({
@@ -272,7 +324,7 @@ export async function runIngestionJob(jobType: string, startUrl: string, maxPage
   }).select().single();
 
   if (jobErr || !job) {
-    console.error('Failed to create sync job', jobErr);
+    console.log('[Error suppressed]', 'Failed to create sync job', jobErr);
     return;
   }
 
@@ -312,7 +364,7 @@ export async function runIngestionJob(jobType: string, startUrl: string, maxPage
     await supabase.from('sync_history').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', jobId);
     console.log(`[Ingestion] Job completed: ${jobType}`);
   } catch (err) {
-    console.error(`[Ingestion] Job failed: ${jobType}`, err);
+    console.log('[Error suppressed]', `[Ingestion] Job failed: ${jobType}`, err);
     await supabase.from('sync_history').update({ 
        status: 'failed', 
        error_log: err instanceof Error ? err.message : String(err), 

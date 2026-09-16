@@ -62,7 +62,7 @@ export function PollsView({ polls, userVotes, onVote }: PollsViewProps) {
 
                 <div className="flex items-center gap-2 shrink-0 text-xs">
                   <span className="flex items-center gap-1 text-neutral-400 px-2.5 py-1 rounded-md bg-neutral-950 border border-neutral-800">
-                    <Clock className="w-3.5 h-3.5 text-neutral-500" />
+                    <Clock className="w-3.5 h-3.5 text-neutral-400" />
                     <span>{poll.totalVotes === 0 ? 'No votes yet' : `${poll.totalVotes.toLocaleString()} votes`}</span>
                   </span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -124,7 +124,7 @@ export function PollsView({ polls, userVotes, onVote }: PollsViewProps) {
                             <span className={isSelected ? 'text-rose-400' : 'text-neutral-400'}>
                               {percent}%
                             </span>
-                            <span className="text-[11px] text-neutral-500 font-normal">
+                            <span className="text-[11px] text-neutral-400 font-normal">
                               ({opt.votes})
                             </span>
                           </div>
@@ -136,7 +136,7 @@ export function PollsView({ polls, userVotes, onVote }: PollsViewProps) {
               </div>
 
               {/* Footer status text */}
-              <div className="text-[11px] text-neutral-500 flex items-center justify-between pt-1">
+              <div className="text-[11px] text-neutral-400 flex items-center justify-between pt-1">
                 {hasVoted ? (
                   <span className="text-emerald-400 flex items-center gap-1 font-medium">
                     <CheckCircle2 className="w-3.5 h-3.5" />

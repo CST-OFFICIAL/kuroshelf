@@ -1,18 +1,20 @@
+import { CommentSection } from './CommentSection';
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
   Star,
+  CheckCircle2,
+  Info,
+  BookOpen,
   Bookmark,
   Heart,
   Share2,
   ExternalLink,
   Clock,
   Tv,
-  MessageSquare,
-  Sparkles,
   ShoppingBag,
   Film,
-  Check,
   Layers,
   GitFork,
   Radio,
@@ -22,7 +24,11 @@ import { getAnimeCharacters, getAnimeById } from '../services/jikan';
 import { siteConfig } from '../config/site';
 import { MediaImage } from './MediaImage';
 
+import { AuthUser } from '../types';
+
 interface AnimeDetailModalProps {
+  currentUser?: AuthUser | null;
+  onOpenAuth?: () => void;
   anime: AnimeItem | null;
   shelfStatus?: ShelfStatus;
   userRating?: number;
@@ -35,6 +41,8 @@ interface AnimeDetailModalProps {
 }
 
 export function AnimeDetailModal({
+  currentUser = null,
+  onOpenAuth = () => {},
   anime: initialAnime,
   shelfStatus,
   userRating = 0,
@@ -52,6 +60,16 @@ export function AnimeDetailModal({
   const [copied, setCopied] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
   const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
+  const [communityScore, setCommunityScore] = useState<{ score: number | null, users: number } | null>(null);
+
+  const handleCopyLink = () => {
+    if (!anime) return;
+    const url = `${window.location.origin}/anime/${anime.mal_id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   // Sync initial anime and fetch full details (relations, streaming) if needed
   useEffect(() => {
@@ -67,6 +85,19 @@ export function AnimeDetailModal({
       })
       .catch((err) => console.warn('[Modal Details Fetch] Notice:', err));
   }, [initialAnime]);
+
+  // Fetch community score
+  useEffect(() => {
+    if (!anime) return;
+    fetch(`/api/ratings/community/anime/${anime.mal_id}`)
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.data) {
+          setCommunityScore(res.data);
+        }
+      })
+      .catch(err => console.warn('Community score fetch error', err));
+  }, [anime?.mal_id]);
 
   // Fetch characters when anime opens
   useEffect(() => {
@@ -221,13 +252,6 @@ export function AnimeDetailModal({
     ? `https://www.amazon.com/s?k=${affiliateMangaQuery}&tag=${siteConfig.affiliate.amazonTag}`
     : `https://www.amazon.com/s?k=${affiliateMangaQuery}`;
 
-  const handleShare = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(`${anime.title} - Kuro Shelf: ${window.location.origin}/anime/${anime.mal_id}`);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
 
   const statuses: { value: ShelfStatus; label: string }[] = [
     { value: 'watching', label: 'Watching' },
@@ -258,16 +282,15 @@ export function AnimeDetailModal({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleShare}
-              title="Share Title"
-              className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              onClick={handleCopyLink}
+              className="p-2 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+              title="Copy Link"
             >
-              {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+              {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
             </button>
             <button
               onClick={onClose}
-              title="Close Modal"
-              className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              className="p-2 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -297,24 +320,44 @@ export function AnimeDetailModal({
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-white font-display tracking-tight">
                   {anime.title}
                 </h2>
-                {(anime.title_japanese || anime.title_english) && (
-                  <p className="text-sm text-neutral-400 font-medium mt-1">
-                    {anime.title_japanese} {anime.title_english ? `• ${anime.title_english}` : ''}
+                {anime.title_english && anime.title_english !== anime.title && (
+                  <p className="text-sm text-neutral-300 font-medium mt-1">
+                    {anime.title_english}
+                  </p>
+                )}
+                {anime.title_japanese && (
+                  <p className="text-xs text-neutral-400 font-medium mt-0.5">
+                    {anime.title_japanese}
                   </p>
                 )}
               </div>
 
               {/* Stats Bar */}
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                {anime.score && (
-                  <div className="flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold">
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                    <span className="text-sm">{anime.score.toFixed(2)}</span>
-                    {anime.scored_by ? (
-                      <span className="text-[10px] text-amber-400/80 font-normal">({anime.scored_by.toLocaleString()} votes)</span>
-                    ) : null}
-                  </div>
-                )}
+                <div className="flex flex-col gap-1">
+                  {communityScore?.score !== null && communityScore?.score !== undefined && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 font-bold" title="Kuro Shelf Rating">
+                      <div className="flex items-center gap-1">
+                        <Star className="w-4 h-4 fill-rose-400 text-rose-400" />
+                        <span className="text-sm">{communityScore.score.toFixed(1)}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-rose-200">Kuro Shelf Rating</span>
+                      <span className="text-[10px] text-rose-400/80 font-normal">({communityScore.users} KS user{communityScore.users !== 1 ? 's' : ''})</span>
+                    </div>
+                  )}
+                  {anime.score && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold" title="Global Rating">
+                      <div className="flex items-center gap-1">
+                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                        <span className="text-sm">{anime.score.toFixed(1)}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-amber-200">Global Rating</span>
+                      {anime.scored_by ? (
+                        <span className="text-[10px] text-amber-400/80 font-normal">({anime.scored_by.toLocaleString()} global votes)</span>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
                 {anime.rank && (
                   <span className="px-2.5 py-1 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 font-semibold">
                     Rank #{anime.rank}
@@ -336,31 +379,31 @@ export function AnimeDetailModal({
               {/* Metadata Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs bg-neutral-900/60 p-3.5 rounded-xl border border-neutral-800/80">
                 <div>
-                  <span className="text-neutral-500 block">Episodes:</span>
+                  <span className="text-neutral-400 block">Episodes:</span>
                   <span className="text-neutral-200 font-medium">{anime.episodes ?? 'TBA'}</span>
                 </div>
                 <div>
-                  <span className="text-neutral-500 block">Duration:</span>
+                  <span className="text-neutral-400 block">Duration:</span>
                   <span className="text-neutral-200 font-medium">{anime.duration ?? 'Unknown'}</span>
                 </div>
                 <div>
-                  <span className="text-neutral-500 block">Premiered:</span>
+                  <span className="text-neutral-400 block">Premiered:</span>
                   <span className="text-neutral-200 font-medium capitalize">
                     {anime.season ? `${anime.season} ${anime.year}` : anime.year || 'N/A'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-neutral-500 block">Studio:</span>
+                  <span className="text-neutral-400 block">Studio:</span>
                   <span className="text-neutral-200 font-medium">
                     {anime.studios?.map((s) => s.name).join(', ') || 'N/A'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-neutral-500 block">Source:</span>
+                  <span className="text-neutral-400 block">Source:</span>
                   <span className="text-neutral-200 font-medium">{anime.source || 'Original'}</span>
                 </div>
                 <div>
-                  <span className="text-neutral-500 block">Rating:</span>
+                  <span className="text-neutral-400 block">Rating:</span>
                   <span className="text-neutral-200 font-medium">{anime.rating || 'PG-13'}</span>
                 </div>
               </div>
@@ -423,14 +466,14 @@ export function AnimeDetailModal({
                   {/* Favorite Like button */}
                   <button
                     onClick={() => onToggleLike(anime)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    className={`p-1.5 rounded-lg border transition-all ${
                       isLiked
-                        ? 'bg-rose-600 border-rose-500 text-white'
-                        : 'bg-neutral-950 border-neutral-700 text-neutral-300 hover:text-white'
+                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
+                        : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:text-neutral-200 hover:border-neutral-500'
                     }`}
+                    title={isLiked ? 'Remove from favorites' : 'Add to favorites'}
                   >
-                    <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-white' : ''}`} />
-                    <span>{isLiked ? 'Favorited' : 'Add to Favorites'}</span>
+                    <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
                   </button>
                 </div>
 
@@ -444,17 +487,15 @@ export function AnimeDetailModal({
                       return (
                         <button
                           key={starVal}
+                          type="button"
                           onMouseEnter={() => setHoverRating(starVal)}
                           onMouseLeave={() => setHoverRating(0)}
-                          onClick={() => onUpdateRating(anime, starVal)}
-                          title={`Score ${starVal}/10`}
-                          className="p-1 hover:scale-110 transition-transform"
+                          onClick={() => onUpdateRating(anime, userRating === starVal ? 0 : starVal)}
+                          className="p-0.5 focus:outline-none transition-transform hover:scale-110"
                         >
                           <Star
                             className={`w-4 h-4 ${
-                              isFilled
-                                ? 'fill-amber-400 text-amber-400'
-                                : 'text-neutral-700 hover:text-neutral-500'
+                              isFilled ? 'fill-amber-400 text-amber-400' : 'text-neutral-700'
                             }`}
                           />
                         </button>
@@ -472,7 +513,7 @@ export function AnimeDetailModal({
           </div>
 
           {/* Navigation Tabs inside Detail Modal */}
-          <div className="flex items-center gap-2 border-b border-neutral-800 pb-2 text-xs font-medium overflow-x-auto">
+          <div className="flex items-center gap-2 border-b border-neutral-800 pb-2 text-xs font-medium overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setActiveTab('overview')}
               className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap ${
@@ -481,7 +522,7 @@ export function AnimeDetailModal({
                   : 'text-neutral-400 hover:text-neutral-200'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Info className="w-3.5 h-3.5" />
               <span>Overview</span>
             </button>
             <button
@@ -493,7 +534,7 @@ export function AnimeDetailModal({
               }`}
             >
               <Tv className="w-3.5 h-3.5" />
-              <span>Where to Watch</span>
+              <span>Watch</span>
             </button>
             <button
               onClick={() => setActiveTab('relations')}
@@ -504,7 +545,7 @@ export function AnimeDetailModal({
               }`}
             >
               <GitFork className="w-3.5 h-3.5" />
-              <span>Relations & Sequels</span>
+              <span>Relations</span>
             </button>
             <button
               onClick={() => setActiveTab('characters')}
@@ -527,17 +568,6 @@ export function AnimeDetailModal({
             >
               <ShoppingBag className="w-3.5 h-3.5" />
               <span>Source Manga</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('discussion')}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap ${
-                activeTab === 'discussion'
-                  ? 'bg-rose-500/20 text-rose-300 font-semibold'
-                  : 'text-neutral-400 hover:text-neutral-200'
-              }`}
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>Discussion</span>
             </button>
           </div>
 
@@ -592,46 +622,53 @@ export function AnimeDetailModal({
                   </div>
                 </div>
               )}
+
+              {/* Native Comment Section inside Overview */}
+              <div className="pt-8 mt-8 border-t border-neutral-800">
+                <CommentSection mediaId={anime.mal_id} currentUser={currentUser} onOpenAuth={onOpenAuth} />
+              </div>
             </div>
           )}
 
           {/* TAB CONTENT: Where to Watch */}
           {activeTab === 'where_to_watch' && (
             <div className="space-y-4">
-              {/* Official Direct Streaming Links (if returned by Jikan) */}
-              {directStreamingLinks.length > 0 && (
-                <div className="p-4 rounded-xl bg-neutral-900 border border-emerald-900/40 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <h4 className="text-sm font-bold text-white">Direct Streaming Providers</h4>
-                  </div>
-                  <p className="text-xs text-neutral-400">
-                    Official streaming links reported for this title by the catalog:
-                  </p>
-                  <div className="divide-y divide-neutral-800">
-                    {directStreamingLinks.map((provider) => (
-                      <div key={provider.name} className="py-2.5 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-white text-sm">{provider.name}</span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/60">
-                            Verified Provider
-                          </span>
-                        </div>
-                        <a
-                          href={provider.url}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors"
-                        >
-                          <span>Watch Title</span>
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      </div>
-                    ))}
-                  </div>
+              <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
+                <div className="flex items-center gap-2 mb-4">
+                  <Tv className="w-5 h-5 text-rose-400" />
+                  <h3 className="font-bold text-white">Streaming Availability</h3>
                 </div>
-              )}
-
+                {directStreamingLinks.length > 0 ? (
+                  <>
+                    <p className="text-xs text-neutral-400 mb-2">
+                      Official streaming links reported for this title by the catalog:
+                    </p>
+                    <div className="divide-y divide-neutral-800">
+                      {directStreamingLinks.map((provider) => (
+                        <div key={provider.name} className="py-2.5 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-white text-sm">{provider.name}</span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/60">
+                              Verified Provider
+                            </span>
+                          </div>
+                          <a
+                            href={provider.url}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors"
+                          >
+                            <span>Watch Title</span>
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-neutral-400">No official streaming links reported for this title.</p>
+                )}
+              </div>
               {/* Streaming Platform Directories */}
               <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
                 <h4 className="text-sm font-bold text-neutral-200 mb-1">
@@ -680,13 +717,11 @@ export function AnimeDetailModal({
             <div className="space-y-4">
               {anime.relations && anime.relations.length > 0 ? (
                 <div className="space-y-4">
-                  {anime.relations.map((rel, rIdx) => (
-                    <div key={`${rel.relation}-${rIdx}`} className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 space-y-2">
-                      <div className="flex items-center gap-2">
+                  {anime.relations.map((rel) => (
+                    <div key={rel.relation} className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 space-y-2">
+                      <div className="flex items-center gap-2 mb-2">
                         <GitFork className="w-4 h-4 text-rose-400" />
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-300">
-                          {rel.relation}
-                        </h4>
+                        <h4 className="font-bold text-white text-sm">{rel.relation}</h4>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                         {rel.entry.map((ent) => {
@@ -697,7 +732,7 @@ export function AnimeDetailModal({
                               className="p-3 rounded-lg bg-neutral-950 border border-neutral-800 flex items-center justify-between gap-2"
                             >
                               <div className="min-w-0 flex-1">
-                                <span className="text-[10px] font-bold uppercase text-neutral-500 block">
+                                <span className="text-[10px] font-bold uppercase text-neutral-400 block">
                                   {ent.type}
                                 </span>
                                 <p className="text-xs font-semibold text-neutral-200 truncate" title={ent.name}>
@@ -707,16 +742,17 @@ export function AnimeDetailModal({
                               {isAnime && onSelectRelatedAnime ? (
                                 <button
                                   onClick={() => onSelectRelatedAnime(ent.mal_id)}
-                                  className="px-2.5 py-1 rounded bg-rose-600/20 text-rose-300 hover:bg-rose-600 hover:text-white text-[11px] font-medium transition-colors shrink-0"
+                                  className="p-1 text-rose-500 hover:text-rose-300 transition-colors shrink-0"
+                                  title="View Anime"
                                 >
-                                  View
+                                  <ExternalLink className="w-3.5 h-3.5" />
                                 </button>
                               ) : (
                                 <a
                                   href={ent.url}
                                   target="_blank"
                                   rel="noreferrer noopener"
-                                  className="p-1 text-neutral-500 hover:text-neutral-300 transition-colors shrink-0"
+                                  className="p-1 text-neutral-400 hover:text-neutral-300 transition-colors shrink-0"
                                   title="External source link"
                                 >
                                   <ExternalLink className="w-3.5 h-3.5" />
@@ -741,11 +777,11 @@ export function AnimeDetailModal({
           {activeTab === 'characters' && (
             <div className="space-y-4">
               {loadingCharacters ? (
-                <div className="text-center py-8 text-neutral-500 text-xs">
-                  Loading characters...
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-4 border-neutral-800 border-t-rose-500 rounded-full animate-spin" />
                 </div>
               ) : characters.length === 0 ? (
-                <div className="text-center py-8 text-neutral-500 text-xs">
+                <div className="text-center py-8 text-neutral-400 text-xs">
                   No character data available.
                 </div>
               ) : (
@@ -771,7 +807,7 @@ export function AnimeDetailModal({
                         <h5 className="text-xs font-bold text-neutral-200 line-clamp-1">
                           {char.character.name}
                         </h5>
-                        <span className="text-[10px] text-neutral-500 capitalize">
+                        <span className="text-[10px] text-neutral-400 capitalize">
                           {char.role}
                         </span>
                       </div>
@@ -785,10 +821,10 @@ export function AnimeDetailModal({
           {/* TAB CONTENT: Source Manga & Amazon */}
           {activeTab === 'manga' && (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 space-y-3">
-                <div className="flex items-center gap-2 text-rose-400">
-                  <ShoppingBag className="w-5 h-5" />
-                  <h4 className="text-sm font-bold text-white">Source Manga & Publications</h4>
+              <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 space-y-4">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-rose-400" />
+                  <h3 className="font-bold text-white text-lg">Manga & Light Novels</h3>
                 </div>
                 <p className="text-xs text-neutral-300 leading-relaxed">
                   Support official authors and distributors. You can check official localized English and Japanese tankobon volumes, digital releases, and light novels on Amazon.
@@ -816,7 +852,7 @@ export function AnimeDetailModal({
                 </div>
 
                 {siteConfig.affiliate.amazonAssociatesActive && (
-                  <p className="text-[11px] text-neutral-500 italic pt-2">
+                  <p className="text-[11px] text-neutral-400 italic pt-2">
                     * Affiliate Disclosure: As an Amazon Associate, Kuro Shelf earns from qualifying purchases made through external product links.
                   </p>
                 )}
@@ -824,40 +860,6 @@ export function AnimeDetailModal({
             </div>
           )}
 
-          {/* TAB CONTENT: Discussion / Comments */}
-          {activeTab === 'discussion' && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4 text-rose-400" />
-                    <span>Community Discussion</span>
-                  </h4>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-neutral-800 text-neutral-400 border border-neutral-700">
-                    Disqus Thread
-                  </span>
-                </div>
-
-                {siteConfig.disqusShortname ? (
-                  <div className="bg-neutral-950 p-4 rounded-xl border border-neutral-800">
-                    <div id="disqus_thread" />
-                  </div>
-                ) : (
-                  <div className="p-4 rounded-lg bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs leading-relaxed space-y-3">
-                    <p className="text-neutral-300">
-                      Community discussions and episode reaction threads for Kuro Shelf titles are integrated via <strong className="text-rose-400 font-medium">Disqus</strong>.
-                    </p>
-                    <div className="p-3 rounded-md bg-neutral-900/60 border border-neutral-800 text-[11px] text-neutral-400 space-y-1">
-                      <p className="font-medium text-neutral-200">Thread Identifier: {anime.title}</p>
-                      <p>
-                        The live Disqus comments component will render automatically as soon as the <code className="text-rose-300">VITE_DISQUS_SHORTNAME</code> environment variable is set for your deployed domain. No mock comments are fabricated.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

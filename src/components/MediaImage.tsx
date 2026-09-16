@@ -99,7 +99,7 @@ export const MediaImage = React.memo(function MediaImage({
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#f43f5e_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
         <div className="w-full flex items-center justify-between z-10">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1">
             <Sparkles className="w-2.5 h-2.5 text-rose-500/70" />
             Kuro Shelf
           </span>
@@ -108,11 +108,11 @@ export const MediaImage = React.memo(function MediaImage({
           </span>
         </div>
 
-        <div className="flex flex-col items-center justify-center my-auto z-10 text-neutral-500">
+        <div className="flex flex-col items-center justify-center my-auto z-10 text-neutral-400">
           <div className="p-3 rounded-2xl bg-neutral-800/60 border border-neutral-700/50 shadow-inner mb-2">
             <FallbackIcon className="w-6 h-6 sm:w-8 sm:h-8 text-neutral-400" />
           </div>
-          <span className="text-[10px] text-neutral-500 font-medium">Cover Unavailable</span>
+          <span className="text-[10px] text-neutral-400 font-medium">Cover Unavailable</span>
         </div>
 
         {showFallbackTitle && displayTitle && (

@@ -214,7 +214,7 @@ export function ShelfView({
                 <Bookmark className="w-4 h-4 text-rose-400" />
               </div>
               <p className="text-2xl font-black text-white font-display">{counts.all}</p>
-              <span className="text-[10px] text-neutral-500">In personal library</span>
+              <span className="text-[10px] text-neutral-400">In personal library</span>
             </div>
 
             <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-1">
@@ -223,7 +223,7 @@ export function ShelfView({
                 <Clock className="w-4 h-4 text-purple-400" />
               </div>
               <p className="text-2xl font-black text-white font-display">{totalProgressUnits}</p>
-              <span className="text-[10px] text-neutral-500">Episodes & chapters</span>
+              <span className="text-[10px] text-neutral-400">Episodes & chapters</span>
             </div>
 
             <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-1">
@@ -234,7 +234,7 @@ export function ShelfView({
               <p className="text-2xl font-black text-amber-400 font-display">
                 {averageRating !== 'N/A' ? `${averageRating}/10` : '—'}
               </p>
-              <span className="text-[10px] text-neutral-500">{counts.rated} titles rated</span>
+              <span className="text-[10px] text-neutral-400">{counts.rated} titles rated</span>
             </div>
 
             <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-1">
@@ -243,7 +243,7 @@ export function ShelfView({
                 <Heart className="w-4 h-4 text-rose-500" />
               </div>
               <p className="text-2xl font-black text-white font-display">{counts.favorites}</p>
-              <span className="text-[10px] text-neutral-500">Liked anime & manga</span>
+              <span className="text-[10px] text-neutral-400">Liked anime & manga</span>
             </div>
           </div>
 
@@ -295,7 +295,7 @@ export function ShelfView({
                 <span>Account Activity History</span>
               </h3>
               {activities.length === 0 ? (
-                <p className="text-xs text-neutral-500 py-6 text-center">
+                <p className="text-xs text-neutral-400 py-6 text-center">
                   No activity logged yet. Add anime to your shelf or cast a prediction vote to begin tracking.
                 </p>
               ) : (
@@ -303,7 +303,7 @@ export function ShelfView({
                   {activities.map((act) => (
                     <div key={act.id} className="text-xs border-b border-neutral-800/60 pb-2 space-y-0.5">
                       <p className="text-neutral-300">{act.details}</p>
-                      <span className="text-[10px] text-neutral-500 block">
+                      <span className="text-[10px] text-neutral-400 block">
                         {new Date(act.timestamp).toLocaleDateString()} at {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
@@ -323,7 +323,7 @@ export function ShelfView({
               <h3 className="text-base font-semibold text-neutral-300">
                 No titles in this section yet
               </h3>
-              <p className="text-xs text-neutral-500 max-w-sm mx-auto">
+              <p className="text-xs text-neutral-400 max-w-sm mx-auto">
                 Explore anime and manga from Discover or Seasonal and click "Add to Shelf" or the bookmark icon.
               </p>
             </div>
@@ -425,14 +425,14 @@ export function ShelfView({
                           <span>{item.userRating}/10</span>
                         </div>
                       ) : (
-                        <span className="text-[10px] text-neutral-500">Unrated</span>
+                        <span className="text-[10px] text-neutral-400">Unrated</span>
                       )}
 
                       {/* Remove */}
                       <button
                         onClick={() => onRemove(item.id, item.mediaType)}
                         title="Remove from Shelf"
-                        className="p-1 text-neutral-500 hover:text-rose-400 transition-colors"
+                        className="p-1 text-neutral-400 hover:text-rose-400 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -452,7 +452,7 @@ export function ShelfView({
           </div>
 
           {activities.length === 0 ? (
-            <p className="text-xs text-neutral-500 py-4 text-center">
+            <p className="text-xs text-neutral-400 py-4 text-center">
               No recent shelf activities recorded yet.
             </p>
           ) : (
@@ -462,7 +462,7 @@ export function ShelfView({
                   <p className="text-neutral-300 leading-snug font-medium">
                     {act.details}
                   </p>
-                  <span className="text-[10px] text-neutral-500 block">
+                  <span className="text-[10px] text-neutral-400 block">
                     {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>

@@ -45,28 +45,32 @@ export async function getCatalogTopAnime(filter: string = 'bypopularity', page: 
 
   const { data, count, error } = await query.range(offset, offset + limit - 1);
   if (error) {
-    console.error('getCatalogTopAnime error:', error);
+    console.log('[Error suppressed]', 'getCatalogTopAnime error:', error);
   }
 
-  // Fallback to Jikan if Supabase DB is empty
-  if ((!data || data.length === 0) && page === 1) {
-    console.log(`[Catalog] Local DB empty for filter '${filter}', falling back to Jikan...`);
-    let jikanResult;
-    if (filter === 'airing') {
-      jikanResult = await serverGetSeasonalAnime(page, limit);
-    } else if (filter === 'upcoming') {
-      jikanResult = await serverGetUpcomingAnime(page, limit);
-    } else {
-      jikanResult = await serverGetTopAnime(filter, page, limit);
-    }
-    
-    if (jikanResult && jikanResult.data && jikanResult.data.length > 0) {
-      // Background ingestion
-      ingestAnimeList(jikanResult.data).catch(err => console.error('Fallback ingestion error:', err));
-      return {
-        data: jikanResult.data as any[],
-        pagination: jikanResult.pagination || { last_visible_page: 1, has_next_page: false, current_page: 1, items: { count: jikanResult.data.length, total: jikanResult.data.length, per_page: limit } }
-      };
+  // Fallback to Jikan if Supabase DB is missing items for this page
+  if (!data || data.length < limit) {
+    try {
+      console.log(`[Catalog] Local DB has ${data?.length || 0} items for filter '${filter}' page ${page}, falling back to Jikan...`);
+      let jikanResult;
+      if (filter === 'airing') {
+        jikanResult = await serverGetSeasonalAnime(page, limit);
+      } else if (filter === 'upcoming') {
+        jikanResult = await serverGetUpcomingAnime(page, limit);
+      } else {
+        jikanResult = await serverGetTopAnime(filter, page, limit);
+      }
+      
+      if (jikanResult && jikanResult.data && jikanResult.data.length > 0) {
+        // Background ingestion
+        ingestAnimeList(jikanResult.data).catch(err => console.log('[Error suppressed]', 'Fallback ingestion error:', err));
+        return {
+          data: jikanResult.data as any[],
+          pagination: jikanResult.pagination || { last_visible_page: page + (jikanResult.data.length === limit ? 1 : 0), has_next_page: jikanResult.data.length === limit, current_page: page, items: { count: jikanResult.data.length, total: 10000, per_page: limit } }
+        };
+      }
+    } catch (err) {
+      console.log('[Error suppressed]', '[Catalog] Jikan API fallback failed in top anime:', err.message);
     }
   }
 
@@ -83,14 +87,22 @@ export async function getCatalogTopAnime(filter: string = 'bypopularity', page: 
 }
 
 export async function searchCatalogAnime(options: any): Promise<{ data: AnimeItem[], pagination: JikanPagination }> {
-  if (!isSupabaseConfigured) return await jikanSearch(options) as any;
-  
   const page = Math.max(Number(options.page) || 1, 1);
   const limit = Math.min(Math.max(Number(options.limit) || 24, 1), 25);
   const offset = (page - 1) * limit;
   const clean = options.query?.trim() || '';
 
-  let query = supabase.from('anime').select('*', { count: 'exact' });
+  if (!isSupabaseConfigured) {
+    return { data: [], pagination: { last_visible_page: 1, has_next_page: false, current_page: 1, items: { count: 0, total: 0, per_page: limit } } };
+  }
+  
+  let query;
+  if (options.genres && options.genres !== 'all') {
+    query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(mal_id))', { count: 'exact' });
+    query = query.eq('anime_genres.genres.mal_id', Number(options.genres));
+  } else {
+    query = supabase.from('anime').select('*', { count: 'exact' });
+  }
 
   if (clean) {
     query = query.or(`title.ilike.%${clean}%,title_english.ilike.%${clean}%,title_japanese.ilike.%${clean}%`);
@@ -106,34 +118,37 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
     query = query.eq('type', options.type);
   }
 
+  // Handle orderBy mapping
   if (options.orderBy === 'score') {
     query = query.order('score', { ascending: options.sort === 'asc', nullsFirst: false });
   } else if (options.orderBy === 'popularity') {
-    query = query.order('popularity', { ascending: options.sort !== 'desc', nullsFirst: false });
-  } else if (options.orderBy === 'title') {
-    query = query.order('title', { ascending: options.sort !== 'desc' });
-  } else if (options.orderBy === 'start_date') {
-    query = query.order('year', { ascending: options.sort === 'asc', nullsFirst: false });
+    query = query.order('popularity', { ascending: options.sort === 'asc' });
+  } else if (options.orderBy === 'favorites') {
+    query = query.order('favorites', { ascending: options.sort === 'asc', nullsFirst: false });
   } else {
-    query = query.order('popularity', { ascending: true, nullsFirst: false });
+    // Default fallback
+    query = query.order('popularity', { ascending: true });
   }
 
-  const { data, count, error } = await query.range(offset, offset + limit - 1);
+  query = query.range(offset, offset + limit - 1);
   
+  const { data, count, error } = await query;
   if (error) {
-    console.error('searchCatalogAnime error:', error);
+    console.log('[Catalog] searchCatalogAnime DB query error (falling back to live API if needed):', error.message);
   }
 
-  if ((!data || data.length === 0) && clean && page === 1) {
-    console.log('[Catalog] Local search empty, falling back to Jikan:', clean);
-    const jikanResult = await jikanSearch(options);
-    if (jikanResult.data && jikanResult.data.length > 0) {
-      ingestAnimeList(jikanResult.data).catch(err => console.error('Fallback ingestion error:', err));
-      return {
-        data: jikanResult.data,
-        pagination: jikanResult.pagination || { last_visible_page: 1, has_next_page: false, current_page: 1, items: { count: jikanResult.data.length, total: jikanResult.data.length, per_page: limit } }
-      };
-    }
+  // If local DB is empty, trigger Live API fallback for queries and genre searches
+  if ((clean || options.genres !== 'all') && (!data || data.length === 0)) {
+     try {
+       console.log('[Catalog] Local DB search empty, triggering live API ingestion...');
+       const jikanResult = await jikanSearch(options);
+       if (jikanResult.data && jikanResult.data.length > 0) {
+         ingestAnimeList(jikanResult.data).catch(() => {});
+         return jikanResult as any;
+       }
+     } catch (err) {
+       console.log('[Catalog] Live API ingestion failed:', err.message);
+     }
   }
 
   return {

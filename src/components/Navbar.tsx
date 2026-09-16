@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { 
+  Filter,
   Compass, 
   Sparkles, 
   Trophy, 
@@ -39,8 +40,8 @@ export function Navbar({
   const navItems = [
     { id: 'home', label: 'Discover', icon: Compass },
     { id: 'seasonal', label: 'This Season', icon: Sparkles },
-    { id: 'rankings', label: 'Top Rankings', icon: Trophy },
-    { id: 'manga', label: 'Manga Shelf', icon: BookOpen },
+    { id: 'rankings', label: 'Rankings', icon: Trophy },
+    { id: 'manga', label: 'Manga', icon: BookOpen },
     { id: 'polls', label: 'Predictions', icon: Vote },
     { id: 'shelf', label: 'My Shelf', icon: Bookmark, badge: shelfCount },
   ];
@@ -88,6 +89,7 @@ export function Navbar({
               <button
                 key={item.id}
                 id={`nav-link-${item.id}`}
+                aria-current={isActive ? 'page' : undefined}
                 onClick={() => handleNavClick(item.id)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                   isActive
@@ -113,7 +115,7 @@ export function Navbar({
             <button
               type="submit"
               id="search-submit-button"
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 p-1 text-neutral-500 hover:text-rose-400 transition-colors"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 p-1 text-neutral-400 hover:text-rose-400 transition-colors"
               aria-label="Submit search"
             >
               <Search className="w-4 h-4" />
@@ -121,7 +123,7 @@ export function Navbar({
             <input
               id="global-search-input"
               type="text"
-              placeholder="Search anime by title, keyword..."
+              placeholder="Search anime by title..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full bg-neutral-900/90 border border-neutral-800 rounded-lg pl-9 pr-8 py-1.5 text-xs sm:text-sm text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500/60 focus:ring-1 focus:ring-rose-500/50 transition-all"
@@ -134,20 +136,33 @@ export function Navbar({
                   onSearchChange('');
                   onSearchSubmit('');
                 }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300 text-xs p-1"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-300 text-xs p-1"
                 aria-label="Clear search"
               >
                 ✕
               </button>
             )}
           </form>
+          <button
+            type="button"
+            onClick={() => handleNavClick('explore')}
+            className={`shrink-0 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-medium transition-colors ${
+              activeTab === 'explore'
+                ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200'
+            }`}
+            title="Explore Genres"
+          >
+            <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden lg:inline">Genres</span>
+          </button>
         </div>
 
         {/* User Account / Sign In Button */}
         <div className="hidden sm:flex items-center">
           <button
             id="nav-auth-button"
-            onClick={onOpenAuth}
+            onClick={() => currentUser ? onTabChange('profile') : onOpenAuth()}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
               currentUser
                 ? 'bg-neutral-900 border-neutral-700 text-rose-300 hover:border-rose-500/50'
@@ -156,7 +171,7 @@ export function Navbar({
           >
             <UserIcon className="w-3.5 h-3.5" />
             <span className="truncate max-w-[100px]">
-              {currentUser ? currentUser.username : 'Sign In'}
+              {currentUser ? currentUser.display_name || currentUser.username : 'Sign In'}
             </span>
           </button>
         </div>
@@ -178,14 +193,14 @@ export function Navbar({
           {/* Mobile Auth Button */}
           <button
             onClick={() => {
-              onOpenAuth();
+              currentUser ? onTabChange('profile') : onOpenAuth();
               setMobileMenuOpen(false);
             }}
             className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium bg-neutral-900 text-white border border-neutral-800 mb-2"
           >
             <div className="flex items-center gap-3">
               <UserIcon className="w-4 h-4 text-rose-400" />
-              <span>{currentUser ? `Account (${currentUser.username})` : 'Sign In / Register'}</span>
+              <span>{currentUser ? (currentUser.display_name || currentUser.username) : 'Sign In / Register'}</span>
             </div>
             {currentUser && (
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -198,6 +213,7 @@ export function Navbar({
               <button
                 key={item.id}
                 id={`mobile-nav-${item.id}`}
+                aria-current={isActive ? 'page' : undefined}
                 onClick={() => handleNavClick(item.id)}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive

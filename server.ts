@@ -10,6 +10,7 @@ import {
   getCatalogAnimeById
 } from './server/catalogService';
 import { runIngestionJob } from './server/ingestionService';
+import { startBackgroundScraper } from './server/scraperDaemon';
 import {
   serverGetSeasonalAnime,
   serverGetUpcomingAnime,
@@ -194,6 +195,43 @@ async function startServer() {
 
   // ---------------- Ratings ----------------
 
+  app.get('/api/ratings/leaderboard', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { getTopCommunityAnime } = await import('./server/db');
+      const { serverGetAnimeById } = await import('./server/jikanService');
+      const topIds = await getTopCommunityAnime(24);
+      
+      // Fetch details for each from jikan (could be slow if not cached, but we'll try)
+      const results = [];
+      for (const item of topIds) {
+        const details = await serverGetAnimeById(item.id);
+        if (details) {
+          results.push({
+            ...details,
+            score: item.score, // Override with our score
+            scored_by: item.count
+          });
+        }
+      }
+      res.json({ success: true, data: results });
+    } catch(err) {
+      console.error(err);
+      res.status(500).json({ success: false, data: [] });
+    }
+  });
+
+  app.get('/api/ratings/community/:mediaType/:mediaId', async (req: Request, res: Response): Promise<void> => {
+    const mediaId = Number(req.params.mediaId);
+    const mediaType = req.params.mediaType as 'anime' | 'manga';
+    if (isNaN(mediaId) || (mediaType !== 'anime' && mediaType !== 'manga')) {
+      res.status(400).json({ success: false, error: 'Invalid parameters' });
+      return;
+    }
+    const { getCommunityScore } = await import('./server/db');
+    const result = await getCommunityScore(mediaId, mediaType);
+    res.json({ success: true, data: result });
+  });
+
   app.get('/api/ratings', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     if (!req.user) {
       res.json({ success: true, data: [] });
@@ -288,7 +326,7 @@ async function startServer() {
       });
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
-      // console.warn('[API /api/anime/search] Search unavailable:', err.message || err);
+      console.warn('[API /api/anime/search] Search unavailable:', err.message || err);
       res.status(500).json({ success: false, data: [], error: 'Catalog search currently unavailable' });
     }
   });
@@ -308,7 +346,36 @@ async function startServer() {
     }
   });
 
+
+  app.get('/api/anime/top100', async (req: Request, res: Response): Promise<void> => {
+    try {
+      // First try to get top 100 from Supabase
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase.from('anime').select('*').order('score', { ascending: false, nullsFirst: false }).limit(100);
+        if (!error && data && data.length >= 10) {
+           res.json({ success: true, data: data });
+           return;
+        }
+      }
+      
+      // Fallback: Fetch from Jikan API pages 1-4
+      const p1 = serverGetTopAnime('favorite', 1, 25);
+      const p2 = serverGetTopAnime('favorite', 2, 25);
+      const p3 = serverGetTopAnime('favorite', 3, 25);
+      const p4 = serverGetTopAnime('favorite', 4, 25);
+      
+      const results = await Promise.all([p1, p2, p3, p4]);
+      const combined = results.map(r => (r as any).data).flat();
+      
+      res.json({ success: true, data: combined });
+    } catch (err) {
+      console.warn('[API /api/anime/top100] Fetch unavailable:', err);
+      res.status(500).json({ success: false, data: [], error: 'Failed to fetch Top 100' });
+    }
+  });
+
   // Seasonal Anime
+
   app.get('/api/anime/seasonal', async (req: Request, res: Response): Promise<void> => {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 24;
@@ -444,6 +511,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
+    startBackgroundScraper();
     console.log(`Kuro Shelf server online at http://0.0.0.0:${PORT}`);
   });
 }

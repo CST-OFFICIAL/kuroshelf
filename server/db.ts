@@ -106,3 +106,45 @@ export async function getPolls(userId?: string | null, voterHash?: string) {
 export async function votePoll(pollId: number, optionId: number, userId: string | null, voterHash: string) {
   return { success: false, message: 'Polls not migrated yet' };
 }
+
+export async function getCommunityScore(mediaId: number, mediaType: 'anime' | 'manga' = 'anime'): Promise<{ score: number | null, users: number }> {
+  if (!isSupabaseConfigured) return { score: null, users: 0 };
+  const { data, error } = await supabase
+    .from('ratings')
+    .select('rating')
+    .eq('media_id', mediaId)
+    .eq('media_type', mediaType);
+
+  if (error || !data || data.length === 0) return { score: null, users: 0 };
+
+  const total = data.reduce((acc, curr) => acc + curr.rating, 0);
+  return {
+    score: Number((total / data.length).toFixed(2)),
+    users: data.length
+  };
+}
+
+export async function getTopCommunityAnime(limit: number = 24): Promise<any[]> {
+  if (!isSupabaseConfigured) return [];
+  // Get aggregate ratings
+  const { data, error } = await supabase
+    .from('ratings')
+    .select('media_id, rating')
+    .eq('media_type', 'anime');
+
+  if (error || !data) return [];
+
+  const aggregates: Record<number, { total: number, count: number }> = {};
+  data.forEach(r => {
+    if (!aggregates[r.media_id]) aggregates[r.media_id] = { total: 0, count: 0 };
+    aggregates[r.media_id].total += r.rating;
+    aggregates[r.media_id].count += 1;
+  });
+
+  const sorted = Object.entries(aggregates)
+    .map(([id, agg]) => ({ id: Number(id), score: agg.total / agg.count, count: agg.count }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+
+  return sorted;
+}

@@ -190,12 +190,13 @@ export async function fetchFromJikan<T>(
           const res = await fetch(url, {
             headers: {
               'User-Agent': 'KuroShelf/1.0 (+https://kuroshelf.app)',
-              Accept: 'application/json',
+              'Accept': 'application/json',
+              'Accept-Encoding': 'gzip, deflate, br'
             },
             signal: AbortSignal.timeout(7000),
           });
 
-          console.log('Jikan HTTP Status:', res.status);
+          console.log('Jikan HTTP Status:', res.status, url);
           if (res.status === 429) {
             // Upstream Jikan rate limit: wait and retry
             await new Promise((resolve) => setTimeout(resolve, 1000 * attempts));
@@ -230,7 +231,7 @@ export async function fetchFromJikan<T>(
             pagination: json.pagination as JikanPagination | undefined,
           };
         } catch (e) {
-          console.error('Jikan fetch error:', e);
+          console.log('[Error suppressed]', 'Jikan fetch error:', e);
           if (attempts > maxRetries) {
             return null;
           }
@@ -246,7 +247,7 @@ export async function fetchFromJikan<T>(
       return result;
     }
   } catch (outerErr) {
-    console.error('Outer jikan catch:', outerErr);
+    console.log('[Error suppressed]', 'Outer jikan catch:', outerErr);
     // Network or queue failure: continue to resilient fallback
   }
 
@@ -282,16 +283,138 @@ export interface SearchAnimeOptions {
   sort?: string;
 }
 
+
+
+const GENRE_MAP: Record<string, string> = {
+  '1': 'Action',
+  '2': 'Adventure',
+  '4': 'Comedy',
+  '8': 'Drama',
+  '10': 'Fantasy',
+  '22': 'Romance',
+  '24': 'Sci-Fi',
+  '36': 'Slice of Life',
+  '62': 'Isekai',
+  '14': 'Horror',
+  '7': 'Mystery',
+  '30': 'Sports'
+};
+
+async function searchAnilistFallback(query: string, page: number, limit: number, genreId?: string): Promise<BaseJikanAnime[]> {
+  const genreStr = genreId ? GENRE_MAP[genreId] : undefined;
+  
+  let anilistQuery = `
+  query ($search: String) {
+    Page(page: ${page}, perPage: ${limit}) {
+      media(search: $search, type: ANIME, sort: POPULARITY_DESC) {
+        idMal
+        title { romaji english native }
+        coverImage { large }
+        status
+        episodes
+        season
+        seasonYear
+        averageScore
+        synopsis: description(asHtml: false)
+      }
+    }
+  }
+  `;
+
+  if (!query && genreStr) {
+    anilistQuery = `
+    query {
+      Page(page: ${page}, perPage: ${limit}) {
+        media(type: ANIME, genre: "${genreStr}", sort: POPULARITY_DESC) {
+          idMal
+          title { romaji english native }
+          coverImage { large }
+          status
+          episodes
+          season
+          seasonYear
+          averageScore
+          synopsis: description(asHtml: false)
+        }
+      }
+    }
+    `;
+  } else if (query && genreStr) {
+     anilistQuery = `
+     query ($search: String) {
+       Page(page: ${page}, perPage: ${limit}) {
+         media(search: $search, type: ANIME, genre: "${genreStr}", sort: POPULARITY_DESC) {
+           idMal
+           title { romaji english native }
+           coverImage { large }
+           status
+           episodes
+           season
+           seasonYear
+           averageScore
+           synopsis: description(asHtml: false)
+         }
+       }
+     }
+     `;
+  }
+
+
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query: anilistQuery, variables: { search: query } }),
+      signal: AbortSignal.timeout(5000)
+    });
+    const data = (await res.json()) as any;
+    
+    if (!data?.data?.Page?.media) return [];
+    
+    return data.data.Page.media
+      .filter((m: any) => m.idMal)
+      .map((m: any) => {
+        let status = 'Finished Airing';
+        if (m.status === 'RELEASING') status = 'Currently Airing';
+        if (m.status === 'NOT_YET_RELEASED') status = 'Not yet aired';
+
+        return {
+          mal_id: m.idMal,
+          url: `https://myanimelist.net/anime/${m.idMal}`,
+          title: m.title.romaji || m.title.english || '',
+          title_english: m.title.english || null,
+          title_japanese: m.title.native || null,
+          images: {
+            jpg: { image_url: m.coverImage.large },
+            webp: { image_url: m.coverImage.large }
+          },
+          score: m.averageScore ? m.averageScore / 10 : null,
+          episodes: m.episodes || null,
+          status,
+          year: m.seasonYear || null,
+          synopsis: m.synopsis ? m.synopsis.replace(/<[^>]*>?/gm, '') : '',
+          genres: [],
+        };
+      }) as BaseJikanAnime[];
+  } catch (err) {
+    console.log('[Anilist] Fallback error', err.message);
+    return [];
+  }
+}
+
 export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ data: BaseJikanAnime[]; pagination?: JikanPagination }> {
   const page = Math.max(Number(options.page) || 1, 1);
   const limit = Math.min(Math.max(Number(options.limit) || 24, 1), 25);
 
   const clean = options.query?.trim() || '';
 
+  if (!clean && options.orderBy === 'popularity' && (!options.genres || options.genres === 'all') && (!options.status || options.status === 'all') && (!options.type || options.type === 'all')) {
+    return serverGetTopAnime('', page, limit);
+  }
+
   const params = new URLSearchParams();
   if (clean) params.set('q', clean);
-  params.set('page', String(page));
-  params.set('limit', String(limit));
+  if (page > 1) params.set('page', String(page));
   if (options.type && options.type !== 'all') params.set('type', options.type);
   if (options.status && options.status !== 'all') params.set('status', options.status);
   if (options.genres && options.genres !== 'all') params.set('genres', options.genres);
@@ -299,16 +422,33 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
   if (options.sort) params.set('sort', options.sort);
 
   const endpoint = `/anime?${params.toString()}`;
-  const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, SEARCH_CACHE_TTL_MS);
-
-  if (res.data === null) {
-    throw new Error('Jikan API search unavailable');
+  try {
+    const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, SEARCH_CACHE_TTL_MS);
+    if (res.data === null) {
+      throw new Error('Jikan API search unavailable');
+    }
+    return {
+      data: deduplicateByMalId(Array.isArray(res.data) ? res.data : []),
+      pagination: res.pagination,
+    };
+  } catch (err) {
+    if (clean || (options.genres && options.genres !== 'all')) {
+      console.log('[Jikan] Search failed, falling back to Anilist API. Query:', clean, 'Genre:', options.genres);
+      const anilistData = await searchAnilistFallback(clean, page, limit, options.genres);
+      if (anilistData && anilistData.length > 0) {
+        return {
+          data: anilistData,
+          pagination: {
+            current_page: page,
+            has_next_page: anilistData.length === limit,
+            last_visible_page: page + (anilistData.length === limit ? 1 : 0),
+            items: { count: anilistData.length, total: 10000, per_page: limit }
+          }
+        };
+      }
+    }
+    throw err;
   }
-
-  return {
-    data: deduplicateByMalId(Array.isArray(res.data) ? res.data : []),
-    pagination: res.pagination,
-  };
 }
 
 export async function serverGetTopAnime(
@@ -320,9 +460,8 @@ export async function serverGetTopAnime(
   const safeLimit = Math.min(Math.max(Number(limit) || 24, 1), 25);
 
   const params = new URLSearchParams();
-  params.set('page', String(safePage));
-  params.set('limit', String(safeLimit));
-  if (filter && filter !== 'all') {
+  if (safePage > 1) params.set('page', String(safePage));
+  if (filter && filter !== 'all' && filter !== 'bypopularity') {
     params.set('filter', filter);
   }
 
@@ -342,7 +481,7 @@ export async function serverGetSeasonalAnime(
   const safePage = Math.max(Number(page) || 1, 1);
   const safeLimit = Math.min(Math.max(Number(limit) || 24, 1), 25);
 
-  const endpoint = `/seasons/now?page=${safePage}&limit=${safeLimit}`;
+  const endpoint = safePage > 1 ? `/seasons/now?page=${safePage}` : `/seasons/now`;
   const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, CATALOG_CACHE_TTL_MS);
 
   return {
@@ -358,7 +497,7 @@ export async function serverGetUpcomingAnime(
   const safePage = Math.max(Number(page) || 1, 1);
   const safeLimit = Math.min(Math.max(Number(limit) || 24, 1), 25);
 
-  const endpoint = `/seasons/upcoming?page=${safePage}&limit=${safeLimit}`;
+  const endpoint = safePage > 1 ? `/seasons/upcoming?page=${safePage}` : `/seasons/upcoming`;
   const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, CATALOG_CACHE_TTL_MS);
 
   return {

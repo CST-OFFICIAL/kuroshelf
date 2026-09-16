@@ -57,7 +57,7 @@ export function MangaSection({ onSelectManga }: MangaSectionProps) {
 
         {/* Search inside Manga */}
         <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input
             type="text"
             placeholder="Search manga series..."
@@ -77,7 +77,7 @@ export function MangaSection({ onSelectManga }: MangaSectionProps) {
           </p>
         </div>
         {siteConfig.affiliate.amazonAssociatesActive && (
-          <span className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">
+          <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold">
             Amazon Associate Affiliate System
           </span>
         )}
@@ -94,7 +94,7 @@ export function MangaSection({ onSelectManga }: MangaSectionProps) {
           ))}
         </div>
       ) : mangaList.length === 0 ? (
-        <div className="p-12 text-center text-neutral-500 text-xs">
+        <div className="p-12 text-center text-neutral-400 text-xs">
           No manga titles found. Try a different search query.
         </div>
       ) : (
@@ -142,7 +142,7 @@ export function MangaSection({ onSelectManga }: MangaSectionProps) {
                     >
                       {manga.title}
                     </h3>
-                    <p className="text-[11px] text-neutral-500 line-clamp-1 mt-0.5">
+                    <p className="text-[11px] text-neutral-400 line-clamp-1 mt-0.5">
                       {manga.authors?.map((a) => a.name).join(', ') || manga.type || 'Manga'}
                     </p>
                   </div>

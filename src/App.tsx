@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AnimeItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll, AuthUser } from './types';
 import { 
   getTopAnime, 
@@ -22,6 +23,7 @@ import { getCurrentUser, getAuthHeaders } from './services/authService';
 import { fetchServerPolls, voteInPoll } from './services/pollService';
 import { Navbar } from './components/Navbar';
 import { HeroBanner } from './components/HeroBanner';
+import { ExploreView } from './components/ExploreView';
 import { AnimeCard } from './components/AnimeCard';
 import { AnimeDetailModal } from './components/AnimeDetailModal';
 import { ShelfView, ShelfViewFilterTab } from './components/ShelfView';
@@ -30,6 +32,7 @@ import { MangaSection } from './components/MangaSection';
 import { Footer } from './components/Footer';
 import { InfoModal, InfoModalType } from './components/InfoModal';
 import { AuthModal } from './components/AuthModal';
+import { ProfileView } from './components/ProfileView';
 import { AdminSyncPage } from './components/AdminSyncPage';
 import { 
   Flame, 
@@ -49,6 +52,11 @@ export function App() {
   const [infoModalType, setInfoModalType] = useState<InfoModalType>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  // Scroll up on tab change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
 
   // Data states
   const [spotlightAnime, setSpotlightAnime] = useState<AnimeItem | null>(null);
@@ -213,13 +221,7 @@ export function App() {
     });
   }, [syncUserData]);
 
-  // Auto-open auth modal if profile setup is incomplete
-  useEffect(() => {
-    if (currentUser && !currentUser.profile_setup_complete) {
-      setAuthModalOpen(true);
-    }
-  }, [currentUser]);
-
+  
   // Fetch initial anime datasets
   const loadInitialData = useCallback(async () => {
     setLoadingInitial(true);
@@ -533,6 +535,15 @@ export function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 15, filter: "blur(4px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, y: -15, filter: "blur(4px)" }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="w-full space-y-10"
+          >
         {/* Error banner if API is down */}
         {apiError && (
           <div className="p-4 rounded-xl bg-red-950/40 border border-red-900/80 flex items-center justify-between gap-4 text-xs text-red-300">
@@ -577,7 +588,7 @@ export function App() {
 
             {loadingSearch ? (
               <div className="space-y-3">
-                <p className="text-xs text-neutral-500 animate-pulse">Searching anime titles...</p>
+                <p className="text-xs text-neutral-400 animate-pulse">Searching anime titles...</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {Array.from({ length: 12 }).map((_, i) => (
                     <div
@@ -604,7 +615,7 @@ export function App() {
                 <p className="text-neutral-300 text-sm font-medium">
                   No titles matching &ldquo;{debouncedQuery || searchQuery}&rdquo; were found.
                 </p>
-                <p className="text-neutral-500 text-xs max-w-md mx-auto">
+                <p className="text-neutral-400 text-xs max-w-md mx-auto">
                   Try searching with the Japanese romaji title (e.g. Shingeki no Kyojin, Kimetsu no Yaiba) or checking for spelling errors.
                 </p>
               </div>
@@ -629,6 +640,16 @@ export function App() {
           </div>
         ) : (
           <>
+            {/* TAB: EXPLORE */}
+            {activeTab === 'explore' && (
+              <ExploreView 
+                onSelectAnime={setSelectedAnime}
+                getShelfStatus={(id) => getShelfItem(id)?.status}
+                onUpdateStatus={handleUpdateShelfStatus}
+                onToggleLike={handleToggleLike}
+                getIsLiked={(id) => getShelfItem(id)?.isLiked || false}
+              />
+            )}
             {/* 2. TAB: HOME (DISCOVER) */}
             {activeTab === 'admin' && <AdminSyncPage />}
         {activeTab === 'home' && (
@@ -952,6 +973,9 @@ export function App() {
             )}
 
             {/* 7. TAB: MY SHELF */}
+            {activeTab === 'profile' && currentUser && (
+              <ProfileView currentUser={currentUser} onProfileUpdated={setCurrentUser} />
+            )}
             {activeTab === 'shelf' && (
               <ShelfView
                 shelf={shelf}
@@ -1003,12 +1027,17 @@ export function App() {
             )}
           </>
         )}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Detail Modal */}
+      <AnimatePresence>
       {selectedAnime && (
         <AnimeDetailModal
           anime={selectedAnime}
+          currentUser={currentUser}
+          onOpenAuth={() => setAuthModalOpen(true)}
           onClose={() => setSelectedAnime(null)}
           shelfStatus={getShelfItem(selectedAnime.mal_id)?.status}
           userRating={getShelfItem(selectedAnime.mal_id)?.userRating}
@@ -1018,6 +1047,7 @@ export function App() {
           onToggleLike={handleToggleLike}
         />
       )}
+      </AnimatePresence>
 
       {/* Footer */}
       <Footer

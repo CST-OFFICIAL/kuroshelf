@@ -117,8 +117,13 @@ export function HeroBanner({ anime, onSelect, onAddToShelf, isSavedInShelf }: He
             >
               {anime.title}
             </h1>
+            {anime.title_english && anime.title_english !== anime.title && (
+              <p className="text-xs sm:text-sm text-neutral-300 font-medium mt-1">
+                {anime.title_english}
+              </p>
+            )}
             {anime.title_japanese && (
-              <p className="text-xs sm:text-sm text-neutral-400 font-medium mt-1">
+              <p className="text-[11px] sm:text-xs text-neutral-400 font-medium mt-0.5">
                 {anime.title_japanese}
               </p>
             )}
@@ -138,7 +143,11 @@ export function HeroBanner({ anime, onSelect, onAddToShelf, isSavedInShelf }: He
           )}
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-1">
+          <div className="w-full text-xs text-rose-300/80 mb-3 font-semibold uppercase tracking-widest">
+              Kuro Shelf Exclusive Catalog
+            </div>
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-1">
+            
             <button
               id="hero-view-details"
               onClick={() => onSelect(anime)}
