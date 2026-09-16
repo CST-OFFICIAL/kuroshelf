@@ -29,32 +29,52 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     id: user.id ,
     email: user.email!,
     username: user.user_metadata?.user_name || user.email?.split('@')[0] || 'User',
+    profile_setup_complete: !!user.user_metadata?.user_name,
     avatar_url: user.user_metadata?.avatar_url || null,
     created_at: user.created_at || new Date().toISOString(),
   };
 }
 
-export async function registerUser(email: string, username: string, password: string): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
-  const { data, error } = await supabase.auth.signUp({
+export async function sendEmailOtp(email: string): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase.auth.signInWithOtp({
     email,
-    password,
-    options: {
-      data: {
-        user_name: username,
-      }
-    }
+    options: { shouldCreateUser: true }
   });
-
   if (error) {
     return { success: false, error: error.message };
   }
+  return { success: true };
+}
 
+export async function verifyEmailOtp(email: string, token: string): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: 'email',
+  });
+  if (error) {
+    return { success: false, error: error.message };
+  }
   return { success: true, user: data.user ? {
-    id: data.user.id ,
+    id: data.user.id,
     email: data.user.email!,
-    username: username,
+    username: data.user.user_metadata?.user_name || data.user.email?.split('@')[0] || 'User',
+    profile_setup_complete: !!data.user.user_metadata?.user_name,
+    avatar_url: data.user.user_metadata?.avatar_url || null,
     created_at: data.user.created_at || new Date().toISOString(),
   } : undefined };
+}
+
+export async function updateProfileSetup(username: string, password?: string): Promise<{ success: boolean; error?: string }> {
+  const attributes: any = { data: { user_name: username } };
+  if (password) {
+    attributes.password = password;
+  }
+  const { error } = await supabase.auth.updateUser(attributes);
+  if (error) {
+    return { success: false, error: error.message };
+  }
+  return { success: true };
 }
 
 export async function loginUser(identifier: string, password: string): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
@@ -73,6 +93,7 @@ export async function loginUser(identifier: string, password: string): Promise<{
     id: data.user.id ,
     email: data.user.email!,
     username: data.user.user_metadata?.user_name || data.user.email?.split('@')[0] || 'User',
+    profile_setup_complete: !!data.user.user_metadata?.user_name,
     avatar_url: data.user.user_metadata?.avatar_url || null,
     created_at: data.user.created_at || new Date().toISOString(),
   } : undefined };
@@ -85,9 +106,7 @@ export async function logoutUser(): Promise<void> {
 export async function loginWithGoogle(): Promise<{ success: boolean; error?: string }> {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: {
-      redirectTo: window.location.origin,
-    }
+    options: { redirectTo: window.location.origin }
   });
 
   if (error) {

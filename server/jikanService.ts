@@ -7,7 +7,7 @@ import { VERIFIED_SEED_ANIME } from './verifiedSeed';
 
 const JIKAN_BASE_URL =
   process.env.JIKAN_API_BASE_URL ||
-  process.env.VITE_JIKAN_API_BASE_URL ||
+  
   'https://api.jikan.moe/v4';
 
 function deduplicateByMalId(list: any[]) {

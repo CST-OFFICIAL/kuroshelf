@@ -1,8 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_JIKAN_API_BASE_URL?: string;
-  readonly VITE_CONTACT_EMAIL?: string;
+  readonly VITE_SUPABASE_URL?: string;
+  readonly VITE_SUPABASE_ANON_KEY?: string;
+    readonly VITE_CONTACT_EMAIL?: string;
   readonly VITE_AMAZON_AFFILIATE_ACTIVE?: string;
   readonly VITE_AMAZON_AFFILIATE_TAG?: string;
   readonly VITE_SOCIAL_INSTAGRAM?: string;

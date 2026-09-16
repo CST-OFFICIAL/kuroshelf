@@ -96,6 +96,7 @@ export interface JikanPagination {
 }
 
 export interface AuthUser {
+  profile_setup_complete?: boolean;
   id: string;
   email: string;
   username: string;

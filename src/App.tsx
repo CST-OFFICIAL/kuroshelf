@@ -213,6 +213,13 @@ export function App() {
     });
   }, [syncUserData]);
 
+  // Auto-open auth modal if profile setup is incomplete
+  useEffect(() => {
+    if (currentUser && !currentUser.profile_setup_complete) {
+      setAuthModalOpen(true);
+    }
+  }, [currentUser]);
+
   // Fetch initial anime datasets
   const loadInitialData = useCallback(async () => {
     setLoadingInitial(true);
