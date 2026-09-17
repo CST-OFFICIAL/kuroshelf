@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Search, Loader2 } from 'lucide-react';
 import { AnimeItem, ShelfStatus } from '../types';
 import { AnimeCard } from './AnimeCard';
 

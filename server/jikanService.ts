@@ -300,13 +300,36 @@ const GENRE_MAP: Record<string, string> = {
   '30': 'Sports'
 };
 
-async function searchAnilistFallback(query: string, page: number, limit: number, genreId?: string): Promise<BaseJikanAnime[]> {
-  const genreStr = genreId ? GENRE_MAP[genreId] : undefined;
+
+const FORMAT_MAP: Record<string, string> = {
+  tv: 'TV',
+  movie: 'MOVIE',
+  ova: 'OVA',
+  ona: 'ONA',
+  special: 'SPECIAL',
+  music: 'MUSIC'
+};
+
+const STATUS_MAP: Record<string, string> = {
+  airing: 'RELEASING',
+  complete: 'FINISHED',
+  upcoming: 'NOT_YET_RELEASED'
+};
+
+async function searchAnilistFallback(query: string, page: number, limit: number, genreId?: string, type?: string, statusStr?: string, orderBy?: string): Promise<BaseJikanAnime[]> {
+  const genreStr = genreId && genreId !== 'all' ? GENRE_MAP[genreId] : undefined;
+  const formatStr = type && type !== 'all' ? FORMAT_MAP[type.toLowerCase()] : undefined;
+  const statusApi = statusStr && statusStr !== 'all' ? STATUS_MAP[statusStr.toLowerCase()] : undefined;
   
-  let anilistQuery = `
-  query ($search: String) {
-    Page(page: ${page}, perPage: ${limit}) {
-      media(search: $search, type: ANIME, sort: POPULARITY_DESC) {
+  let sort = 'POPULARITY_DESC';
+  if (orderBy === 'score') sort = 'SCORE_DESC';
+  else if (orderBy === 'favorites') sort = 'FAVORITES_DESC';
+  else if (orderBy === 'start_date') sort = 'START_DATE_DESC';
+
+  const anilistQuery = `
+  query ($search: String, $genre: String, $format: MediaFormat, $status: MediaStatus, $page: Int, $perPage: Int) {
+    Page(page: $page, perPage: $perPage) {
+      media(search: $search, type: ANIME, genre: $genre, format: $format, status: $status, sort: [${sort}], isAdult: false, genreNotIn: ["Hentai"]) {
         idMal
         title { romaji english native }
         coverImage { large }
@@ -315,59 +338,25 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
         season
         seasonYear
         averageScore
-           synopsis: description(asHtml: false)
-           genres
+        synopsis: description(asHtml: false)
+        genres
+        studios(isMain: true) { nodes { name } }
       }
     }
   }
   `;
 
-  if (!query && genreStr) {
-    anilistQuery = `
-    query {
-      Page(page: ${page}, perPage: ${limit}) {
-        media(type: ANIME, genre: "${genreStr}", sort: POPULARITY_DESC) {
-          idMal
-          title { romaji english native }
-          coverImage { large }
-          status
-          episodes
-          season
-          seasonYear
-          averageScore
-           synopsis: description(asHtml: false)
-           genres
-        }
-      }
-    }
-    `;
-  } else if (query && genreStr) {
-     anilistQuery = `
-     query ($search: String) {
-       Page(page: ${page}, perPage: ${limit}) {
-         media(search: $search, type: ANIME, genre: "${genreStr}", sort: POPULARITY_DESC) {
-           idMal
-           title { romaji english native }
-           coverImage { large }
-           status
-           episodes
-           season
-           seasonYear
-           averageScore
-           synopsis: description(asHtml: false)
-           genres
-         }
-       }
-     }
-     `;
-  }
-
-
   try {
+    const variables: any = { page, perPage: limit };
+    if (query) variables.search = query;
+    if (genreStr) variables.genre = genreStr;
+    if (formatStr) variables.format = formatStr;
+    if (statusApi) variables.status = statusApi;
+
     const res = await fetch('https://graphql.anilist.co', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ query: anilistQuery, variables: { search: query } }),
+      body: JSON.stringify({ query: anilistQuery, variables }),
       signal: AbortSignal.timeout(5000)
     });
     const data = (await res.json()) as any;
@@ -389,18 +378,20 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
           title_japanese: m.title.native || null,
           images: {
             jpg: { image_url: m.coverImage.large },
-            webp: { image_url: m.coverImage.large }
+            webp: { image_url: m.coverImage.large, large_image_url: m.coverImage.large }
           },
-          score: m.averageScore ? m.averageScore / 10 : null,
+          synopsis: m.synopsis || null,
+          type: formatStr || 'TV',
           episodes: m.episodes || null,
           status,
+          airing: m.status === 'RELEASING',
+          score: m.averageScore ? (m.averageScore / 10) : null,
           year: m.seasonYear || null,
-          synopsis: m.synopsis ? m.synopsis.replace(/<[^>]*>?/gm, '') : '',
-          genres: (m.genres || []).map(g => ({ mal_id: 0, name: g, type: 'anime', url: '' })),
+          genres: (m.genres || []).map((g: string) => ({ mal_id: 0, type: 'anime', name: g, url: '' }))
         };
-      }) as BaseJikanAnime[];
+      });
   } catch (err) {
-    // console.log('[Anilist] Fallback error', err.message);
+    console.warn('[Anilist Fallback] Error:', err);
     return [];
   }
 }
@@ -417,6 +408,8 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
 
   const params = new URLSearchParams();
   if (clean) params.set('q', clean);
+  params.set('sfw', 'true');
+  params.set('genres_exclude', '12,49');
   if (page > 1) params.set('page', String(page));
   if (options.type && options.type !== 'all') params.set('type', options.type);
   if (options.status && options.status !== 'all') params.set('status', options.status);
@@ -435,9 +428,9 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
       pagination: res.pagination,
     };
   } catch (err) {
-    if (clean || (options.genres && options.genres !== 'all')) {
+    if (true) {
       // console.log('[Jikan] Search failed, falling back to Anilist API. Query:', clean, 'Genre:', options.genres);
-      const anilistData = await searchAnilistFallback(clean, page, limit, options.genres);
+      const anilistData = await searchAnilistFallback(clean, page, limit, options.genres, options.type, options.status, options.orderBy);
       if (anilistData && anilistData.length > 0) {
         return {
           data: anilistData,
@@ -464,6 +457,7 @@ export async function serverGetTopAnime(
 
   const params = new URLSearchParams();
   if (safePage > 1) params.set('page', String(safePage));
+  params.set('sfw', 'true');
   if (filter && filter !== 'all' && filter !== 'bypopularity') {
     params.set('filter', filter);
   }
@@ -484,7 +478,7 @@ export async function serverGetSeasonalAnime(
   const safePage = Math.max(Number(page) || 1, 1);
   const safeLimit = Math.min(Math.max(Number(limit) || 24, 1), 25);
 
-  const endpoint = safePage > 1 ? `/seasons/now?page=${safePage}` : `/seasons/now`;
+  const endpoint = safePage > 1 ? `/seasons/now?page=${safePage}&sfw=true` : `/seasons/now?sfw=true`;
   const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, CATALOG_CACHE_TTL_MS);
 
   return {
@@ -500,7 +494,7 @@ export async function serverGetUpcomingAnime(
   const safePage = Math.max(Number(page) || 1, 1);
   const safeLimit = Math.min(Math.max(Number(limit) || 24, 1), 25);
 
-  const endpoint = safePage > 1 ? `/seasons/upcoming?page=${safePage}` : `/seasons/upcoming`;
+  const endpoint = safePage > 1 ? `/seasons/upcoming?page=${safePage}&sfw=true` : `/seasons/upcoming?sfw=true`;
   const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, CATALOG_CACHE_TTL_MS);
 
   return {

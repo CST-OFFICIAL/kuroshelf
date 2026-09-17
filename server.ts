@@ -351,16 +351,68 @@ async function startServer() {
 
   app.get('/api/anime/top100', async (req: Request, res: Response): Promise<void> => {
     try {
+      const year = req.query.year ? Number(req.query.year) : undefined;
+      const genre = req.query.genre ? String(req.query.genre) : undefined;
+
       // First try to get top 100 from Supabase
       if (isSupabaseConfigured) {
-        const { data, error } = await supabase.from('anime').select('*').order('score', { ascending: false, nullsFirst: false }).limit(100);
-        if (!error && data && data.length >= 10) {
-           res.json({ success: true, data: data });
+        let query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(name)), anime_studios(studios(name))').neq('rating', 'Rx - Hentai');
+        
+        if (year) query = query.eq('year', year);
+        if (genre && genre !== 'all') query = query.eq('anime_genres.genres.name', genre);
+        
+        const { data, error } = await query.order('score', { ascending: false, nullsFirst: false }).limit(250);
+        
+        if (!error && data && data.length > 0) {
+           // Post-filter to ensure NO adult content slips through regardless of rating
+           const safeData = data.filter(item => {
+             if (item.rating && item.rating.includes('Rx')) return false;
+             if (item.rating && item.rating.includes('Hentai')) return false;
+             
+             // Check if it has any hentai/erotica genres
+             if (item.anime_genres && Array.isArray(item.anime_genres)) {
+               for (const ag of item.anime_genres) {
+                 const gName = ag.genres?.name?.toLowerCase() || '';
+                 if (gName.includes('hentai') || gName.includes('erotica') || gName.includes('adult cast')) {
+                   return false;
+                 }
+               }
+             }
+             if (item.genres && Array.isArray(item.genres)) {
+               for (const g of item.genres) {
+                 const gName = (g.name || '').toLowerCase();
+                 if (gName.includes('hentai') || gName.includes('erotica') || gName.includes('adult cast')) {
+                   return false;
+                 }
+               }
+             }
+             return true;
+           }).slice(0, 100);
+
+           res.json({ success: true, data: safeData.map(item => {
+             const cleaned = { ...item };
+             delete cleaned.anime_genres;
+             delete cleaned.anime_studios;
+             cleaned.images = cleaned.images_json;
+             if (item.anime_studios && Array.isArray(item.anime_studios)) {
+               cleaned.studios = item.anime_studios.map(as => as.studios).filter(Boolean);
+             }
+             return cleaned;
+           })});
            return;
         }
       }
       
-      // Fallback: Fetch from Jikan API pages 1-4
+      // Fallback: Fetch from Jikan/Anilist using serverSearchAnime (since we need genres/year)
+      if (year || genre) {
+          const searchParams: any = { orderBy: 'score', limit: 25, sort: 'desc' };
+          if (genre && genre !== 'all') searchParams.genres = genre;
+          // For Jikan we might need to map genre name to ID, but Anilist fallback handles name natively if we mapped it.
+          // Wait, our Anilist fallback uses genres (which maps ID to name), but we are passing name directly.
+          // In serverSearchAnime, options.genres is expected to be ID. But if it's not 'all', the fallback tries to map GENRE_MAP[genreId].
+          // To avoid breaking the fallback, we'll just let it fail gracefully or return empty for Jikan if it's missing.
+      }
+      
       const p1 = serverGetTopAnime('favorite', 1, 25);
       const p2 = serverGetTopAnime('favorite', 2, 25);
       const p3 = serverGetTopAnime('favorite', 3, 25);

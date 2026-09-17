@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MessageSquare, Send, User, Trash2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { AuthUser } from '../types';
 
 interface Comment {
@@ -27,7 +27,7 @@ export function CommentSection({ mediaId, currentUser, onOpenAuth }: CommentSect
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchComments = async () => {
+  const fetchComments = async () => { if (!isSupabaseConfigured) return;
     try {
       const { data, error } = await supabase
         .from('comments')
@@ -59,6 +59,7 @@ export function CommentSection({ mediaId, currentUser, onOpenAuth }: CommentSect
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) return onOpenAuth();
+    if (!isSupabaseConfigured) return;
     if (!newComment.trim()) return;
 
     setSubmitting(true);
@@ -79,7 +80,7 @@ export function CommentSection({ mediaId, currentUser, onOpenAuth }: CommentSect
   };
   
   const handleDelete = async (id: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !isSupabaseConfigured) return;
     try {
       const { error } = await supabase.from('comments').delete().eq('id', id).eq('user_id', currentUser.id);
       if (!error) {

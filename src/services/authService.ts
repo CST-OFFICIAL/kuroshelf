@@ -1,10 +1,15 @@
 
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { AuthUser } from '../types';
 
 export async function getStoredAuthToken(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token || null;
+  if (!isSupabaseConfigured) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token || null;
+  } catch (e) {
+    return null;
+  }
 }
 
 export function setStoredAuthToken(_token: string | null) {
@@ -23,17 +28,22 @@ export async function getAuthHeaders(): Promise<HeadersInit> {
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
-  return {
-    id: user.id ,
-    email: user.email!,
-    username: user.user_metadata?.user_name || user.email?.split('@')[0] || 'User',
-    display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-    profile_setup_complete: !!user.user_metadata?.user_name,
-    avatar_url: user.user_metadata?.avatar_url || null,
-    created_at: user.created_at || new Date().toISOString(),
-  };
+  if (!isSupabaseConfigured) return null;
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) return null;
+    return {
+      id: user.id ,
+      email: user.email!,
+      username: user.user_metadata?.user_name || user.email?.split('@')[0] || 'User',
+      display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+      profile_setup_complete: !!user.user_metadata?.user_name,
+      avatar_url: user.user_metadata?.avatar_url || null,
+      created_at: user.created_at || new Date().toISOString(),
+    };
+  } catch (e) {
+    return null;
+  }
 }
 
 export async function sendEmailOtp(email: string): Promise<{ success: boolean; error?: string }> {

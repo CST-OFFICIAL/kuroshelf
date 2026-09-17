@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Activity, Play, CheckCircle, XCircle } from 'lucide-react';
 
 export function AdminSyncPage() {
@@ -14,6 +14,11 @@ export function AdminSyncPage() {
 
   const fetchJobs = async () => {
     setLoading(true);
+    if (!isSupabaseConfigured) {
+      setError("Supabase not configured");
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from('sync_jobs')
       .select('*')

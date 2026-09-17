@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AnimeItem, JikanGenre } from '../types';
 import { AnimeCard } from './AnimeCard';
-import { Filter, Search } from 'lucide-react';
+import { Filter } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface ExploreViewProps {

@@ -1,6 +1,5 @@
 import { CommentSection } from './CommentSection';
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
   Star,

@@ -10,9 +10,15 @@ function mapDbToAnime(row: any): AnimeItem {
   if (row.anime_genres && Array.isArray(row.anime_genres)) {
     mappedGenres = row.anime_genres.map((ag) => ag.genres).filter(Boolean);
   }
+  let mappedStudios = [];
+  if (row.anime_studios && Array.isArray(row.anime_studios)) {
+    mappedStudios = row.anime_studios.map(as => as.studios).filter(Boolean);
+  }
+
   return {
     ...row,
     genres: mappedGenres.length > 0 ? mappedGenres : (row.genres || []),
+    studios: mappedStudios.length > 0 ? mappedStudios : (row.studios || []),
     images: row.images_json,
     trailer: {
       url: row.trailer_url,
@@ -36,7 +42,7 @@ export async function getCatalogTopAnime(filter: string = 'bypopularity', page: 
   }
 
   const offset = (page - 1) * limit;
-  let query = supabase.from('anime').select('*, anime_genres(genres(*))', { count: 'exact' });
+  let query = supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*))', { count: 'exact' });
 
   if (filter === 'airing') {
     query = query.eq('status', 'Currently Airing').order('score', { ascending: false, nullsFirst: false });
@@ -103,10 +109,10 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
   
   let query;
   if (options.genres && options.genres !== 'all') {
-    query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(*))', { count: 'exact' });
+    query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(*)), anime_studios(studios(*))', { count: 'exact' });
     query = query.eq('anime_genres.genres.mal_id', Number(options.genres));
   } else {
-    query = supabase.from('anime').select('*, anime_genres(genres(*))', { count: 'exact' });
+    query = supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*))', { count: 'exact' });
   }
 
   if (clean) {
@@ -169,7 +175,7 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
 
 export async function getCatalogAnimeById(id: number): Promise<{ data: BaseJikanAnime | null }> {
   if (!isSupabaseConfigured) return { data: await jikanGetById(id) as any };
-  const { data, error } = await supabase.from('anime').select('*, anime_genres(genres(*))').eq('mal_id', id).single();
+  const { data, error } = await supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*))').eq('mal_id', id).single();
   
   if (data) {
     return { data: mapDbToAnime(data) as any };

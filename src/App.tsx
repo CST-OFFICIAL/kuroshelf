@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AnimeItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll, AuthUser } from './types';
 import { 
@@ -43,7 +43,7 @@ import {
   ArrowRight, 
   Search, 
   RefreshCw,
-  AlertCircle
+  AlertCircle, Star
 } from 'lucide-react';
 
 export function App() {
@@ -69,6 +69,8 @@ export function App() {
 
   // Rankings filter
   const [rankingFilter, setRankingFilter] = useState<'bypopularity' | 'airing' | 'favorite' | 'upcoming' | 'top100'>('bypopularity');
+  const [rankingGenre, setRankingGenre] = useState<string>('all');
+  const [rankingYear, setRankingYear] = useState<string>('all');
 
   // Loading & error states
   const [loadingInitial, setLoadingInitial] = useState(true);
@@ -163,7 +165,7 @@ export function App() {
     setUserVotes(getUserVotes());
 
     // Check user auth session and subscribe to changes
-    import('./lib/supabase').then(({ supabase }) => {
+    import('./lib/supabase').then(({ supabase, isSupabaseConfigured }) => { if (!isSupabaseConfigured) return;
       supabase.auth.onAuthStateChange(async (_event, session) => {
         if (session?.user) {
           const user = {
@@ -275,11 +277,11 @@ export function App() {
   useEffect(() => {
     if (activeTab !== 'rankings') return;
     setLoadingRankings(true);
-    getTopAnime(rankingFilter, 24)
+    getTopAnime(rankingFilter, 24, 1, rankingGenre, rankingYear)
       .then((data) => setTopRankedAnime(data))
       .catch((err) => console.warn('[Rankings] Notice:', err))
       .finally(() => setLoadingRankings(false));
-  }, [rankingFilter, activeTab]);
+  }, [rankingFilter, activeTab, rankingGenre, rankingYear]);
 
   // Search execution with error handling and empty states
   const executeSearch = useCallback(async (query: string) => {
@@ -518,7 +520,7 @@ export function App() {
   const isSearchActive = debouncedQuery.trim().length > 0;
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-rose-500/30 selection:text-rose-200">
+    <div className="min-h-screen w-full overflow-x-hidden bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-rose-500/30 selection:text-rose-200">
       {/* Top Navigation */}
       <Navbar
         activeTab={isSearchActive ? '' : activeTab}
@@ -624,9 +626,11 @@ export function App() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {searchResults.map((anime, idx) => {
-                  const shelfItem = getShelfItem(anime.mal_id);
-                  return (
-                    <AnimeCard
+                   
+                   
+                        const shelfItem = getShelfItem(anime.mal_id);
+                        return (
+                          <AnimeCard
                       key={`search-${anime.mal_id}-${idx}`}
                       anime={anime}
                       onSelect={setSelectedAnime}
@@ -646,7 +650,7 @@ export function App() {
             {activeTab === 'explore' && (
               <ExploreView 
                 onSelectAnime={setSelectedAnime}
-                getShelfStatus={(id) => getShelfItem(id)?.status || null}
+                getShelfStatus={(id) => getShelfItem(id)?.status || null || null}
                 onUpdateStatus={handleUpdateShelfStatus}
                 onToggleLike={handleToggleLike}
                 getIsLiked={(id) => getShelfItem(id)?.isLiked || false}
@@ -702,6 +706,8 @@ export function App() {
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                       {airingAnime.slice(0, 6).map((anime, idx) => {
+                         
+                         
                         const shelfItem = getShelfItem(anime.mal_id);
                         return (
                           <AnimeCard
@@ -738,6 +744,8 @@ export function App() {
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                       {seasonalAnime.slice(0, 6).map((anime, idx) => {
+                         
+                         
                         const shelfItem = getShelfItem(anime.mal_id);
                         return (
                           <AnimeCard
@@ -778,9 +786,11 @@ export function App() {
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                         {upcomingAnime.slice(0, 6).map((anime, idx) => {
-                          const shelfItem = getShelfItem(anime.mal_id);
-                          return (
-                            <AnimeCard
+                           
+                           
+                        const shelfItem = getShelfItem(anime.mal_id);
+                        return (
+                          <AnimeCard
                               key={`upcoming-${anime.mal_id}-${idx}`}
                               anime={anime}
                               onSelect={setSelectedAnime}
@@ -841,6 +851,8 @@ export function App() {
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                       {topRankedAnime.slice(0, 6).map((anime, idx) => {
+                         
+                         
                         const shelfItem = getShelfItem(anime.mal_id);
                         return (
                           <AnimeCard
@@ -878,9 +890,11 @@ export function App() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {seasonalAnime.map((anime, idx) => {
-                    const shelfItem = getShelfItem(anime.mal_id);
-                    return (
-                      <AnimeCard
+                     
+                     
+                        const shelfItem = getShelfItem(anime.mal_id);
+                        return (
+                          <AnimeCard
                         key={`season-page-${anime.mal_id}-${idx}`}
                         anime={anime}
                         onSelect={setSelectedAnime}
@@ -951,8 +965,43 @@ export function App() {
                   <>
                   {rankingFilter === 'top100' ? (
                     <div className="flex flex-col gap-3 max-w-4xl mx-auto">
+                      <div className="flex gap-2 mb-2">
+                        <select 
+                          value={rankingGenre}
+                          onChange={(e) => setRankingGenre(e.target.value)}
+                          className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500"
+                        >
+                          <option value="all">All Genres</option>
+                          <option value="Action">Action</option>
+                          <option value="Adventure">Adventure</option>
+                          <option value="Comedy">Comedy</option>
+                          <option value="Drama">Drama</option>
+                          <option value="Fantasy">Fantasy</option>
+                          <option value="Romance">Romance</option>
+                          <option value="Sci-Fi">Sci-Fi</option>
+                          <option value="Slice of Life">Slice of Life</option>
+                          <option value="Horror">Horror</option>
+                          <option value="Mystery">Mystery</option>
+                          <option value="Sports">Sports</option>
+                          <option value="Isekai">Isekai</option>
+                        </select>
+                        <select 
+                          value={rankingYear}
+                          onChange={(e) => setRankingYear(e.target.value)}
+                          className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500"
+                        >
+                          <option value="all">All Time</option>
+                          <option value="2026">2026</option>
+                          <option value="2025">2025</option>
+                          <option value="2024">2024</option>
+                          <option value="2023">2023</option>
+                          <option value="2022">2022</option>
+                          <option value="2021">2021</option>
+                        </select>
+                      </div>
                       {topRankedAnime.map((anime, idx) => {
-                        const shelfItem = getShelfItem(anime.mal_id);
+                         
+                         
                         return (
                           <div 
                             key={`top100-${anime.mal_id}-${idx}`}
@@ -962,7 +1011,7 @@ export function App() {
                             <div className="flex items-center gap-4 w-full sm:w-auto">
                               <div className="flex flex-col items-center justify-center w-8 sm:w-12 shrink-0">
                                 <span className="text-xl sm:text-2xl font-black text-rose-500 font-display">
-                                  #{idx + 1}
+                                  {idx + 1}
                                 </span>
                               </div>
                               <div className="relative w-16 h-24 sm:w-20 sm:h-28 rounded-lg overflow-hidden shrink-0 shadow-md">
@@ -1029,6 +1078,8 @@ export function App() {
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                       {topRankedAnime.map((anime, idx) => {
+                         
+                         
                         const shelfItem = getShelfItem(anime.mal_id);
                         return (
                           <AnimeCard
@@ -1066,7 +1117,7 @@ export function App() {
             {activeTab === 'advanced' && (
               <AdvancedSearchView
                 onSelectAnime={setSelectedAnime}
-                getShelfStatus={(id) => getShelfItem(id)?.status}
+                getShelfStatus={(id) => getShelfItem(id)?.status || null}
                 onUpdateStatus={handleUpdateShelfStatus}
                 onToggleLike={handleToggleLike}
                 getIsLiked={(id) => getShelfItem(id)?.isLiked || false}
