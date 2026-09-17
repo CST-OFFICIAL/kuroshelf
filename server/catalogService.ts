@@ -15,10 +15,19 @@ function mapDbToAnime(row: any): AnimeItem {
     mappedStudios = row.anime_studios.map(as => as.studios).filter(Boolean);
   }
 
+  let mappedStreaming = [];
+  if (row.anime_streaming && Array.isArray(row.anime_streaming)) {
+    mappedStreaming = row.anime_streaming.map(as => ({
+      name: as.streaming_providers?.name || 'Unknown',
+      url: as.url
+    })).filter(Boolean);
+  }
+
   return {
     ...row,
     genres: mappedGenres.length > 0 ? mappedGenres : (row.genres || []),
     studios: mappedStudios.length > 0 ? mappedStudios : (row.studios || []),
+    streaming: mappedStreaming.length > 0 ? mappedStreaming : (row.streaming || []),
     images: row.images_json,
     trailer: {
       url: row.trailer_url,
@@ -42,7 +51,7 @@ export async function getCatalogTopAnime(filter: string = 'bypopularity', page: 
   }
 
   const offset = (page - 1) * limit;
-  let query = supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*))', { count: 'exact' });
+  let query = supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*)), anime_streaming(url, streaming_providers(name))', { count: 'exact' });
 
   if (filter === 'airing') {
     query = query.eq('status', 'Currently Airing').order('score', { ascending: false, nullsFirst: false });
@@ -109,10 +118,10 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
   
   let query;
   if (options.genres && options.genres !== 'all') {
-    query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(*)), anime_studios(studios(*))', { count: 'exact' });
+    query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(*)), anime_studios(studios(*)), anime_streaming(url, streaming_providers(name))', { count: 'exact' });
     query = query.eq('anime_genres.genres.mal_id', Number(options.genres));
   } else {
-    query = supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*))', { count: 'exact' });
+    query = supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*)), anime_streaming(url, streaming_providers(name))', { count: 'exact' });
   }
 
   if (clean) {
@@ -175,10 +184,22 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
 
 export async function getCatalogAnimeById(id: number): Promise<{ data: BaseJikanAnime | null }> {
   if (!isSupabaseConfigured) return { data: await jikanGetById(id) as any };
-  const { data, error } = await supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*))').eq('mal_id', id).single();
+  const { data, error } = await supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*)), anime_streaming(url, streaming_providers(name))').eq('mal_id', id).single();
   
   if (data) {
-    return { data: mapDbToAnime(data) as any };
+    let mapped = mapDbToAnime(data);
+    // If streaming is missing, try to fetch it live from Jikan to backfill
+    if (!mapped.streaming || mapped.streaming.length === 0) {
+      try {
+        const jikanRes = await jikanGetById(id);
+        if (jikanRes && jikanRes.streaming && jikanRes.streaming.length > 0) {
+           mapped.streaming = jikanRes.streaming;
+           // Fire and forget ingestion update
+           ingestAnimeList([jikanRes]).catch(() => {});
+        }
+      } catch (e) {}
+    }
+    return { data: mapped as any };
   }
 
   const jikanRes = await jikanGetById(id);

@@ -1,20 +1,21 @@
 const fs = require('fs');
-let content = fs.readFileSync('src/App.tsx', 'utf-8');
+let code = fs.readFileSync('src/App.tsx', 'utf-8');
 
-// Replace getShelfItem with useMemo version
-content = content.replace(
-  /const getShelfItem = \(malId: number\) => shelf\.find\(s => s\.anime\.mal_id === malId\);/g,
-  `const shelfMap = useMemo(() => {
-    const map = new Map<number, ShelfEntry>();
-    for (const item of shelf) map.set(item.anime.mal_id, item);
-    return map;
-  }, [shelf]);
-  const getShelfItem = useCallback((malId: number) => shelfMap.get(malId), [shelfMap]);`
-);
+const target = `      </main>
 
-// We need to make sure useMemo is imported
-if (!content.includes('useMemo')) {
-  content = content.replace(/import \{ useState, useEffect, useCallback \} from 'react';/, "import { useState, useEffect, useCallback, useMemo } from 'react';");
-}
+      {/* Detail Modal */}`;
 
-fs.writeFileSync('src/App.tsx', content);
+const replacement = `      </main>
+
+        {/* Right Ad - Only visible on very large screens */}
+        <aside className="hidden 2xl:block w-[160px] flex-shrink-0 mt-8 mx-4 lg:mx-8">
+          <div className="sticky top-24">
+            <AdBanner variant="vertical" />
+          </div>
+        </aside>
+      </div>
+
+      {/* Detail Modal */}`;
+
+code = code.replace(target, replacement);
+fs.writeFileSync('src/App.tsx', code);

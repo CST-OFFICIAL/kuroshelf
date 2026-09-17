@@ -316,7 +316,7 @@ const STATUS_MAP: Record<string, string> = {
   upcoming: 'NOT_YET_RELEASED'
 };
 
-async function searchAnilistFallback(query: string, page: number, limit: number, genreId?: string, type?: string, statusStr?: string, orderBy?: string): Promise<BaseJikanAnime[]> {
+async function searchAnilistFallback(query: string, page: number, limit: number, genreId?: string, typeApi: string = "ALL", statusStr?: string, orderBy?: string): Promise<BaseJikanAnime[]> {
   const genreStr = genreId && genreId !== 'all' ? GENRE_MAP[genreId] : undefined;
   const formatStr = type && type !== 'all' ? FORMAT_MAP[type.toLowerCase()] : undefined;
   const statusApi = statusStr && statusStr !== 'all' ? STATUS_MAP[statusStr.toLowerCase()] : undefined;
@@ -326,10 +326,12 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
   else if (orderBy === 'favorites') sort = 'FAVORITES_DESC';
   else if (orderBy === 'start_date') sort = 'START_DATE_DESC';
 
+  const typeArg = typeApi !== 'ALL' ? ', $type: MediaType' : '';
+  const typeFilter = typeApi !== 'ALL' ? ', type: $type' : '';
   const anilistQuery = `
-  query ($search: String, $genre: String, $format: MediaFormat, $status: MediaStatus, $page: Int, $perPage: Int) {
+  query ($search: String, $genre: String, $format: MediaFormat, $status: MediaStatus, $page: Int, $perPage: Int${typeArg}) {
     Page(page: $page, perPage: $perPage) {
-      media(search: $search, type: ANIME, genre: $genre, format: $format, status: $status, sort: [${sort}], isAdult: false, genreNotIn: ["Hentai"]) {
+      media(search: $search, genre: $genre, format: $format, status: $status, sort: [${sort}], isAdult: false, genre_not_in: ["Hentai"]${typeFilter}) {
         idMal
         title { romaji english native }
         coverImage { large }
@@ -417,32 +419,51 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
   if (options.orderBy) params.set('order_by', options.orderBy);
   if (options.sort) params.set('sort', options.sort);
 
-  const endpoint = `/anime?${params.toString()}`;
+  let baseEndpoint = '/anime';
+  let anilistType = 'ALL';
+  
+  if (options.type === 'manga' || options.type === 'novel' || options.type === 'manhwa' || options.type === 'manhua') {
+    baseEndpoint = '/manga';
+    anilistType = 'MANGA';
+  } else if (options.type && options.type !== 'all') {
+    anilistType = 'ANIME';
+  }
+
+  const endpoint = `${baseEndpoint}?${params.toString()}`;
   try {
-    const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, SEARCH_CACHE_TTL_MS);
-    if (res.data === null) {
-      throw new Error('Jikan API search unavailable');
-    }
-    return {
-      data: deduplicateByMalId(Array.isArray(res.data) ? res.data : []),
-      pagination: res.pagination,
-    };
-  } catch (err) {
-    if (true) {
-      // console.log('[Jikan] Search failed, falling back to Anilist API. Query:', clean, 'Genre:', options.genres);
-      const anilistData = await searchAnilistFallback(clean, page, limit, options.genres, options.type, options.status, options.orderBy);
-      if (anilistData && anilistData.length > 0) {
-        return {
-          data: anilistData,
-          pagination: {
-            current_page: page,
-            has_next_page: anilistData.length === limit,
-            last_visible_page: page + (anilistData.length === limit ? 1 : 0),
-            items: { count: anilistData.length, total: 10000, per_page: limit }
-          }
-        };
+    // We can fallback to Anilist right away for BOTH anime/manga if query is present, because Anilist's search is way better!
+    // But let's try Jikan first.
+    let jikanData = null;
+    let pagination = null;
+    try {
+      const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, SEARCH_CACHE_TTL_MS);
+      if (res && Array.isArray(res.data) && res.data.length > 0) {
+        jikanData = deduplicateByMalId(res.data);
+        pagination = res.pagination;
       }
+    } catch(e) {}
+    
+    // If Jikan fails or returns empty for a valid string query, force fallback to Anilist!
+    if ((!jikanData || jikanData.length === 0) && clean) {
+       const anilistData = await searchAnilistFallback(clean, page, limit, options.genres, anilistType, options.status, options.orderBy);
+       if (anilistData && anilistData.length > 0) {
+          return {
+            data: anilistData,
+            pagination: {
+              current_page: page,
+              has_next_page: anilistData.length === limit,
+              last_visible_page: page + (anilistData.length === limit ? 1 : 0),
+              items: { count: anilistData.length, total: 10000, per_page: limit }
+            }
+          };
+       }
     }
+    
+    if (jikanData) {
+      return { data: jikanData, pagination };
+    }
+    return { data: [], pagination: { current_page: page, has_next_page: false, last_visible_page: page, items: { count: 0, total: 0, per_page: limit } } };
+  } catch (err) {
     throw err;
   }
 }

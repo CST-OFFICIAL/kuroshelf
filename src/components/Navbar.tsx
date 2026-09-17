@@ -62,7 +62,7 @@ export function Navbar({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-neutral-800/80 bg-neutral-950/85 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Logo / Brand */}
         <div 
           id="brand-logo"
@@ -128,7 +128,7 @@ export function Navbar({
               placeholder="Search anime by title..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full bg-neutral-900/90 border border-neutral-800 rounded-lg pl-9 pr-8 py-1.5 text-xs sm:text-sm text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500/60 focus:ring-1 focus:ring-rose-500/50 transition-all"
+              className="w-full bg-neutral-900/90 border border-neutral-800 rounded-lg pl-9 pr-8 py-2 text-sm text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500/60 focus:ring-1 focus:ring-rose-500/50 transition-all"
             />
             {searchQuery && (
               <button

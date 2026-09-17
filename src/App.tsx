@@ -21,6 +21,7 @@ import {
 } from './services/shelfStorage';
 import { getCurrentUser, getAuthHeaders } from './services/authService';
 import { fetchServerPolls, voteInPoll } from './services/pollService';
+
 import { Navbar } from './components/Navbar';
 import { HeroBanner } from './components/HeroBanner';
 import { ExploreView } from './components/ExploreView';
@@ -58,6 +59,8 @@ export function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeTab]);
+
+
 
   // Data states
   const [spotlightAnime, setSpotlightAnime] = useState<AnimeItem | null>(null);
@@ -232,28 +235,28 @@ export function App() {
 
     try {
       // 1. Fetch Top Airing for Spotlight & Airing row
-      const airing = await getTopAnime('airing', 12);
+      const airing = await getTopAnime('airing', 24);
       if (airing.length > 0) {
         setAiringAnime(airing);
         setSpotlightAnime(airing[0]);
       }
 
       // 2. Fetch Seasonal
-      const seasonal = await getSeasonalAnime(12);
+      const seasonal = await getSeasonalAnime(24);
       if (seasonal.length > 0) {
         setSeasonalAnime(seasonal);
         setSpotlightAnime((prev) => prev || seasonal[0]);
       }
 
       // 3. Fetch Top Ranked
-      const top = await getTopAnime('bypopularity', 12);
+      const top = await getTopAnime('bypopularity', 24);
       if (top.length > 0) {
         setTopRankedAnime(top);
         setSpotlightAnime((prev) => prev || top[0]);
       }
 
       // 4. Fetch Upcoming
-      const upcoming = await getUpcomingAnime(12);
+      const upcoming = await getUpcomingAnime(24);
       if (upcoming.length > 0) {
         setUpcomingAnime(upcoming);
       }
@@ -520,7 +523,7 @@ export function App() {
   const isSearchActive = debouncedQuery.trim().length > 0;
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-rose-500/30 selection:text-rose-200">
+    <div className="min-h-screen w-full bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-rose-500/30 selection:text-rose-200">
       {/* Top Navigation */}
       <Navbar
         activeTab={isSearchActive ? '' : activeTab}
@@ -537,7 +540,10 @@ export function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
+      <div className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col justify-start">
+        
+
+        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -593,7 +599,7 @@ export function App() {
             {loadingSearch ? (
               <div className="space-y-3">
                 <p className="text-xs text-neutral-400 animate-pulse">Searching anime titles...</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                   {Array.from({ length: 12 }).map((_, i) => (
                     <div
                       key={i}
@@ -624,7 +630,7 @@ export function App() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                 {searchResults.map((anime, idx) => {
                    
                    
@@ -666,7 +672,7 @@ export function App() {
                   <div className="w-full h-80 sm:h-96 rounded-2xl bg-neutral-900 border border-neutral-800" />
                   <div className="space-y-4">
                     <div className="h-6 w-48 bg-neutral-900 rounded" />
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                       {Array.from({ length: 6 }).map((_, i) => (
                         <div key={i} className="aspect-[3/4] rounded-xl bg-neutral-900 border border-neutral-800" />
                       ))}
@@ -704,8 +710,8 @@ export function App() {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                      {airingAnime.slice(0, 6).map((anime, idx) => {
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                      {airingAnime.slice(0, 18).map((anime, idx) => {
                          
                          
                         const shelfItem = getShelfItem(anime.mal_id);
@@ -742,8 +748,8 @@ export function App() {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                      {seasonalAnime.slice(0, 6).map((anime, idx) => {
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                      {seasonalAnime.slice(0, 18).map((anime, idx) => {
                          
                          
                         const shelfItem = getShelfItem(anime.mal_id);
@@ -784,8 +790,8 @@ export function App() {
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {upcomingAnime.slice(0, 6).map((anime, idx) => {
+                      <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                        {upcomingAnime.slice(0, 18).map((anime, idx) => {
                            
                            
                         const shelfItem = getShelfItem(anime.mal_id);
@@ -849,8 +855,8 @@ export function App() {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                      {topRankedAnime.slice(0, 6).map((anime, idx) => {
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                      {topRankedAnime.slice(0, 18).map((anime, idx) => {
                          
                          
                         const shelfItem = getShelfItem(anime.mal_id);
@@ -888,7 +894,7 @@ export function App() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                   {seasonalAnime.map((anime, idx) => {
                      
                      
@@ -953,7 +959,7 @@ export function App() {
                 </div>
 
                 {loadingRankings ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                     {Array.from({ length: 12 }).map((_, i) => (
                       <div
                         key={i}
@@ -1076,7 +1082,7 @@ export function App() {
                       })}
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                       {topRankedAnime.map((anime, idx) => {
                          
                          
@@ -1179,6 +1185,9 @@ export function App() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+        
+      </div>
 
       {/* Detail Modal */}
       <AnimatePresence>

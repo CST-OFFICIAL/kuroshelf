@@ -10,6 +10,12 @@ interface InfoModalProps {
 }
 
 export function InfoModal({ type, onClose }: InfoModalProps) {
+  // Lock body scroll
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {

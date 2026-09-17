@@ -14,6 +14,12 @@ type AuthTab = 'login' | 'register' | 'otp' | 'setup_profile';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProps) {
+  // Lock body scroll
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
   const [tab, setTab] = useState<AuthTab>('login');
   const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');

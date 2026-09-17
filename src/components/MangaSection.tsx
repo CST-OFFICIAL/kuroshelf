@@ -85,7 +85,7 @@ export function MangaSection({ onSelectManga }: MangaSectionProps) {
 
       {/* Manga Grid */}
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
           {Array.from({ length: 10 }).map((_, i) => (
             <div
               key={i}
@@ -98,7 +98,7 @@ export function MangaSection({ onSelectManga }: MangaSectionProps) {
           No manga titles found. Try a different search query.
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
           {mangaList.map((manga, idx) => {
             const amazonUrl = `https://www.amazon.com/s?k=${encodeURIComponent(`${manga.title} manga volume 1`)}&tag=kuroshelf-20`;
 

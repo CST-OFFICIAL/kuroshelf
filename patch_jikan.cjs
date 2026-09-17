@@ -1,42 +1,47 @@
 const fs = require('fs');
-let code = fs.readFileSync('src/services/jikan.ts', 'utf-8');
+let code = fs.readFileSync('server/jikanService.ts', 'utf-8');
 
-const target1 = `export async function getTopAnime(
-  filter: 'airing' | 'bypopularity' | 'favorite' | 'upcoming' | 'top100' = 'bypopularity',
-  limit: number = 20,
-  page: number = 1
-): Promise<AnimeItem[]> {
-  
-  if (filter === 'top100') {
-    const res = await fetchFromApi<AnimeItem[]>('/api/anime/top100', []);
-    return Array.isArray(res.data) ? res.data : [];
+const targetJikanEndpoint = `const endpoint = \`/anime?\${params.toString()}\`;`;
+const replacementJikanEndpoint = `  let baseEndpoint = '/anime';
+  if (options.type === 'manga' || options.type === 'novel' || options.type === 'lightnovel' || options.type === 'oneshot' || options.type === 'doujin' || options.type === 'manhwa' || options.type === 'manhua') {
+    baseEndpoint = '/manga';
   }
-`;
+  const endpoint = \`\${baseEndpoint}?\${params.toString()}\`;`;
 
-const replacement1 = `export async function getTopAnime(
-  filter: 'airing' | 'bypopularity' | 'favorite' | 'upcoming' | 'top100' = 'bypopularity',
-  limit: number = 20,
-  page: number = 1,
-  genre?: string,
-  year?: string
-): Promise<AnimeItem[]> {
-  
-  if (filter === 'top100') {
-    let url = '/api/anime/top100';
-    if (genre && genre !== 'all' || (year && year !== 'all')) {
-      const params = new URLSearchParams();
-      if (genre && genre !== 'all') params.set('genre', genre);
-      if (year && year !== 'all') params.set('year', year);
-      url += '?' + params.toString();
-    }
-    const res = await fetchFromApi<AnimeItem[]>(url, []);
-    return Array.isArray(res.data) ? res.data : [];
-  }
-`;
+code = code.replace(targetJikanEndpoint, replacementJikanEndpoint);
 
-if (code.includes(target1)) {
-  code = code.replace(target1, replacement1);
-  fs.writeFileSync('src/services/jikan.ts', code);
-} else {
-  console.log("Target 1 not found!");
-}
+const targetAnilistFallback = `const anilistData = await searchAnilistFallback(clean, page, limit, options.genres, options.type, options.status, options.orderBy);`;
+const replacementAnilistFallback = `
+      let anilistType = 'ANIME';
+      if (options.type === 'manga' || options.type === 'novel' || options.type === 'manhwa' || options.type === 'manhua') {
+        anilistType = 'MANGA';
+      }
+      const anilistData = await searchAnilistFallback(clean, page, limit, options.genres, anilistType, options.status, options.orderBy);`;
+
+code = code.replace(targetAnilistFallback, replacementAnilistFallback);
+
+const targetAnilistQuery = `query ($search: String, $genre: String, $format: MediaFormat, $status: MediaStatus, $page: Int, $perPage: Int) {
+    Page(page: $page, perPage: $perPage) {
+      media(search: $search, type: ANIME`;
+const replacementAnilistQuery = `query ($search: String, $genre: String, $format: MediaFormat, $status: MediaStatus, $page: Int, $perPage: Int, $type: MediaType) {
+    Page(page: $page, perPage: $perPage) {
+      media(search: $search, type: $type, genre: $genre`;
+
+const targetAnilistQuery2 = `media(search: $search, type: ANIME, genre: $genre, format: $format, status: $status, sort: [\${sort}], isAdult: false, genreNotIn: ["Hentai"]) {`;
+const replacementAnilistQuery2 = `media(search: $search, type: $type, genre: $genre, format: $format, status: $status, sort: [\${sort}], isAdult: false, genreNotIn: ["Hentai"]) {`;
+
+// Replace first occurrence (function definition)
+code = code.replace(`async function searchAnilistFallback(query: string, page: number, limit: number, genreStr?: string, formatStr?: string, statusApi?: string, orderBy?: string) {`, 
+                    `async function searchAnilistFallback(query: string, page: number, limit: number, genreStr?: string, typeApi: string = 'ANIME', statusApi?: string, orderBy?: string) {`);
+
+code = code.replace(targetAnilistQuery, replacementAnilistQuery);
+code = code.replace(targetAnilistQuery2, replacementAnilistQuery2);
+
+const targetVariables = `const variables: any = { page, perPage: limit };
+    if (query) variables.search = query;`;
+const replacementVariables = `const variables: any = { page, perPage: limit, type: typeApi };
+    if (query) variables.search = query;`;
+code = code.replace(targetVariables, replacementVariables);
+
+// Wait, searchAnilistFallback arguments changed, formatStr was removed in the function signature replacement!
+// Let's re-add formatStr or fix the signature.

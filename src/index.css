@@ -31,4 +31,9 @@ input:focus-visible, button:focus-visible, a:focus-visible {
   outline: 2px solid #f43f5e;
   outline-offset: 2px;
 }
-html, body { overflow-x: hidden; width: 100%; }
+
+
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}

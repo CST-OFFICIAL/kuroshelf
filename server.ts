@@ -305,6 +305,11 @@ async function startServer() {
   // ---------------- Jikan Anime Catalog API ----------------
 
   // Search Anime
+  app.get('/api/test-db', async (req: Request, res: Response): Promise<void> => {
+    const { data, error } = await supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*)), anime_streaming(url, streaming_providers(name))').eq('mal_id', 16498).single();
+    res.json({ data, error });
+  });
+
   app.get('/api/anime/search', async (req: Request, res: Response): Promise<void> => {
     const query = typeof req.query.q === 'string' ? req.query.q : '';
     const page = Number(req.query.page) || 1;
@@ -356,7 +361,7 @@ async function startServer() {
 
       // First try to get top 100 from Supabase
       if (isSupabaseConfigured) {
-        let query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(name)), anime_studios(studios(name))').neq('rating', 'Rx - Hentai');
+        let query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(name)), anime_studios(studios(name)), anime_streaming(url, streaming_providers(name))').neq('rating', 'Rx - Hentai');
         
         if (year) query = query.eq('year', year);
         if (genre && genre !== 'all') query = query.eq('anime_genres.genres.name', genre);
@@ -397,6 +402,13 @@ async function startServer() {
              if (item.anime_studios && Array.isArray(item.anime_studios)) {
                cleaned.studios = item.anime_studios.map(as => as.studios).filter(Boolean);
              }
+             if (item.anime_streaming && Array.isArray(item.anime_streaming)) {
+               cleaned.streaming = item.anime_streaming.map(as => ({
+                 name: as.streaming_providers?.name || 'Unknown',
+                 url: as.url
+               })).filter(Boolean);
+             }
+             delete cleaned.anime_streaming;
              return cleaned;
            })});
            return;

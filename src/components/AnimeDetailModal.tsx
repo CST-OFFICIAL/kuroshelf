@@ -21,6 +21,7 @@ import {
 import { AnimeItem, CharacterItem, ShelfStatus, WatchPlatform } from '../types';
 import { getAnimeCharacters, getAnimeById } from '../services/jikan';
 import { siteConfig } from '../config/site';
+
 import { MediaImage } from './MediaImage';
 
 import { AuthUser } from '../types';
@@ -60,6 +61,13 @@ export function AnimeDetailModal({
   const [hoverRating, setHoverRating] = useState(0);
   const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const [communityScore, setCommunityScore] = useState<{ score: number | null, users: number } | null>(null);
+
+  // Lock body scroll
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
 
   const handleCopyLink = () => {
     if (!anime) return;
@@ -668,6 +676,7 @@ export function AnimeDetailModal({
                   <p className="text-sm text-neutral-400">No official streaming links reported for this title.</p>
                 )}
               </div>
+              
               {/* Streaming Platform Directories */}
               <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
                 <h4 className="text-sm font-bold text-neutral-200 mb-1">

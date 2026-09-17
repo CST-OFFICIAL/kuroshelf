@@ -1,19 +1,26 @@
 const fs = require('fs');
-let content = fs.readFileSync('src/App.tsx', 'utf-8');
+let code = fs.readFileSync('src/App.tsx', 'utf-8');
 
-const scrollEffect = `  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [activeTab]);
-
+const targetToRemove = `  // Failsafe to ensure body scrolling is always enabled if no modal is open
   useEffect(() => {
-    if (isSearchActive) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!selectedAnime && !authModalOpen && !infoModalType) {
+      document.body.style.overflow = 'unset';
+      document.body.style.overflowX = 'hidden';
     }
-  }, [isSearchActive]);`;
+  }, [selectedAnime, authModalOpen, infoModalType]);`;
 
-content = content.replace(
-  /  useEffect\(\(\) => \{\n    const fetchStats = async \(\)/,
-  scrollEffect + '\n\n  useEffect(() => {\n    const fetchStats = async ()'
-);
+code = code.replace(targetToRemove, "");
 
-fs.writeFileSync('src/App.tsx', content);
+const targetToInsert = `  const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);`;
+const replacementToInsert = `  const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
+
+  // Failsafe to ensure body scrolling is always enabled if no modal is open
+  useEffect(() => {
+    if (!selectedAnime && !authModalOpen && !infoModalType) {
+      document.body.style.overflow = 'unset';
+      document.body.style.overflowX = 'hidden';
+    }
+  }, [selectedAnime, authModalOpen, infoModalType]);`;
+
+code = code.replace(targetToInsert, replacementToInsert);
+fs.writeFileSync('src/App.tsx', code);
