@@ -315,7 +315,8 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
         season
         seasonYear
         averageScore
-        synopsis: description(asHtml: false)
+           synopsis: description(asHtml: false)
+           genres
       }
     }
   }
@@ -334,7 +335,8 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
           season
           seasonYear
           averageScore
-          synopsis: description(asHtml: false)
+           synopsis: description(asHtml: false)
+           genres
         }
       }
     }
@@ -353,6 +355,7 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
            seasonYear
            averageScore
            synopsis: description(asHtml: false)
+           genres
          }
        }
      }
@@ -393,11 +396,11 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
           status,
           year: m.seasonYear || null,
           synopsis: m.synopsis ? m.synopsis.replace(/<[^>]*>?/gm, '') : '',
-          genres: [],
+          genres: (m.genres || []).map(g => ({ mal_id: 0, name: g, type: 'anime', url: '' })),
         };
       }) as BaseJikanAnime[];
   } catch (err) {
-    console.log('[Anilist] Fallback error', err.message);
+    // console.log('[Anilist] Fallback error', err.message);
     return [];
   }
 }
@@ -433,7 +436,7 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
     };
   } catch (err) {
     if (clean || (options.genres && options.genres !== 'all')) {
-      console.log('[Jikan] Search failed, falling back to Anilist API. Query:', clean, 'Genre:', options.genres);
+      // console.log('[Jikan] Search failed, falling back to Anilist API. Query:', clean, 'Genre:', options.genres);
       const anilistData = await searchAnilistFallback(clean, page, limit, options.genres);
       if (anilistData && anilistData.length > 0) {
         return {

@@ -161,9 +161,9 @@ export const AnimeCard = React.memo(function AnimeCard({
         {/* Genres */}
         {anime.genres && anime.genres.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {anime.genres.slice(0, 2).map((g) => (
+            {anime.genres.slice(0, 2).map((g, i) => (
               <span
-                key={g.mal_id}
+                key={g.name || `genre-${i}`}
                 className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-800"
               >
                 {g.name}

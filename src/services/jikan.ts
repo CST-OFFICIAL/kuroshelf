@@ -98,11 +98,17 @@ export async function searchAnimePaginated(
 }
 
 export async function getTopAnime(
-  filter: 'airing' | 'bypopularity' | 'favorite' | 'upcoming' = 'bypopularity',
+  filter: 'airing' | 'bypopularity' | 'favorite' | 'upcoming' | 'top100' = 'bypopularity',
   limit: number = 20,
   page: number = 1
 ): Promise<AnimeItem[]> {
+  
+  if (filter === 'top100') {
+    const res = await fetchFromApi<AnimeItem[]>('/api/anime/top100', []);
+    return Array.isArray(res.data) ? res.data : [];
+  }
   const res = await getTopAnimePaginated(filter, page, limit);
+
   return res.data;
 }
 

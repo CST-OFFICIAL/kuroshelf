@@ -10,7 +10,8 @@ import {
   Search, 
   Menu, 
   X,
-  User as UserIcon
+  User as UserIcon,
+  Database
 } from 'lucide-react';
 import { AuthUser } from '../types';
 
@@ -41,6 +42,7 @@ export function Navbar({
     { id: 'home', label: 'Discover', icon: Compass },
     { id: 'seasonal', label: 'This Season', icon: Sparkles },
     { id: 'rankings', label: 'Rankings', icon: Trophy },
+    { id: 'advanced', label: 'Database', icon: Database },
     { id: 'manga', label: 'Manga', icon: BookOpen },
     { id: 'polls', label: 'Predictions', icon: Vote },
     { id: 'shelf', label: 'My Shelf', icon: Bookmark, badge: shelfCount },

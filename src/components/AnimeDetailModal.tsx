@@ -577,17 +577,17 @@ export function AnimeDetailModal({
               {/* Genres & Themes */}
               {((anime.genres && anime.genres.length > 0) || (anime.themes && anime.themes.length > 0)) && (
                 <div className="flex flex-wrap gap-2">
-                  {anime.genres?.map((g) => (
+                  {anime.genres?.map((g, i) => (
                     <span
-                      key={`genre-${g.mal_id}`}
+                      key={`genre-${g.name || i}`}
                       className="px-2.5 py-1 text-xs rounded-lg bg-neutral-900 text-neutral-300 border border-neutral-800 font-medium"
                     >
                       {g.name}
                     </span>
                   ))}
-                  {anime.themes?.map((t) => (
+                  {anime.themes?.map((t, i) => (
                     <span
-                      key={`theme-${t.mal_id}`}
+                      key={`theme-${t.name || i}`}
                       className="px-2.5 py-1 text-xs rounded-lg bg-neutral-900/60 text-neutral-400 border border-neutral-800 font-medium"
                     >
                       #{t.name}

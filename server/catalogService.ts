@@ -6,8 +6,13 @@ import { ingestAnimeList } from './ingestionService';
 
 
 function mapDbToAnime(row: any): AnimeItem {
+  let mappedGenres = [];
+  if (row.anime_genres && Array.isArray(row.anime_genres)) {
+    mappedGenres = row.anime_genres.map((ag) => ag.genres).filter(Boolean);
+  }
   return {
     ...row,
+    genres: mappedGenres.length > 0 ? mappedGenres : (row.genres || []),
     images: row.images_json,
     trailer: {
       url: row.trailer_url,
@@ -31,7 +36,7 @@ export async function getCatalogTopAnime(filter: string = 'bypopularity', page: 
   }
 
   const offset = (page - 1) * limit;
-  let query = supabase.from('anime').select('*', { count: 'exact' });
+  let query = supabase.from('anime').select('*, anime_genres(genres(*))', { count: 'exact' });
 
   if (filter === 'airing') {
     query = query.eq('status', 'Currently Airing').order('score', { ascending: false, nullsFirst: false });
@@ -98,10 +103,10 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
   
   let query;
   if (options.genres && options.genres !== 'all') {
-    query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(mal_id))', { count: 'exact' });
+    query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(*))', { count: 'exact' });
     query = query.eq('anime_genres.genres.mal_id', Number(options.genres));
   } else {
-    query = supabase.from('anime').select('*', { count: 'exact' });
+    query = supabase.from('anime').select('*, anime_genres(genres(*))', { count: 'exact' });
   }
 
   if (clean) {
@@ -133,8 +138,8 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
   query = query.range(offset, offset + limit - 1);
   
   const { data, count, error } = await query;
-  if (error) {
-    console.log('[Catalog] searchCatalogAnime DB query error (falling back to live API if needed):', error.message);
+  if (error && error.code !== 'PGRST103') { // PGRST103 is Requested range not satisfiable
+    console.log('[Catalog] searchCatalogAnime DB query error:', error.message);
   }
 
   // If local DB is empty, trigger Live API fallback for queries and genre searches
@@ -147,7 +152,7 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
          return jikanResult as any;
        }
      } catch (err) {
-       console.log('[Catalog] Live API ingestion failed:', err.message);
+       // Live API failed (rate limits), silent fallback to empty array
      }
   }
 
@@ -164,7 +169,7 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
 
 export async function getCatalogAnimeById(id: number): Promise<{ data: BaseJikanAnime | null }> {
   if (!isSupabaseConfigured) return { data: await jikanGetById(id) as any };
-  const { data, error } = await supabase.from('anime').select('*').eq('mal_id', id).single();
+  const { data, error } = await supabase.from('anime').select('*, anime_genres(genres(*))').eq('mal_id', id).single();
   
   if (data) {
     return { data: mapDbToAnime(data) as any };

@@ -11,8 +11,10 @@ import {
 } from './server/catalogService';
 import { runIngestionJob } from './server/ingestionService';
 import { startBackgroundScraper } from './server/scraperDaemon';
+import { supabase, isSupabaseConfigured } from './server/supabase';
 import {
   serverGetSeasonalAnime,
+  serverGetTopAnime,
   serverGetUpcomingAnime,
   serverGetAnimeCharacters,
   serverGetAnimeGenres,
