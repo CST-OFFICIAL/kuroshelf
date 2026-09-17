@@ -7,7 +7,7 @@ import { getUserBookmarks, upsertBookmark, deleteBookmark, getUserLikes, toggleL
 import {
   getCatalogTopAnime,
   searchCatalogAnime,
-  getCatalogAnimeById
+  getCatalogAnimeById, updateAnimeSynopsis
 } from './server/catalogService';
 import { runIngestionJob } from './server/ingestionService';
 import { startBackgroundScraper } from './server/scraperDaemon';
@@ -335,6 +335,31 @@ async function startServer() {
     } catch (err) {
       console.warn('[API /api/anime/search] Search unavailable:', err.message || err);
       res.status(500).json({ success: false, data: [], error: 'Catalog search currently unavailable' });
+    }
+  });
+
+  
+  app.post('/api/anime/:id/synopsis/generate', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = Number(req.params.id);
+      const title = req.body.title;
+      if (!id || !title) {
+        res.status(400).json({ success: false, error: 'Missing id or title' });
+        return;
+      }
+      
+      const { rewriteSynopsis } = require('./server/aiService');
+      const newSynopsis = await rewriteSynopsis("placeholder", title); // Force placeholder to trigger search
+      
+      if (newSynopsis && newSynopsis !== "placeholder") {
+        await updateAnimeSynopsis(id, newSynopsis);
+        res.json({ success: true, synopsis: newSynopsis });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to generate synopsis' });
+      }
+    } catch (err) {
+      console.warn('[API /api/anime/:id/synopsis/generate] Error:', err);
+      res.status(500).json({ success: false, error: 'Failed to generate synopsis' });
     }
   });
 

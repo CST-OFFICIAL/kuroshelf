@@ -210,3 +210,8 @@ export async function getCatalogAnimeById(id: number): Promise<{ data: BaseJikan
 
   return { data: null };
 }
+
+export async function updateAnimeSynopsis(id: number, synopsis: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  await supabase.from('anime').update({ synopsis }).eq('mal_id', id);
+}

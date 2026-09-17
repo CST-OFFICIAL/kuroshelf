@@ -97,7 +97,7 @@ export async function ingestAnimeList(
         status: item.status || null,
         episodes: item.episodes || null,
         duration: item.duration || null,
-        synopsis: await rewriteSynopsis(item.synopsis || null),
+        synopsis: await rewriteSynopsis(item.synopsis || null, item.title),
         score: (() => {
            const malScore = item.score;
            const aniScore = anilistScores[item.mal_id];

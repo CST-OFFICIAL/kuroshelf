@@ -694,7 +694,7 @@ export function App() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Flame className="w-5 h-5 text-rose-500" />
-                        <h2 className="text-lg sm:text-xl font-extrabold text-white font-display tracking-tight">
+                        <h2 className="text-lg sm:text-xl font-extrabold text-white font-display tracking-tight leading-normal pb-1">
                           Trending Airing Anime
                         </h2>
                       </div>
@@ -735,7 +735,7 @@ export function App() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Sparkles className="w-5 h-5 text-rose-500" />
-                        <h2 className="text-lg sm:text-xl font-extrabold text-white font-display tracking-tight">
+                        <h2 className="text-lg sm:text-xl font-extrabold text-white font-display tracking-tight leading-normal pb-1">
                           This Season&apos;s Highlights
                         </h2>
                       </div>
@@ -774,7 +774,7 @@ export function App() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-5 h-5 text-purple-400" />
-                          <h2 className="text-lg sm:text-xl font-extrabold text-white font-display tracking-tight">
+                          <h2 className="text-lg sm:text-xl font-extrabold text-white font-display tracking-tight leading-normal pb-1">
                             Anticipated Upcoming Releases
                           </h2>
                         </div>
@@ -839,7 +839,7 @@ export function App() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Trophy className="w-5 h-5 text-amber-400" />
-                        <h2 className="text-lg sm:text-xl font-extrabold text-white font-display tracking-tight">
+                        <h2 className="text-lg sm:text-xl font-extrabold text-white font-display tracking-tight leading-normal pb-1">
                           Most Popular Titles of All Time
                         </h2>
                       </div>

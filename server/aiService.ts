@@ -8,7 +8,7 @@ const ai = process.env.GEMINI_API_KEY
 let quotaExhausted = false;
 let quotaExhaustedResetTime = 0;
 
-export async function rewriteSynopsis(originalSynopsis: string | null): Promise<string | null> {
+export async function rewriteSynopsis(originalSynopsis: string | null, title?: string): Promise<string | null> {
   if (!originalSynopsis) return null;
   
   // Quick clean up of obvious trailing credits before sending to AI (saves tokens/time)
@@ -19,34 +19,39 @@ export async function rewriteSynopsis(originalSynopsis: string | null): Promise<
     
   if (!cleaned) return null;
   
+  const isPlaceholder = cleaned.length < 50 || cleaned.toLowerCase().includes('second season of') || cleaned.toLowerCase().includes('sequel to');
+  
   if (!ai) {
      return cleaned; // Fallback to basic clean if no AI key
   }
-
+  
   // If we are currently rate limited, skip AI and just return the cleaned text
   if (quotaExhausted && Date.now() < quotaExhaustedResetTime) {
      return cleaned;
   } else if (quotaExhausted && Date.now() >= quotaExhaustedResetTime) {
      quotaExhausted = false;
   }
-
+  
   const maxRetries = 3;
   let attempt = 0;
   
   while (attempt < maxRetries) {
     try {
-      const prompt = `Rewrite the following anime synopsis to be engaging, professional, and completely original. 
-Do NOT include any credits, sources, notes, or references to websites like MyAnimeList, AniList, Crunchyroll, etc.
-Just provide the pure synopsis text.
-
-Original:
-${cleaned}
-      `.trim();
-
-      const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
-        contents: prompt,
-      });
+      let response;
+      if (isPlaceholder && title) {
+        console.log(`[AI] Synopsis for "${title}" seems like a placeholder. Searching the web for a real one...`);
+        response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: `Search the internet for the plot of the anime/manga "${title}". Write an engaging, professional, and spoiler-free 2-paragraph synopsis. Do NOT include any credits, sources, notes, or references to websites. Just provide the pure synopsis text.`,
+          tools: [{ googleSearch: {} }]
+        });
+      } else {
+        const prompt = `Rewrite the following anime synopsis to be engaging, professional, and completely original. Do NOT include any credits, sources, notes, or references to websites like MyAnimeList, AniList, Crunchyroll, etc.\nJust provide the pure synopsis text.\n\nOriginal:\n${cleaned}`.trim();
+        response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+        });
+      }
       
       return response.text?.trim() || cleaned;
     } catch (error: any) {

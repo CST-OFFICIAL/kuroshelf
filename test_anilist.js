@@ -3,7 +3,7 @@ const https = require('https');
 const data = JSON.stringify({
   query: `query {
     Page(page: 1, perPage: 5) {
-      media(search: "Koori no Jouheki") {
+      media(search: "Ramparts of Ice") {
         idMal
         type
         title {

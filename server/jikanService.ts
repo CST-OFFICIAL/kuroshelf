@@ -316,9 +316,9 @@ const STATUS_MAP: Record<string, string> = {
   upcoming: 'NOT_YET_RELEASED'
 };
 
-async function searchAnilistFallback(query: string, page: number, limit: number, genreId?: string, typeApi: string = "ALL", statusStr?: string, orderBy?: string): Promise<BaseJikanAnime[]> {
+async function searchAnilistFallback(query: string, page: number, limit: number, genreId?: string, typeApi: string = "ALL", statusStr?: string, orderBy?: string, originalType?: string): Promise<BaseJikanAnime[]> {
   const genreStr = genreId && genreId !== 'all' ? GENRE_MAP[genreId] : undefined;
-  const formatStr = type && type !== 'all' ? FORMAT_MAP[type.toLowerCase()] : undefined;
+  const formatStr = originalType && originalType !== 'all' ? FORMAT_MAP[originalType.toLowerCase()] : undefined;
   const statusApi = statusStr && statusStr !== 'all' ? STATUS_MAP[statusStr.toLowerCase()] : undefined;
   
   let sort = 'POPULARITY_DESC';
@@ -363,7 +363,7 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
     });
     const data = (await res.json()) as any;
     
-    if (!data?.data?.Page?.media) return [];
+    console.log("Anilist fallback returned:", data?.data?.Page?.media?.length); if (!data?.data?.Page?.media) return [];
     
     return data.data.Page.media
       .filter((m: any) => m.idMal)
@@ -445,7 +445,7 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
     
     // If Jikan fails or returns empty for a valid string query, force fallback to Anilist!
     if ((!jikanData || jikanData.length === 0) && clean) {
-       const anilistData = await searchAnilistFallback(clean, page, limit, options.genres, anilistType, options.status, options.orderBy);
+       console.log("Triggering anilist fallback for:", clean); const anilistData = await searchAnilistFallback(clean, page, limit, options.genres, anilistType, options.status, options.orderBy, options.type);
        if (anilistData && anilistData.length > 0) {
           return {
             data: anilistData,
@@ -559,11 +559,29 @@ export async function serverSearchManga(query: string, page: number = 1, limit: 
   const safePage = Math.max(Number(page) || 1, 1);
   const safeLimit = Math.min(Math.max(Number(limit) || 24, 1), 25);
   const endpoint = `/manga?q=${encodeURIComponent(clean)}&page=${safePage}&limit=${safeLimit}`;
-  const res = await fetchFromJikan<unknown[]>(endpoint, SEARCH_CACHE_TTL_MS);
-  return {
-    data: Array.isArray(res.data) ? res.data : [],
-    pagination: res.pagination,
-  };
+  
+  try {
+    const res = await fetchFromJikan<unknown[]>(endpoint, SEARCH_CACHE_TTL_MS);
+    if (res && Array.isArray(res.data) && res.data.length > 0) {
+      return { data: res.data, pagination: res.pagination };
+    }
+  } catch (err) {}
+  
+  // Anilist fallback
+  const anilistData = await searchAnilistFallback(clean, safePage, safeLimit, undefined, "MANGA", undefined, undefined, "manga");
+  if (anilistData && anilistData.length > 0) {
+    return {
+      data: anilistData,
+      pagination: {
+        current_page: safePage,
+        has_next_page: anilistData.length === safeLimit,
+        last_visible_page: safePage + (anilistData.length === safeLimit ? 1 : 0),
+        items: { count: anilistData.length, total: 10000, per_page: safeLimit }
+      }
+    };
+  }
+  
+  return { data: [], pagination: { current_page: safePage, has_next_page: false, last_visible_page: safePage, items: { count: 0, total: 0, per_page: safeLimit } } };
 }
 
 
