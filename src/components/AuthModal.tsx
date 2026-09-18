@@ -14,10 +14,16 @@ type AuthTab = 'login' | 'register' | 'otp' | 'setup_profile';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProps) {
-  // Lock body scroll
+  // Lock body and html scroll
   useEffect(() => {
+    const prevBody = document.body.style.overflow;
+    const prevHtml = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBody || '';
+      document.documentElement.style.overflow = prevHtml || '';
+    };
   }, []);
 
   const [tab, setTab] = useState<AuthTab>('login');
@@ -177,15 +183,15 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
   const isProfileComplete = currentUser?.profile_setup_complete;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overscroll-contain">
       <div 
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/80"
         onClick={() => {
           if (!currentUser || isProfileComplete) onClose();
         }}
       />
       
-      <div className="relative w-full max-w-sm bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl shadow-black overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-sm bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl shadow-black overflow-hidden animate-in fade-in zoom-in-95 duration-200 overscroll-contain">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-neutral-800/60 bg-neutral-900/40">
           <div className="flex items-center gap-2">
@@ -235,7 +241,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                   <span className="font-semibold text-neutral-200">Personal Shelf Synced</span>
                 </div>
                 <p className="text-[11px] text-neutral-400 leading-relaxed">
-                  Your reading and watching progress, custom ratings, and community prediction votes are securely saved to your Kuro Shelf database account.
+                  Your reading and watching progress, custom ratings, and community prediction votes are securely saved to your Kuro Shelf account.
                 </p>
               </div>
 

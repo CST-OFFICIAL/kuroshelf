@@ -84,10 +84,10 @@ export function AdvancedSearchView({
     <div className="space-y-6">
       <div className="border-b border-neutral-800 pb-6">
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-display">
-          Advanced Search
+          Anime Catalog
         </h1>
         <p className="text-sm text-neutral-400 mt-1">
-          Search the entire global anime database. Find underrated gems or specific titles.
+          Explore and filter the entire anime catalog. Find underrated gems, classic titles, or upcoming releases.
         </p>
       </div>
 

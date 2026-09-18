@@ -99,26 +99,21 @@ export async function searchAnimePaginated(
 
 export async function getTopAnime(
   filter: 'airing' | 'bypopularity' | 'favorite' | 'upcoming' | 'top100' = 'bypopularity',
-  limit: number = 20,
+  limit: number = 100,
   page: number = 1,
   genre?: string,
   year?: string
 ): Promise<AnimeItem[]> {
-  
-  if (filter === 'top100') {
-    let url = '/api/anime/top100';
-    if (genre && genre !== 'all' || (year && year !== 'all')) {
-      const params = new URLSearchParams();
-      if (genre && genre !== 'all') params.set('genre', genre);
-      if (year && year !== 'all') params.set('year', year);
-      url += '?' + params.toString();
-    }
-    const res = await fetchFromApi<AnimeItem[]>(url, []);
-    return Array.isArray(res.data) ? res.data : [];
-  }
-  const res = await getTopAnimePaginated(filter, page, limit);
+  const params = new URLSearchParams();
+  if (filter) params.set('filter', filter);
+  if (genre && genre !== 'all') params.set('genre', genre);
+  if (year && year !== 'all') params.set('year', year);
+  if (limit) params.set('limit', String(limit));
+  if (page) params.set('page', String(page));
 
-  return res.data;
+  const url = `/api/anime/top100?${params.toString()}`;
+  const res = await fetchFromApi<AnimeItem[]>(url, []);
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function getTopAnimePaginated(

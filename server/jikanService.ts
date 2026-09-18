@@ -300,6 +300,21 @@ const GENRE_MAP: Record<string, string> = {
   '30': 'Sports'
 };
 
+export const GENRE_NAME_TO_MAL_ID: Record<string, string> = {
+  action: '1',
+  adventure: '2',
+  comedy: '4',
+  drama: '8',
+  fantasy: '10',
+  romance: '22',
+  'sci-fi': '24',
+  'slice of life': '36',
+  isekai: '62',
+  horror: '14',
+  mystery: '7',
+  sports: '30'
+};
+
 
 const FORMAT_MAP: Record<string, string> = {
   tv: 'TV',
@@ -589,4 +604,177 @@ export async function serverGetAnimePictures(id: number): Promise<{ jpg?: { imag
   const endpoint = `/anime/${id}/pictures`;
   const res = await fetchFromJikan<any[]>(endpoint, DETAIL_CACHE_TTL_MS);
   return res.data || [];
+}
+
+export async function serverGetTop100Anime(options: {
+  filter?: string;
+  genre?: string;
+  year?: number | string;
+  limit?: number;
+}): Promise<BaseJikanAnime[]> {
+  const targetLimit = Math.min(Math.max(Number(options.limit) || 100, 1), 100);
+  const filter = options.filter || 'bypopularity';
+  const genre = options.genre && options.genre !== 'all' ? options.genre : undefined;
+  const year = options.year && options.year !== 'all' ? Number(options.year) : undefined;
+
+  // Cache key
+  const cacheKey = `top100:${filter}:${genre || 'all'}:${year || 'all'}:${targetLimit}`;
+  const cached = memoryCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < CATALOG_CACHE_TTL_MS) && Array.isArray(cached.data) && cached.data.length > 0) {
+    return cached.data as BaseJikanAnime[];
+  }
+
+  // 1. Primary: Anilist GraphQL for accurate, unthrottled 100-item fetch across any category and genre
+  try {
+    let sort = '[SCORE_DESC]';
+    if (filter === 'bypopularity') sort = '[POPULARITY_DESC]';
+    else if (filter === 'favorite') sort = '[FAVORITES_DESC]';
+    else if (filter === 'upcoming') sort = '[POPULARITY_DESC]';
+    else if (filter === 'airing') sort = '[SCORE_DESC]';
+
+    let statusApi: string | undefined = undefined;
+    if (filter === 'airing') statusApi = 'RELEASING';
+    if (filter === 'upcoming') statusApi = 'NOT_YET_RELEASED';
+
+    const isIsekai = genre?.toLowerCase() === 'isekai';
+    const anilistGenre = isIsekai ? undefined : genre;
+    const anilistTag = isIsekai ? 'Isekai' : undefined;
+
+    const anilistQuery = `
+      query ($genre: String, $tag: String, $seasonYear: Int, $status: MediaStatus, $page: Int, $perPage: Int) {
+        Page(page: $page, perPage: $perPage) {
+          media(genre: $genre, tag: $tag, seasonYear: $seasonYear, status: $status, sort: ${sort}, isAdult: false, genre_not_in: ["Hentai"], type: ANIME) {
+            idMal
+            id
+            title { romaji english native }
+            coverImage { large }
+            status
+            episodes
+            season
+            seasonYear
+            averageScore
+            popularity
+            favourites
+            synopsis: description(asHtml: false)
+            genres
+            studios(isMain: true) { nodes { name } }
+          }
+        }
+      }
+    `;
+
+    const [p1Res, p2Res] = await Promise.all([
+      fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          query: anilistQuery,
+          variables: {
+            genre: anilistGenre,
+            tag: anilistTag,
+            seasonYear: year,
+            status: statusApi,
+            page: 1,
+            perPage: 50
+          }
+        }),
+        signal: AbortSignal.timeout(6000)
+      }).then(r => r.json()).catch(() => null),
+      targetLimit > 50 ? fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          query: anilistQuery,
+          variables: {
+            genre: anilistGenre,
+            tag: anilistTag,
+            seasonYear: year,
+            status: statusApi,
+            page: 2,
+            perPage: 50
+          }
+        }),
+        signal: AbortSignal.timeout(6000)
+      }).then(r => r.json()).catch(() => null) : Promise.resolve(null)
+    ]);
+
+    const mediaList1 = p1Res?.data?.Page?.media || [];
+    const mediaList2 = p2Res?.data?.Page?.media || [];
+    const allMedia = [...mediaList1, ...mediaList2];
+
+    if (allMedia.length > 0) {
+      const mapped: BaseJikanAnime[] = allMedia.map((m: any) => {
+        let st = 'Finished Airing';
+        if (m.status === 'RELEASING') st = 'Currently Airing';
+        if (m.status === 'NOT_YET_RELEASED') st = 'Not yet aired';
+
+        const malId = m.idMal || (m.id ? m.id + 1000000 : Math.floor(Math.random() * 900000 + 100000));
+        return {
+          mal_id: malId,
+          url: `https://myanimelist.net/anime/${malId}`,
+          title: m.title?.english || m.title?.romaji || 'Unknown Title',
+          title_english: m.title?.english || null,
+          title_japanese: m.title?.native || null,
+          images: {
+            jpg: { image_url: m.coverImage?.large },
+            webp: { image_url: m.coverImage?.large, large_image_url: m.coverImage?.large }
+          },
+          synopsis: m.synopsis || null,
+          type: 'TV',
+          episodes: m.episodes || null,
+          status: st,
+          airing: m.status === 'RELEASING',
+          score: m.averageScore ? Number((m.averageScore / 10).toFixed(2)) : null,
+          scored_by: m.popularity || null,
+          year: m.seasonYear || null,
+          genres: (m.genres || []).map((g: string) => ({ mal_id: 0, type: 'anime', name: g, url: '' })),
+          studios: m.studios?.nodes ? m.studios.nodes.map((s: any) => ({ mal_id: 0, type: 'anime', name: s.name, url: '' })) : []
+        };
+      });
+
+      const unique = deduplicateByMalId(mapped).slice(0, targetLimit);
+      if (unique.length > 0) {
+        memoryCache.set(cacheKey, { data: unique, timestamp: Date.now() });
+        return unique;
+      }
+    }
+  } catch (anilistErr) {
+    console.warn('[Top100] Anilist fetch fallback notice:', anilistErr);
+  }
+
+  // 2. Fallback: Jikan multi-page fetch (4 pages of 25 = 100 items)
+  try {
+    const pages = [1, 2, 3, 4];
+    const jikanGenreId = genre ? GENRE_NAME_TO_MAL_ID[genre.toLowerCase()] : undefined;
+
+    const jikanFetches = pages.map(page => {
+      if (jikanGenreId || year) {
+        return serverSearchAnime({
+          genres: jikanGenreId,
+          orderBy: filter === 'bypopularity' ? 'popularity' : 'score',
+          sort: 'desc',
+          page,
+          limit: 25
+        }).then(r => r.data).catch(() => []);
+      }
+      if (filter === 'airing') {
+        return serverGetSeasonalAnime(page, 25).then(r => r.data).catch(() => []);
+      }
+      if (filter === 'upcoming') {
+        return serverGetUpcomingAnime(page, 25).then(r => r.data).catch(() => []);
+      }
+      return serverGetTopAnime(filter === 'top100' ? 'favorite' : filter, page, 25).then(r => r.data).catch(() => []);
+    });
+
+    const results = await Promise.all(jikanFetches);
+    const combined = deduplicateByMalId(results.flat()).slice(0, targetLimit);
+    if (combined.length > 0) {
+      memoryCache.set(cacheKey, { data: combined, timestamp: Date.now() });
+      return combined;
+    }
+  } catch (jikanErr) {
+    console.warn('[Top100] Jikan fetch fallback error:', jikanErr);
+  }
+
+  return [];
 }

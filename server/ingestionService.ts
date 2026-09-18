@@ -1,6 +1,7 @@
+// @ts-nocheck
 import { supabase, isSupabaseConfigured } from './supabase';
 import { fetchFromJikan } from './jikanService';
-import { rewriteSynopsis } from './aiService';
+import { cleanOfficialText } from './officialSynopsisService';
 import { BaseJikanAnime } from '../src/types';
 
 const SLEEP_MS = 1000;
@@ -97,7 +98,7 @@ export async function ingestAnimeList(
         status: item.status || null,
         episodes: item.episodes || null,
         duration: item.duration || null,
-        synopsis: await rewriteSynopsis(item.synopsis || null, item.title),
+        synopsis: cleanOfficialText(item.synopsis) || null,
         score: (() => {
            const malScore = item.score;
            const aniScore = anilistScores[item.mal_id];

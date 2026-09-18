@@ -9,6 +9,7 @@ import {
   searchCatalogAnime,
   getCatalogAnimeById, updateAnimeSynopsis
 } from './server/catalogService';
+import { resolveOfficialSynopsis } from './server/officialSynopsisService';
 import { runIngestionJob } from './server/ingestionService';
 import { startBackgroundScraper } from './server/scraperDaemon';
 import { supabase, isSupabaseConfigured } from './server/supabase';
@@ -20,6 +21,7 @@ import {
   serverGetAnimeGenres,
   serverGetTopManga,
   serverSearchManga,
+  serverGetTop100Anime,
 } from './server/jikanService';
 
 // Extend Express Request type with authenticated user
@@ -200,13 +202,13 @@ async function startServer() {
   app.get('/api/ratings/leaderboard', async (req: Request, res: Response): Promise<void> => {
     try {
       const { getTopCommunityAnime } = await import('./server/db');
-      const { serverGetAnimeById } = await import('./server/jikanService');
+      const { serverGetAnimeDetails } = await import('./server/jikanService');
       const topIds = await getTopCommunityAnime(24);
       
       // Fetch details for each from jikan (could be slow if not cached, but we'll try)
       const results = [];
       for (const item of topIds) {
-        const details = await serverGetAnimeById(item.id);
+        const details = await serverGetAnimeDetails(item.id);
         if (details) {
           results.push({
             ...details,
@@ -339,128 +341,148 @@ async function startServer() {
   });
 
   
-  app.post('/api/anime/:id/synopsis/generate', async (req: Request, res: Response): Promise<void> => {
+  // Fetch and resolve verified official synopsis from AniList / MyAnimeList (no AI generation)
+  const handleOfficialSynopsis = async (req: Request, res: Response): Promise<void> => {
     try {
       const id = Number(req.params.id);
-      const title = req.body.title;
-      if (!id || !title) {
-        res.status(400).json({ success: false, error: 'Missing id or title' });
+      const title = typeof req.body?.title === 'string' ? req.body.title : undefined;
+      if (!id && !title) {
+        res.status(400).json({ success: false, error: 'Missing anime id or title' });
         return;
       }
-      
-      const { rewriteSynopsis } = require('./server/aiService');
-      const newSynopsis = await rewriteSynopsis("placeholder", title); // Force placeholder to trigger search
-      
-      if (newSynopsis && newSynopsis !== "placeholder") {
-        await updateAnimeSynopsis(id, newSynopsis);
-        res.json({ success: true, synopsis: newSynopsis });
+
+      const result = await resolveOfficialSynopsis(id, title);
+      if (result.success && result.synopsis) {
+        res.json({ success: true, synopsis: result.synopsis, source: result.source });
       } else {
-        res.status(500).json({ success: false, error: 'Failed to generate synopsis' });
+        res.status(404).json({ success: false, error: result.error || 'Official synopsis not found' });
       }
-    } catch (err) {
-      console.warn('[API /api/anime/:id/synopsis/generate] Error:', err);
-      res.status(500).json({ success: false, error: 'Failed to generate synopsis' });
+    } catch (err: any) {
+      console.warn('[API synopsis official] Error:', err);
+      res.status(500).json({ success: false, error: 'Failed to fetch official synopsis' });
     }
-  });
+  };
+
+  app.post('/api/anime/:id/synopsis/official', handleOfficialSynopsis);
+  app.post('/api/anime/:id/synopsis/generate', handleOfficialSynopsis);
 
   // Top Anime Rankings
   app.get('/api/anime/top', async (req: Request, res: Response): Promise<void> => {
     const filter = typeof req.query.filter === 'string' ? req.query.filter : 'bypopularity';
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 24;
+    const genre = typeof req.query.genre === 'string' ? req.query.genre : undefined;
+    const year = typeof req.query.year === 'string' ? req.query.year : undefined;
 
     try {
+      if (limit > 25 || filter === 'top100' || (genre && genre !== 'all') || (year && year !== 'all')) {
+        const top100 = await serverGetTop100Anime({ filter, genre, year, limit });
+        res.json({
+          success: true,
+          data: top100,
+          pagination: {
+            current_page: page,
+            has_next_page: false,
+            last_visible_page: 1,
+            items: { count: top100.length, total: top100.length, per_page: limit }
+          }
+        });
+        return;
+      }
+
       const result = await getCatalogTopAnime(filter, page, limit);
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
-      // console.warn('[API /api/anime/top] Fetch unavailable:', err.message || err);
       res.status(500).json({ success: false, data: [], error: 'Failed to fetch rankings' });
     }
   });
 
-
+  // Top 100 Anime Endpoint - Full 100 items for all categories, genres, and years
   app.get('/api/anime/top100', async (req: Request, res: Response): Promise<void> => {
     try {
-      const year = req.query.year ? Number(req.query.year) : undefined;
+      const year = req.query.year ? String(req.query.year) : undefined;
       const genre = req.query.genre ? String(req.query.genre) : undefined;
+      const filter = req.query.filter ? String(req.query.filter) : 'top100';
+      const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 100);
 
-      // First try to get top 100 from Supabase
+      // Check if Supabase has items
+      let supabaseItems: any[] = [];
       if (isSupabaseConfigured) {
-        let query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(name)), anime_studios(studios(name)), anime_streaming(url, streaming_providers(name))').neq('rating', 'Rx - Hentai');
-        
-        if (year) query = query.eq('year', year);
-        if (genre && genre !== 'all') query = query.eq('anime_genres.genres.name', genre);
-        
-        const { data, error } = await query.order('score', { ascending: false, nullsFirst: false }).limit(250);
-        
-        if (!error && data && data.length > 0) {
-           // Post-filter to ensure NO adult content slips through regardless of rating
-           const safeData = data.filter(item => {
-             if (item.rating && item.rating.includes('Rx')) return false;
-             if (item.rating && item.rating.includes('Hentai')) return false;
-             
-             // Check if it has any hentai/erotica genres
-             if (item.anime_genres && Array.isArray(item.anime_genres)) {
-               for (const ag of item.anime_genres) {
-                 const gName = ag.genres?.name?.toLowerCase() || '';
-                 if (gName.includes('hentai') || gName.includes('erotica') || gName.includes('adult cast')) {
-                   return false;
-                 }
-               }
-             }
-             if (item.genres && Array.isArray(item.genres)) {
-               for (const g of item.genres) {
-                 const gName = (g.name || '').toLowerCase();
-                 if (gName.includes('hentai') || gName.includes('erotica') || gName.includes('adult cast')) {
-                   return false;
-                 }
-               }
-             }
-             return true;
-           }).slice(0, 100);
+        try {
+          let query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(name)), anime_studios(studios(name)), anime_streaming(url, streaming_providers(name))').neq('rating', 'Rx - Hentai');
+          
+          if (year && year !== 'all') query = query.eq('year', Number(year));
+          if (genre && genre !== 'all') query = query.eq('anime_genres.genres.name', genre);
+          if (filter === 'airing') query = query.eq('status', 'Currently Airing');
+          if (filter === 'upcoming') query = query.eq('status', 'Not yet aired');
+          
+          const { data, error } = await query.order('score', { ascending: false, nullsFirst: false }).limit(limit);
+          
+          if (!error && data && data.length > 0) {
+            const safeData = data.filter(item => {
+              if (item.rating && (item.rating.includes('Rx') || item.rating.includes('Hentai'))) return false;
+              if (item.anime_genres && Array.isArray(item.anime_genres)) {
+                for (const ag of item.anime_genres) {
+                  const gName = ag.genres?.name?.toLowerCase() || '';
+                  if (gName.includes('hentai') || gName.includes('erotica') || gName.includes('adult cast')) return false;
+                }
+              }
+              return true;
+            });
 
-           res.json({ success: true, data: safeData.map(item => {
-             const cleaned = { ...item };
-             delete cleaned.anime_genres;
-             delete cleaned.anime_studios;
-             cleaned.images = cleaned.images_json;
-             if (item.anime_studios && Array.isArray(item.anime_studios)) {
-               cleaned.studios = item.anime_studios.map(as => as.studios).filter(Boolean);
-             }
-             if (item.anime_streaming && Array.isArray(item.anime_streaming)) {
-               cleaned.streaming = item.anime_streaming.map(as => ({
-                 name: as.streaming_providers?.name || 'Unknown',
-                 url: as.url
-               })).filter(Boolean);
-             }
-             delete cleaned.anime_streaming;
-             return cleaned;
-           })});
-           return;
+            supabaseItems = safeData.map(item => {
+              const cleaned = { ...item };
+              delete cleaned.anime_genres;
+              delete cleaned.anime_studios;
+              cleaned.images = cleaned.images_json;
+              if (item.anime_studios && Array.isArray(item.anime_studios)) {
+                cleaned.studios = item.anime_studios.map((as: any) => as.studios).filter(Boolean);
+              }
+              if (item.anime_streaming && Array.isArray(item.anime_streaming)) {
+                cleaned.streaming = item.anime_streaming.map((as: any) => ({
+                  name: as.streaming_providers?.name || 'Unknown',
+                  url: as.url
+                })).filter(Boolean);
+              }
+              delete cleaned.anime_streaming;
+              return cleaned;
+            });
+          }
+        } catch (dbErr) {
+          console.warn('[API /api/anime/top100] Supabase query notice:', dbErr);
         }
       }
-      
-      // Fallback: Fetch from Jikan/Anilist using serverSearchAnime (since we need genres/year)
-      if (year || genre) {
-          const searchParams: any = { orderBy: 'score', limit: 25, sort: 'desc' };
-          if (genre && genre !== 'all') searchParams.genres = genre;
-          // For Jikan we might need to map genre name to ID, but Anilist fallback handles name natively if we mapped it.
-          // Wait, our Anilist fallback uses genres (which maps ID to name), but we are passing name directly.
-          // In serverSearchAnime, options.genres is expected to be ID. But if it's not 'all', the fallback tries to map GENRE_MAP[genreId].
-          // To avoid breaking the fallback, we'll just let it fail gracefully or return empty for Jikan if it's missing.
+
+      // If Supabase already provided the full list (e.g. 100 items), return it directly
+      if (supabaseItems.length >= limit) {
+        res.json({ success: true, data: supabaseItems.slice(0, limit) });
+        return;
       }
-      
-      const p1 = serverGetTopAnime('favorite', 1, 25);
-      const p2 = serverGetTopAnime('favorite', 2, 25);
-      const p3 = serverGetTopAnime('favorite', 3, 25);
-      const p4 = serverGetTopAnime('favorite', 4, 25);
-      
-      const results = await Promise.all([p1, p2, p3, p4]);
-      const combined = results.map(r => (r as any).data).flat();
-      
-      res.json({ success: true, data: combined });
+
+      // Fetch external items to guarantee a full list of 100 items
+      const externalItems = await serverGetTop100Anime({ filter, genre, year, limit });
+
+      // Merge Supabase items and external items without duplicates
+      const seenIds = new Set<number>();
+      const combined: any[] = [];
+
+      for (const item of supabaseItems) {
+        if (item.mal_id && !seenIds.has(item.mal_id)) {
+          seenIds.add(item.mal_id);
+          combined.push(item);
+        }
+      }
+
+      for (const item of externalItems) {
+        if (item.mal_id && !seenIds.has(item.mal_id)) {
+          seenIds.add(item.mal_id);
+          combined.push(item);
+        }
+      }
+
+      res.json({ success: true, data: combined.slice(0, limit) });
     } catch (err) {
-      console.warn('[API /api/anime/top100] Fetch unavailable:', err);
+      console.warn('[API /api/anime/top100] Error:', err);
       res.status(500).json({ success: false, data: [], error: 'Failed to fetch Top 100' });
     }
   });
@@ -589,7 +611,7 @@ async function startServer() {
   // ---------------- Vite / Static Asset Serving ----------------
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false },
       appType: 'spa',
     });
     app.use(vite.middlewares);

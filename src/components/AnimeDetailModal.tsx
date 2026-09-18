@@ -61,12 +61,42 @@ export function AnimeDetailModal({
   const [hoverRating, setHoverRating] = useState(0);
   const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const [communityScore, setCommunityScore] = useState<{ score: number | null, users: number } | null>(null);
+  const [liveSynopsis, setLiveSynopsis] = useState<string | null>(initialAnime?.synopsis || null);
 
-  // Lock body scroll
+  // Lock body and html scroll
   useEffect(() => {
+    const prevBody = document.body.style.overflow;
+    const prevHtml = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBody || '';
+      document.documentElement.style.overflow = prevHtml || '';
+    };
   }, []);
+
+  useEffect(() => {
+    setLiveSynopsis(initialAnime?.synopsis || null);
+
+    // If synopsis is missing or a placeholder stub, automatically fetch the official publisher synopsis
+    const raw = initialAnime?.synopsis?.trim() || '';
+    const isStub = !raw || raw.length < 50 || raw.toLowerCase().includes('second season of') || raw.toLowerCase().includes('sequel to');
+    if (isStub && initialAnime?.mal_id) {
+      fetch(`/api/anime/${initialAnime.mal_id}/synopsis/official`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: initialAnime.title }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.synopsis) {
+            setLiveSynopsis(data.synopsis);
+            setAnime((prev) => (prev ? { ...prev, synopsis: data.synopsis } : prev));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [initialAnime?.mal_id, initialAnime?.synopsis, initialAnime?.title]);
 
 
   const handleCopyLink = () => {
@@ -269,13 +299,18 @@ export function AnimeDetailModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 overscroll-contain"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div 
         id="anime-detail-modal"
-        className="relative w-full max-w-4xl bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col"
+        className="relative w-full max-w-4xl bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col overscroll-contain"
       >
         {/* Header with Close & Actions */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800/80 bg-neutral-900/60 sticky top-0 z-20 backdrop-blur-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-neutral-900 sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/10 text-rose-400 border border-rose-500/20">
               {anime.type || 'Anime'}
@@ -305,7 +340,7 @@ export function AnimeDetailModal({
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 overscroll-contain">
           {/* Main Top Header Block */}
           <div className="flex flex-col md:flex-row gap-6 items-start">
             {/* Poster Thumbnail */}
@@ -418,7 +453,7 @@ export function AnimeDetailModal({
               {/* Countdown or Scheduled Broadcast */}
               {countdown ? (
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-rose-950/40 border border-rose-800/60 text-xs text-rose-200">
-                  <Radio className="w-4 h-4 text-rose-400 animate-pulse shrink-0" />
+                  <Radio className="w-4 h-4 text-rose-400 shrink-0" />
                   <div className="flex-1">
                     <span className="font-semibold block text-neutral-200">
                       {anime.status === 'Not yet aired' ? 'Upcoming Premiere Countdown:' : 'Next Episode Broadcast in:'}
@@ -603,33 +638,11 @@ export function AnimeDetailModal({
                 </div>
               )}
 
-              {/* Synopsis */}
+              {/* Official Publisher Synopsis */}
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-neutral-200 uppercase tracking-wider">Synopsis</h3>
-                  <button onClick={async () => {
-                    try {
-                      const res = await fetch(`/api/anime/${anime.mal_id}/synopsis/generate`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ title: anime.title })
-                      });
-                      const data = await res.json();
-                      if (data.success && data.synopsis) {
-                         alert('Synopsis updated! Close and reopen to see changes.');
-                      } else {
-                         alert('Failed to update synopsis. The AI API might be busy or out of quota.');
-                      }
-                    } catch (err) {
-                      alert('Error updating synopsis.');
-                    }
-                  }} className="opacity-0 group-hover:opacity-100 p-1 bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 rounded-md transition-all flex items-center gap-1 text-[10px] font-bold" title="Regenerate Synopsis with AI (Requires Auth/AI Key)">
-                    <Sparkles className="w-3 h-3" />
-                    <span>AI Enhance</span>
-                  </button>
-                </div>
+                <h3 className="text-sm font-bold text-neutral-200 uppercase tracking-wider">Synopsis</h3>
                 <p className="text-neutral-300 text-sm leading-relaxed whitespace-pre-line">
-                  {anime.synopsis || 'No synopsis provided for this title.'}
+                  {liveSynopsis || anime.synopsis || 'No synopsis provided for this title.'}
                 </p>
               </div>
 

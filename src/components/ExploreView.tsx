@@ -126,21 +126,15 @@ export function ExploreView({
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4 sm:gap-6">
         {results.map((anime, idx) => (
-          <motion.div
+          <AnimeCard
             key={`explore-${anime.mal_id}-${idx}`}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: (idx % 24) * 0.03 }}
-          >
-            <AnimeCard
-              anime={anime}
-              onSelect={onSelectAnime}
-              isLiked={getIsLiked(anime.mal_id)}
-              onToggleLike={onToggleLike}
-              shelfStatus={getShelfStatus(anime.mal_id)}
-              onUpdateShelfStatus={onUpdateStatus}
-            />
-          </motion.div>
+            anime={anime}
+            onSelect={onSelectAnime}
+            isLiked={getIsLiked(anime.mal_id)}
+            onToggleLike={onToggleLike}
+            shelfStatus={getShelfStatus(anime.mal_id)}
+            onUpdateShelfStatus={onUpdateStatus}
+          />
         ))}
       </div>
 

@@ -10,6 +10,7 @@ interface AnimeCardProps {
   onToggleLike?: (anime: AnimeItem) => void;
   shelfStatus?: ShelfStatus | null;
   onUpdateShelfStatus?: (anime: AnimeItem, status: ShelfStatus) => void;
+  rank?: number;
 }
 
 export const AnimeCard = React.memo(function AnimeCard({
@@ -19,6 +20,7 @@ export const AnimeCard = React.memo(function AnimeCard({
   onToggleLike,
   shelfStatus = null,
   onUpdateShelfStatus,
+  rank,
 }: AnimeCardProps) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
 
@@ -31,11 +33,11 @@ export const AnimeCard = React.memo(function AnimeCard({
   ];
 
   return (
-    <div className="group relative flex flex-col rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800/80 hover:border-neutral-700 transition-all duration-200 hover:-translate-y-1 shadow-md hover:shadow-xl">
-      {/* Poster Image */}
+    <div className="group flex flex-col rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800/90 hover:border-neutral-700 shadow-sm">
+      {/* Poster Image Container */}
       <div 
         onClick={() => onSelect(anime)}
-        className="relative aspect-[3/4] w-full overflow-hidden bg-neutral-950 cursor-pointer"
+        className="relative aspect-[3/4] w-full bg-neutral-950 overflow-hidden cursor-pointer"
       >
         <MediaImage
           malId={anime.mal_id}
@@ -45,13 +47,28 @@ export const AnimeCard = React.memo(function AnimeCard({
           mediaType="anime"
           aspectRatio="aspect-[3/4]"
           loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover"
         />
 
         {/* Top Badges */}
-        <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
-          {anime.score ? (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-950/80 backdrop-blur-md border border-amber-500/30 text-amber-300 font-bold text-xs shadow-sm" title="Global Rating">
+        <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none z-10">
+          {rank != null ? (
+            <div 
+              className={`flex items-baseline px-2 py-0.5 rounded-md text-xs shadow-md border ${
+                rank === 1
+                  ? 'bg-amber-500 text-neutral-950 border-amber-300 font-extrabold'
+                  : rank === 2
+                  ? 'bg-slate-200 text-neutral-950 border-white font-extrabold'
+                  : rank === 3
+                  ? 'bg-amber-700 text-amber-100 border-amber-500/80 font-extrabold'
+                  : 'bg-neutral-950/85 text-neutral-200 border-neutral-700/80 backdrop-blur-sm font-semibold'
+              }`}
+            >
+              <span className={`text-[9px] mr-0.5 ${rank <= 3 ? 'opacity-70 font-semibold' : 'text-neutral-500'}`}>#</span>
+              <span className="font-mono">{rank}</span>
+            </div>
+          ) : anime.score ? (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-neutral-950/90 border border-amber-500/30 text-amber-300 font-bold text-xs shadow-sm" title="Global Rating">
               <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
               <span>{anime.score.toFixed(1)}</span>
             </div>
@@ -59,18 +76,22 @@ export const AnimeCard = React.memo(function AnimeCard({
             <div />
           )}
 
-          {anime.status && (
-            <span className="px-2 py-0.5 rounded-md bg-neutral-950/80 backdrop-blur-md border border-neutral-700/60 text-neutral-300 font-medium text-[10px]">
+          {rank != null && anime.score ? (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-neutral-950/90 border border-amber-500/30 text-amber-300 font-bold text-xs shadow-sm" title="Global Rating">
+              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+              <span>{anime.score.toFixed(1)}</span>
+            </div>
+          ) : anime.status ? (
+            <span className="px-1.5 py-0.5 rounded bg-neutral-950/90 border border-neutral-700/60 text-neutral-300 font-medium text-[10px]">
               {anime.status === 'Currently Airing' ? 'Airing' : anime.status}
             </span>
+          ) : (
+            <div />
           )}
         </div>
 
-        {/* Bottom Hover Action Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
-
-        {/* Floating Quick Action Buttons */}
-        <div className="absolute bottom-2 right-2 flex items-center gap-1.5 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Action Buttons */}
+        <div className="absolute bottom-2 right-2 flex items-center gap-1.5 z-10">
           {onToggleLike && (
             <button
               onClick={(e) => {
@@ -78,9 +99,9 @@ export const AnimeCard = React.memo(function AnimeCard({
                 onToggleLike(anime);
               }}
               title={isLiked ? 'Unlike' : 'Favorite'}
-              className={`p-1.5 rounded-lg backdrop-blur-md border transition-colors ${
+              className={`p-1.5 rounded-lg border transition-colors ${
                 isLiked
-                  ? 'bg-rose-600/90 border-rose-500 text-white'
+                  ? 'bg-rose-600 border-rose-500 text-white'
                   : 'bg-neutral-900/90 border-neutral-700 text-neutral-300 hover:text-rose-400'
               }`}
             >
@@ -96,9 +117,9 @@ export const AnimeCard = React.memo(function AnimeCard({
                   setShowStatusMenu(!showStatusMenu);
                 }}
                 title="Update Shelf Status"
-                className={`p-1.5 rounded-lg backdrop-blur-md border transition-colors ${
+                className={`p-1.5 rounded-lg border transition-colors ${
                   shelfStatus
-                    ? 'bg-emerald-600/90 border-emerald-500 text-white'
+                    ? 'bg-emerald-600 border-emerald-500 text-white'
                     : 'bg-neutral-900/90 border-neutral-700 text-neutral-300 hover:text-white'
                 }`}
               >
@@ -137,17 +158,17 @@ export const AnimeCard = React.memo(function AnimeCard({
       </div>
 
       {/* Card Info Area */}
-      <div className="p-3 flex flex-col flex-1 justify-between gap-2">
+      <div className="p-3 flex flex-col flex-1 justify-between gap-1.5">
         <div>
           <h3 
             onClick={() => onSelect(anime)}
-            className="text-xs sm:text-sm font-bold text-neutral-100 line-clamp-1 hover:text-rose-400 transition-colors cursor-pointer"
+            className="text-xs sm:text-sm font-semibold text-neutral-100 line-clamp-1 group-hover:text-rose-400 transition-colors cursor-pointer"
             title={anime.title}
           >
             {anime.title}
           </h3>
           {anime.title_english && anime.title_english !== anime.title && (
-            <p className="text-[10px] text-neutral-400 line-clamp-1 mt-0.5" title={anime.title_english}>
+            <p className="text-[11px] text-neutral-400 line-clamp-1 mt-0.5" title={anime.title_english}>
               {anime.title_english}
             </p>
           )}
@@ -164,7 +185,7 @@ export const AnimeCard = React.memo(function AnimeCard({
             {anime.genres.slice(0, 2).map((g, i) => (
               <span
                 key={g.name || `genre-${i}`}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-800"
+                className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800/80 text-neutral-400 border border-neutral-800"
               >
                 {g.name}
               </span>

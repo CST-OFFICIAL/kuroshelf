@@ -33,7 +33,33 @@ input:focus-visible, button:focus-visible, a:focus-visible {
 }
 
 
-html, body {
-  overflow-x: hidden;
+html {
   width: 100%;
+  min-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
 }
+
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Ensure font-display and heading descenders (g, y, p, q, j) are never clipped at the baseline */
+h1, h2, h3, h4, .font-display {
+  line-height: 1.4;
+  padding-bottom: 0.15em;
+}
+
+

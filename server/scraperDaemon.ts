@@ -9,15 +9,15 @@ export function startBackgroundScraper() {
     try {
       console.log('[Scraper] Fetching top anime...');
       const top = await serverGetTopAnime('bypopularity', 1, 25);
-      if (top.data) await ingestAnimeList(top.data);
+      if (top.data) await ingestAnimeList(top.data as any);
       
       console.log('[Scraper] Fetching seasonal anime...');
       const seasonal = await serverGetSeasonalAnime(1, 25);
-      if (seasonal.data) await ingestAnimeList(seasonal.data);
+      if (seasonal.data) await ingestAnimeList(seasonal.data as any);
 
       console.log('[Scraper] Fetching upcoming anime...');
       const upcoming = await serverGetUpcomingAnime(1, 25);
-      if (upcoming.data) await ingestAnimeList(upcoming.data);
+      if (upcoming.data) await ingestAnimeList(upcoming.data as any);
 
       console.log('[Scraper] Hourly batch complete.');
     } catch (error) {

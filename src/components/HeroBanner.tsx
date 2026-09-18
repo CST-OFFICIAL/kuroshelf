@@ -54,7 +54,7 @@ export function HeroBanner({ anime, onSelect, onAddToShelf, isSavedInShelf }: He
           showFallbackTitle={false}
           aspectRatio="h-full w-full"
           containerClassName="w-full h-full"
-          className="w-full h-full object-cover object-center opacity-25 filter blur-sm scale-105"
+          className="w-full h-full object-cover object-center opacity-20"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/80 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/90 to-transparent" />

@@ -105,7 +105,7 @@ export function MangaSection({ onSelectManga }: MangaSectionProps) {
             return (
               <div
                 key={`manga-${manga.mal_id}-${idx}`}
-                className="group flex flex-col rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition-all hover:-translate-y-1 shadow-md"
+                className="group flex flex-col rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800/90 hover:border-neutral-700 transition-colors duration-150 shadow-sm"
               >
                 {/* Poster */}
                 <div className="relative aspect-[3/4] w-full overflow-hidden bg-neutral-950">
@@ -117,10 +117,10 @@ export function MangaSection({ onSelectManga }: MangaSectionProps) {
                     mediaType="manga"
                     aspectRatio="aspect-[3/4]"
                     loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover"
                   />
                   {manga.score && (
-                    <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-950/80 backdrop-blur-md border border-amber-500/30 text-amber-300 font-bold text-xs">
+                    <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-950/90 border border-amber-500/30 text-amber-300 font-bold text-xs">
                       <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                       <span>{manga.score.toFixed(1)}</span>
                     </div>

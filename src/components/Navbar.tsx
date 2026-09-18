@@ -11,7 +11,7 @@ import {
   Menu, 
   X,
   User as UserIcon,
-  Database
+  Library
 } from 'lucide-react';
 import { AuthUser } from '../types';
 
@@ -42,7 +42,7 @@ export function Navbar({
     { id: 'home', label: 'Discover', icon: Compass },
     { id: 'seasonal', label: 'This Season', icon: Sparkles },
     { id: 'rankings', label: 'Rankings', icon: Trophy },
-    { id: 'advanced', label: 'Database', icon: Database },
+    { id: 'advanced', label: 'Catalog', icon: Library },
     { id: 'manga', label: 'Manga', icon: BookOpen },
     { id: 'polls', label: 'Predictions', icon: Vote },
     { id: 'shelf', label: 'My Shelf', icon: Bookmark, badge: shelfCount },
@@ -61,7 +61,7 @@ export function Navbar({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-neutral-800/80 bg-neutral-950/85 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full border-b border-neutral-800 bg-neutral-950">
       <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Logo / Brand */}
         <div 

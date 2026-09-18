@@ -29,51 +29,25 @@ export const MediaImage = React.memo(function MediaImage({
   showFallbackTitle = true,
   ...rest
 }: MediaImageProps) {
-  const candidatesKey = JSON.stringify(images) + '|' + (src || '');
-  
-  const [extraCandidates, setExtraCandidates] = useState<string[]>([]);
-  const [fetchedPictures, setFetchedPictures] = useState(false);
-
+  // Extract candidates synchronously in priority order without expensive loops
   const candidates = useMemo(() => {
-    return [...getImageCandidates(images, src), ...extraCandidates];
-  }, [candidatesKey, extraCandidates]);
+    return getImageCandidates(images, src);
+  }, [
+    images?.webp?.large_image_url,
+    images?.jpg?.large_image_url,
+    images?.webp?.image_url,
+    images?.jpg?.image_url,
+    src,
+  ]);
 
-  const [currentKey, setCurrentKey] = useState(candidatesKey);
-  const [candidateIndex, setCandidateIndex] = useState(0);
-
-  if (candidatesKey !== currentKey) {
-    setCurrentKey(candidatesKey);
-    setCandidateIndex(0);
-    setExtraCandidates([]);
-    setFetchedPictures(false);
-  }
-
-  const activeUrl = candidates[candidateIndex] || null;
-  const isFailed = candidateIndex >= candidates.length || !activeUrl;
-
-  React.useEffect(() => {
-    if (isFailed && malId && !fetchedPictures && mediaType === 'anime') {
-      setFetchedPictures(true);
-      fetch(`/api/anime/${malId}/pictures`)
-        .then((res) => res.json())
-        .then((json) => {
-          if (json.success && json.data && json.data.length > 0) {
-            const newUrls = json.data
-              .map((p: any) => p.jpg?.large_image_url || p.jpg?.image_url || p.webp?.large_image_url || p.webp?.image_url)
-              .filter(Boolean);
-            if (newUrls.length > 0) {
-              setExtraCandidates(newUrls);
-            }
-          }
-        })
-        .catch(() => {});
-    }
-  }, [isFailed, malId, fetchedPictures, mediaType]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const activeUrl = candidates[currentIndex] || null;
+  const isFailed = !activeUrl || currentIndex >= candidates.length;
 
   const handleError = () => {
-    // Prevent infinite loops and ensure browser resets error state
-    if (candidateIndex >= candidates.length) return;
-    setCandidateIndex((prev) => prev + 1);
+    if (currentIndex < candidates.length) {
+      setCurrentIndex((prev) => prev + 1);
+    }
   };
 
   const FallbackIcon = useMemo(() => {
@@ -94,12 +68,10 @@ export const MediaImage = React.memo(function MediaImage({
   if (isFailed) {
     return (
       <div
-        className={`relative w-full ${aspectRatio} flex flex-col items-center justify-between p-3.5 bg-gradient-to-b from-neutral-900 via-neutral-900/90 to-neutral-950 border border-neutral-800/80 rounded-inherit select-none overflow-hidden ${containerClassName}`}
+        className={`relative w-full ${aspectRatio} flex flex-col items-center justify-between p-3.5 bg-neutral-900 border border-neutral-800 rounded-inherit select-none overflow-hidden ${containerClassName}`}
       >
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#f43f5e_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-
         <div className="w-full flex items-center justify-between z-10">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-1">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1">
             <Sparkles className="w-2.5 h-2.5 text-rose-500/70" />
             Kuro Shelf
           </span>
@@ -108,9 +80,9 @@ export const MediaImage = React.memo(function MediaImage({
           </span>
         </div>
 
-        <div className="flex flex-col items-center justify-center my-auto z-10 text-neutral-400">
-          <div className="p-3 rounded-2xl bg-neutral-800/60 border border-neutral-700/50 shadow-inner mb-2">
-            <FallbackIcon className="w-6 h-6 sm:w-8 sm:h-8 text-neutral-400" />
+        <div className="flex flex-col items-center justify-center my-auto z-10 text-neutral-500">
+          <div className="p-3 rounded-xl bg-neutral-800 border border-neutral-700/40 mb-2">
+            <FallbackIcon className="w-6 h-6 text-neutral-400" />
           </div>
           <span className="text-[10px] text-neutral-400 font-medium">Cover Unavailable</span>
         </div>
@@ -118,7 +90,7 @@ export const MediaImage = React.memo(function MediaImage({
         {showFallbackTitle && displayTitle && (
           <div className="w-full z-10 text-center">
             <p
-              className="text-xs font-bold text-neutral-200 line-clamp-2 leading-tight drop-shadow-sm"
+              className="text-xs font-semibold text-neutral-300 line-clamp-2 leading-tight"
               title={displayTitle}
             >
               {displayTitle}
@@ -132,13 +104,13 @@ export const MediaImage = React.memo(function MediaImage({
   return (
     <div className={`relative w-full h-full overflow-hidden bg-neutral-950 ${containerClassName}`}>
       <img
-        key={activeUrl}
         src={activeUrl}
         alt={alt}
         loading={loading}
+        decoding="async"
         referrerPolicy="no-referrer"
         onError={handleError}
-        className={`${className} absolute inset-0 object-cover`}
+        className={`${className} absolute inset-0 w-full h-full object-cover`}
         {...rest}
       />
     </div>

@@ -83,7 +83,7 @@ export async function getCatalogTopAnime(filter: string = 'bypopularity', page: 
       
       if (jikanResult && jikanResult.data && jikanResult.data.length > 0) {
         // Background ingestion
-        ingestAnimeList(jikanResult.data).catch(err => console.log('[Error suppressed]', 'Fallback ingestion error:', err));
+        ingestAnimeList(jikanResult.data as any).catch(err => console.log('[Error suppressed]', 'Fallback ingestion error:', err));
         return {
           data: jikanResult.data as any[],
           pagination: jikanResult.pagination || { last_visible_page: page + (jikanResult.data.length === limit ? 1 : 0), has_next_page: jikanResult.data.length === limit, current_page: page, items: { count: jikanResult.data.length, total: 10000, per_page: limit } }
@@ -163,7 +163,7 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
        console.log('[Catalog] Local DB search empty, triggering live API ingestion...');
        const jikanResult = await jikanSearch(options);
        if (jikanResult.data && jikanResult.data.length > 0) {
-         ingestAnimeList(jikanResult.data).catch(() => {});
+         ingestAnimeList(jikanResult.data as any).catch(() => {});
          return jikanResult as any;
        }
      } catch (err) {
@@ -182,7 +182,7 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
   };
 }
 
-export async function getCatalogAnimeById(id: number): Promise<{ data: BaseJikanAnime | null }> {
+export async function getCatalogAnimeById(id: number): Promise<{ data: AnimeItem | null }> {
   if (!isSupabaseConfigured) return { data: await jikanGetById(id) as any };
   const { data, error } = await supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*)), anime_streaming(url, streaming_providers(name))').eq('mal_id', id).single();
   
@@ -195,7 +195,7 @@ export async function getCatalogAnimeById(id: number): Promise<{ data: BaseJikan
         if (jikanRes && jikanRes.streaming && jikanRes.streaming.length > 0) {
            mapped.streaming = jikanRes.streaming;
            // Fire and forget ingestion update
-           ingestAnimeList([jikanRes]).catch(() => {});
+           ingestAnimeList([jikanRes] as any).catch(() => {});
         }
       } catch (e) {}
     }
@@ -204,8 +204,8 @@ export async function getCatalogAnimeById(id: number): Promise<{ data: BaseJikan
 
   const jikanRes = await jikanGetById(id);
   if (jikanRes) {
-    ingestAnimeList([jikanRes]).catch(() => {});
-    return { data: jikanRes };
+    ingestAnimeList([jikanRes] as any).catch(() => {});
+    return { data: jikanRes as any };
   }
 
   return { data: null };

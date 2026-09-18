@@ -10,11 +10,18 @@ interface InfoModalProps {
 }
 
 export function InfoModal({ type, onClose }: InfoModalProps) {
-  // Lock body scroll
+  // Lock body and html scroll only when modal is open
   useEffect(() => {
+    if (!type) return;
+    const prevBody = document.body.style.overflow;
+    const prevHtml = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, []);
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBody || '';
+      document.documentElement.style.overflow = prevHtml || '';
+    };
+  }, [type]);
 
   const [copied, setCopied] = useState(false);
 
@@ -42,17 +49,17 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 overflow-y-auto overscroll-contain"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div 
         id={`info-modal-${type}`}
-        className="relative w-full max-w-2xl bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col"
+        className="relative w-full max-w-2xl bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col overscroll-contain"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800/80 bg-neutral-900/60 sticky top-0 z-10 backdrop-blur-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 bg-neutral-900 sticky top-0 z-10">
           <div className="flex items-center gap-2.5">
             {type === 'about' && <Info className="w-5 h-5 text-rose-500" />}
             {type === 'privacy' && <Shield className="w-5 h-5 text-rose-500" />}

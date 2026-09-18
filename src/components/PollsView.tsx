@@ -31,7 +31,7 @@ export function PollsView({ polls, userVotes, onVote }: PollsViewProps) {
             Live Polls
           </span>
           <span>
-            Community predictions are synchronized with Kuro Shelf&apos;s database. Votes are validated and tallied in real-time.
+            Community predictions are synchronized live across Kuro Shelf. Votes are validated and tallied in real-time.
           </span>
         </div>
       </div>

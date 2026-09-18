@@ -346,7 +346,7 @@ export function ShelfView({
                       title={item.title}
                       mediaType={item.mediaType}
                       aspectRatio="aspect-[2/3]"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover"
                     />
                     <span className="absolute top-1 left-1 px-1.5 py-0.5 text-[9px] font-bold rounded bg-black/80 text-rose-400 uppercase">
                       {item.mediaType}
