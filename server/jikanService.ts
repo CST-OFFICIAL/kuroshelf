@@ -1,4 +1,5 @@
 import { VERIFIED_SEED_ANIME } from './verifiedSeed';
+import { cleanOfficialText } from './officialSynopsisService';
 // Server-side Jikan Service Layer
 // Handles communication with Jikan REST API with throttling, database caching, stale-while-revalidate,
 // and resilient fallbacks when upstream MyAnimeList/Jikan experiences 504 Gateway Timeouts or network issues.
@@ -10,9 +11,58 @@ const JIKAN_BASE_URL =
   
   'https://api.jikan.moe/v4';
 
+export function isNsfwOrAdult(item: any): boolean {
+  if (!item) return false;
+  const malId = Number(item.mal_id || item.id);
+  // Specifically block mal_id 34246 (Kimi no Mana wa Rina Witch / Your Magical Name is Rina Witch)
+  if (malId === 34246) return true;
+  if (item.isAdult === true) return true;
+
+  // Check rating
+  const rating = String(item.rating || '').toLowerCase();
+  if (rating.includes('rx') || rating.includes('hentai') || rating.includes('18+')) return true;
+
+  // Check genres
+  const genres = [
+    ...(Array.isArray(item.genres) ? item.genres : []),
+    ...(Array.isArray(item.explicit_genres) ? item.explicit_genres : []),
+    ...(Array.isArray(item.themes) ? item.themes : [])
+  ];
+  for (const g of genres) {
+    const name = (typeof g === 'string' ? g : g?.name || '').toLowerCase();
+    if (name.includes('hentai') || name.includes('erotica') || name.includes('adult cast')) {
+      return true;
+    }
+  }
+
+  // Check title
+  const fullTitle = `${item.title || ''} ${item.title_english || ''} ${item.title_japanese || ''}`.toLowerCase();
+  if (
+    fullTitle.includes('rina witch') ||
+    fullTitle.includes('kimi no mana wa') ||
+    fullTitle.includes('your magical name is rina')
+  ) {
+    return true;
+  }
+
+  // Check synopsis
+  const synopsis = String(item.synopsis || '').toLowerCase();
+  if (
+    synopsis.includes('lilith soft') ||
+    synopsis.includes('erotic game') ||
+    (synopsis.includes('mana supply') && synopsis.includes('witch'))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function deduplicateByMalId(list: any[]) {
   const seen = new Set();
   return list.filter(item => {
+    if (!item || !item.mal_id) return false;
+    if (isNsfwOrAdult(item)) return false;
     if (seen.has(item.mal_id)) return false;
     seen.add(item.mal_id);
     return true;
@@ -397,7 +447,7 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
             jpg: { image_url: m.coverImage.large },
             webp: { image_url: m.coverImage.large, large_image_url: m.coverImage.large }
           },
-          synopsis: m.synopsis || null,
+          synopsis: cleanOfficialText(m.synopsis) || null,
           type: formatStr || 'TV',
           episodes: m.episodes || null,
           status,
@@ -540,9 +590,14 @@ export async function serverGetUpcomingAnime(
 }
 
 export async function serverGetAnimeDetails(id: number): Promise<BaseJikanAnime | null> {
+  if (id === 34246) return null;
   const endpoint = `/anime/${id}/full`;
   const res = await fetchFromJikan<BaseJikanAnime>(endpoint, DETAIL_CACHE_TTL_MS);
-  return res.data || null;
+  if (!res.data || isNsfwOrAdult(res.data)) return null;
+  if (res.data.synopsis) {
+    res.data.synopsis = cleanOfficialText(res.data.synopsis) || res.data.synopsis;
+  }
+  return res.data;
 }
 
 export async function serverGetAnimeCharacters(id: number) {
@@ -719,7 +774,7 @@ export async function serverGetTop100Anime(options: {
             jpg: { image_url: m.coverImage?.large },
             webp: { image_url: m.coverImage?.large, large_image_url: m.coverImage?.large }
           },
-          synopsis: m.synopsis || null,
+          synopsis: cleanOfficialText(m.synopsis) || null,
           type: 'TV',
           episodes: m.episodes || null,
           status: st,
@@ -778,3 +833,554 @@ export async function serverGetTop100Anime(options: {
 
   return [];
 }
+
+// ---------------- Weekly Airing Schedule ----------------
+
+export interface AiringScheduleAnime extends BaseJikanAnime {
+  airing_schedule?: {
+    episode: number;
+    airing_at: number; // epoch in seconds
+    time_until_airing: number; // seconds
+    airing_day: string; // e.g. "monday"
+    airing_time: string; // e.g. "23:00"
+  };
+}
+
+export async function serverGetAiringSchedule(targetDay?: string): Promise<AiringScheduleAnime[]> {
+  const normalizedDay = targetDay ? targetDay.toLowerCase().trim() : '';
+  const cacheKey = `schedule:${normalizedDay || 'all'}`;
+
+  const cached = memoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < 1000 * 60 * 30) {
+    return cached.data as AiringScheduleAnime[];
+  }
+
+  // 1. Try Jikan /schedules
+  try {
+    const jikanEndpoint = normalizedDay ? `/schedules?filter=${normalizedDay}&sfw=true` : `/schedules?sfw=true`;
+    const res = await fetchFromJikan<any[]>(jikanEndpoint, 1000 * 60 * 30);
+    if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+      const mapped = res.data.map(item => {
+        let airing_day = normalizedDay;
+        let airing_time = item.broadcast?.time || '';
+        if (item.broadcast?.day) {
+          airing_day = item.broadcast.day.toLowerCase().replace(/s$/, '');
+        }
+        return {
+          ...item,
+          airing_schedule: {
+            episode: item.episodes || 1,
+            airing_at: Math.floor(Date.now() / 1000),
+            time_until_airing: 0,
+            airing_day: airing_day || 'unknown',
+            airing_time: airing_time || 'TBA'
+          }
+        };
+      });
+      const unique = deduplicateByMalId(mapped);
+      memoryCache.set(cacheKey, { data: unique, timestamp: Date.now() });
+      return unique;
+    }
+  } catch (jikanErr) {
+    console.warn('[Schedule] Jikan fetch notice:', jikanErr);
+  }
+
+  // 2. Fallback: AniList GraphQL for Releasing media with nextAiringEpisode
+  try {
+    const query = `
+      query {
+        Page(page: 1, perPage: 50) {
+          media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC, isAdult: false) {
+            id
+            idMal
+            title { romaji english native }
+            coverImage { large }
+            format
+            episodes
+            averageScore
+            genres
+            status
+            nextAiringEpisode {
+              airingAt
+              timeUntilAiring
+              episode
+            }
+            studios(isMain: true) { nodes { name } }
+          }
+        }
+      }
+    `;
+
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(8000)
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      const mediaList = json.data?.Page?.media || [];
+
+      const mapped: AiringScheduleAnime[] = mediaList.map((m: any) => {
+        let airing_day = '';
+        let airing_time = '';
+        let airing_at = 0;
+        let time_until_airing = 0;
+        let episode = m.episodes || 1;
+
+        if (m.nextAiringEpisode) {
+          airing_at = m.nextAiringEpisode.airingAt;
+          time_until_airing = m.nextAiringEpisode.timeUntilAiring;
+          episode = m.nextAiringEpisode.episode;
+          const d = new Date(airing_at * 1000);
+          airing_day = d.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Asia/Tokyo' }).toLowerCase();
+          airing_time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Tokyo' }) + ' JST';
+        }
+
+        const malId = m.idMal || (m.id ? m.id + 2000000 : Math.floor(Math.random() * 900000 + 100000));
+        return {
+          mal_id: malId,
+          url: `https://myanimelist.net/anime/${malId}`,
+          title: m.title?.english || m.title?.romaji || 'Unknown Title',
+          title_english: m.title?.english || null,
+          title_japanese: m.title?.native || null,
+          images: {
+            jpg: { image_url: m.coverImage?.large },
+            webp: { image_url: m.coverImage?.large }
+          },
+          status: 'Currently Airing',
+          airing: true,
+          type: m.format || 'TV',
+          episodes: m.episodes || null,
+          score: m.averageScore ? Number((m.averageScore / 10).toFixed(2)) : null,
+          genres: (m.genres || []).map((g: string) => ({ mal_id: 0, type: 'anime', name: g, url: '' })),
+          studios: m.studios?.nodes ? m.studios.nodes.map((s: any) => ({ mal_id: 0, type: 'anime', name: s.name, url: '' })) : [],
+          airing_schedule: {
+            episode,
+            airing_at,
+            time_until_airing,
+            airing_day,
+            airing_time
+          }
+        };
+      });
+
+      const filtered = normalizedDay
+        ? mapped.filter(item => item.airing_schedule?.airing_day === normalizedDay)
+        : mapped;
+
+      const unique = deduplicateByMalId(filtered);
+      if (unique.length > 0) {
+        memoryCache.set(cacheKey, { data: unique, timestamp: Date.now() });
+        return unique;
+      }
+    }
+  } catch (anilistErr) {
+    console.warn('[Schedule] AniList fallback notice:', anilistErr);
+  }
+
+  return [];
+}
+
+// ---------------- Anime Recommendations ----------------
+
+export interface RecommendedAnimeItem {
+  mal_id: number;
+  title: string;
+  title_english?: string | null;
+  image_url: string;
+  score?: number | null;
+  votes?: number;
+  format?: string;
+  genres?: string[];
+}
+
+export async function serverGetAnimeRecommendations(id: number): Promise<RecommendedAnimeItem[]> {
+  const cacheKey = `recs:${id}`;
+  const cached = memoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < DETAIL_CACHE_TTL_MS) {
+    return cached.data as RecommendedAnimeItem[];
+  }
+
+  // 1. Try Jikan
+  try {
+    const res = await fetchFromJikan<any[]>(`/anime/${id}/recommendations`, DETAIL_CACHE_TTL_MS);
+    if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+      const items: RecommendedAnimeItem[] = res.data.map(item => ({
+        mal_id: item.entry?.mal_id,
+        title: item.entry?.title || 'Unknown',
+        title_english: item.entry?.title || null,
+        image_url: item.entry?.images?.jpg?.large_image_url || item.entry?.images?.jpg?.image_url || '',
+        votes: item.votes || 0,
+        format: 'TV'
+      })).filter(i => i.mal_id && i.image_url);
+
+      if (items.length > 0) {
+        memoryCache.set(cacheKey, { data: items.slice(0, 12), timestamp: Date.now() });
+        return items.slice(0, 12);
+      }
+    }
+  } catch (jikanErr) {
+    console.warn(`[Recs] Jikan error for ${id}:`, jikanErr);
+  }
+
+  // 2. Fallback: AniList Recommendations
+  try {
+    const query = `
+      query ($idMal: Int) {
+        Media(idMal: $idMal, type: ANIME) {
+          recommendations(sort: RATING_DESC, perPage: 12) {
+            nodes {
+              rating
+              mediaRecommendation {
+                id
+                idMal
+                title { romaji english }
+                coverImage { large }
+                format
+                averageScore
+                genres
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, variables: { idMal: id } }),
+      signal: AbortSignal.timeout(7000)
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      const nodes = json.data?.Media?.recommendations?.nodes || [];
+      const items: RecommendedAnimeItem[] = nodes
+        .filter((n: any) => n.mediaRecommendation && (n.mediaRecommendation.idMal || n.mediaRecommendation.id))
+        .map((n: any) => {
+          const m = n.mediaRecommendation;
+          const mal_id = m.idMal || m.id;
+          return {
+            mal_id,
+            title: m.title?.english || m.title?.romaji || 'Unknown Title',
+            title_english: m.title?.english || null,
+            image_url: m.coverImage?.large || '',
+            score: m.averageScore ? Number((m.averageScore / 10).toFixed(1)) : null,
+            votes: n.rating || 0,
+            format: m.format || 'TV',
+            genres: m.genres || []
+          };
+        });
+
+      if (items.length > 0) {
+        memoryCache.set(cacheKey, { data: items, timestamp: Date.now() });
+        return items;
+      }
+    }
+  } catch (anilistErr) {
+    console.warn(`[Recs] AniList fallback error for ${id}:`, anilistErr);
+  }
+
+  return [];
+}
+
+// ---------------- Character Explorer ----------------
+
+export interface CharacterDetailInfo {
+  mal_id: number;
+  name: string;
+  name_kanji?: string | null;
+  nicknames?: string[];
+  about?: string | null;
+  favorites?: number;
+  image_url: string;
+  anime: {
+    mal_id: number;
+    title: string;
+    image_url: string;
+    role?: string;
+    score?: number | null;
+  }[];
+  voices?: {
+    person_id: number;
+    name: string;
+    language: string;
+    image_url: string;
+  }[];
+}
+
+function cleanPersonOrCharName(name: string): string {
+  if (!name) return '';
+  if (name.includes(',')) {
+    const parts = name.split(',').map(s => s.trim());
+    return `${parts[1] || ''} ${parts[0] || ''}`.trim();
+  }
+  return name.trim();
+}
+
+export async function serverGetCharacterDetails(id: number, rawName?: string): Promise<CharacterDetailInfo | null> {
+  const cacheKey = `character:${id}:${rawName || ''}`;
+  const cached = memoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < DETAIL_CACHE_TTL_MS) {
+    return cached.data as CharacterDetailInfo;
+  }
+
+  // 1. Try Jikan /characters/{id}/full
+  try {
+    const res = await fetchFromJikan<any>(`/characters/${id}/full`, DETAIL_CACHE_TTL_MS);
+    if (res.data) {
+      const c = res.data;
+      const anime = (c.anime || []).map((a: any) => ({
+        mal_id: a.anime?.mal_id,
+        title: a.anime?.title || 'Unknown Title',
+        image_url: a.anime?.images?.jpg?.image_url || a.anime?.images?.jpg?.large_image_url || '',
+        role: a.role
+      })).filter((a: any) => a.mal_id);
+
+      const voices = (c.voices || []).map((v: any) => ({
+        person_id: v.person?.mal_id,
+        name: cleanPersonOrCharName(v.person?.name || ''),
+        language: v.language || 'Japanese',
+        image_url: v.person?.images?.jpg?.image_url || ''
+      })).filter((v: any) => v.name);
+
+      const result: CharacterDetailInfo = {
+        mal_id: c.mal_id,
+        name: c.name,
+        name_kanji: c.name_kanji,
+        nicknames: c.nicknames || [],
+        about: c.about,
+        favorites: c.favorites,
+        image_url: c.images?.jpg?.image_url || '',
+        anime,
+        voices
+      };
+
+      memoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      return result;
+    }
+  } catch (jikanErr) {
+    console.warn(`[Character] Jikan error for ${id}:`, jikanErr);
+  }
+
+  // 2. Fallback: AniList Character Search
+  const searchName = cleanPersonOrCharName(rawName || '');
+  if (searchName) {
+    try {
+      const query = `
+        query ($search: String) {
+          Character(search: $search) {
+            id
+            name { full native alternative }
+            image { large }
+            description
+            favourites
+            media(type: ANIME, sort: POPULARITY_DESC, perPage: 8) {
+              nodes {
+                id
+                idMal
+                title { romaji english }
+                coverImage { large }
+                format
+                averageScore
+              }
+            }
+          }
+        }
+      `;
+
+      const res = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables: { search: searchName } }),
+        signal: AbortSignal.timeout(7000)
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const c = json.data?.Character;
+        if (c) {
+          const anime = (c.media?.nodes || []).map((m: any) => ({
+            mal_id: m.idMal || m.id,
+            title: m.title?.english || m.title?.romaji || 'Unknown Title',
+            image_url: m.coverImage?.large || '',
+            score: m.averageScore ? Number((m.averageScore / 10).toFixed(1)) : null
+          }));
+
+          const result: CharacterDetailInfo = {
+            mal_id: id,
+            name: c.name?.full || searchName,
+            name_kanji: c.name?.native || null,
+            nicknames: c.name?.alternative || [],
+            about: c.description || null,
+            favorites: c.favourites || 0,
+            image_url: c.image?.large || '',
+            anime,
+            voices: []
+          };
+
+          memoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+          return result;
+        }
+      }
+    } catch (anilistErr) {
+      console.warn(`[Character] AniList fallback error for ${searchName}:`, anilistErr);
+    }
+  }
+
+  return null;
+}
+
+// ---------------- Voice Actor / Staff Explorer ----------------
+
+export interface PersonDetailInfo {
+  mal_id: number;
+  name: string;
+  family_name?: string | null;
+  given_name?: string | null;
+  birthday?: string | null;
+  about?: string | null;
+  favorites?: number;
+  image_url: string;
+  occupations?: string[];
+  roles: {
+    character_id: number;
+    character_name: string;
+    character_image: string;
+    role?: string;
+    anime_id: number;
+    anime_title: string;
+    anime_image: string;
+  }[];
+}
+
+export async function serverGetPersonDetails(id: number, rawName?: string): Promise<PersonDetailInfo | null> {
+  const cacheKey = `person:${id}:${rawName || ''}`;
+  const cached = memoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < DETAIL_CACHE_TTL_MS) {
+    return cached.data as PersonDetailInfo;
+  }
+
+  // 1. Try Jikan /people/{id}/full
+  try {
+    const res = await fetchFromJikan<any>(`/people/${id}/full`, DETAIL_CACHE_TTL_MS);
+    if (res.data) {
+      const p = res.data;
+      const roles = (p.voices || []).map((v: any) => ({
+        character_id: v.character?.mal_id,
+        character_name: v.character?.name || 'Character',
+        character_image: v.character?.images?.jpg?.image_url || '',
+        role: v.role,
+        anime_id: v.anime?.mal_id,
+        anime_title: v.anime?.title || 'Unknown Title',
+        anime_image: v.anime?.images?.jpg?.image_url || ''
+      })).filter((r: any) => r.character_id && r.anime_id);
+
+      const result: PersonDetailInfo = {
+        mal_id: p.mal_id,
+        name: cleanPersonOrCharName(p.name),
+        family_name: p.family_name,
+        given_name: p.given_name,
+        birthday: p.birthday,
+        about: p.about,
+        favorites: p.favorites,
+        image_url: p.images?.jpg?.image_url || '',
+        occupations: ['Voice Actor'],
+        roles: roles.slice(0, 24)
+      };
+
+      memoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+      return result;
+    }
+  } catch (jikanErr) {
+    console.warn(`[Person] Jikan error for ${id}:`, jikanErr);
+  }
+
+  // 2. Fallback: AniList Staff Search
+  const searchName = cleanPersonOrCharName(rawName || '');
+  if (searchName) {
+    try {
+      const query = `
+        query ($search: String) {
+          Staff(search: $search) {
+            id
+            name { full native }
+            image { large }
+            description
+            primaryOccupations
+            favourites
+            characters(sort: FAVOURITES_DESC, perPage: 12) {
+              edges {
+                role
+                node {
+                  id
+                  name { full }
+                  image { large }
+                  media(type: ANIME, perPage: 1) {
+                    nodes {
+                      id
+                      idMal
+                      title { romaji english }
+                      coverImage { large }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      const res = await fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables: { search: searchName } }),
+        signal: AbortSignal.timeout(7000)
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const s = json.data?.Staff;
+        if (s) {
+          const roles = (s.characters?.edges || []).map((e: any) => {
+            const charNode = e.node;
+            const animeNode = charNode?.media?.nodes?.[0];
+            return {
+              character_id: charNode?.id || 0,
+              character_name: charNode?.name?.full || 'Unknown',
+              character_image: charNode?.image?.large || '',
+              role: e.role || 'Main',
+              anime_id: animeNode?.idMal || animeNode?.id || 0,
+              anime_title: animeNode?.title?.english || animeNode?.title?.romaji || 'Unknown Title',
+              anime_image: animeNode?.coverImage?.large || ''
+            };
+          }).filter((r: any) => r.character_name && r.anime_title);
+
+          const result: PersonDetailInfo = {
+            mal_id: id,
+            name: s.name?.full || searchName,
+            family_name: null,
+            given_name: null,
+            birthday: null,
+            about: s.description || null,
+            favorites: s.favourites || 0,
+            image_url: s.image?.large || '',
+            occupations: s.primaryOccupations || ['Voice Actor'],
+            roles
+          };
+
+          memoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+          return result;
+        }
+      }
+    } catch (anilistErr) {
+      console.warn(`[Person] AniList fallback error for ${searchName}:`, anilistErr);
+    }
+  }
+
+  return null;
+}
+

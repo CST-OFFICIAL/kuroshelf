@@ -1,5 +1,6 @@
 import { CommentSection } from './CommentSection';
 import { useState, useEffect } from 'react';
+import { cleanSynopsis } from '../utils/textUtils';
 import {
   X,
   Star,
@@ -17,9 +18,11 @@ import {
   Layers,
   GitFork,
   Radio,
+  Sparkles,
+  Mic,
 } from 'lucide-react';
-import { AnimeItem, CharacterItem, ShelfStatus, WatchPlatform } from '../types';
-import { getAnimeCharacters, getAnimeById } from '../services/jikan';
+import { AnimeItem, CharacterItem, ShelfStatus, WatchPlatform, RecommendedAnimeItem } from '../types';
+import { getAnimeCharacters, getAnimeById, getAnimeRecommendations } from '../services/jikan';
 import { siteConfig } from '../config/site';
 
 import { MediaImage } from './MediaImage';
@@ -38,6 +41,8 @@ interface AnimeDetailModalProps {
   onUpdateRating: (anime: AnimeItem, rating: number) => void;
   onToggleLike: (anime: AnimeItem) => void;
   onSelectRelatedAnime?: (malId: number) => void;
+  onSelectCharacter?: (characterId: number, characterName: string) => void;
+  onSelectVoiceActor?: (personId: number, personName: string) => void;
 }
 
 export function AnimeDetailModal({
@@ -52,16 +57,37 @@ export function AnimeDetailModal({
   onUpdateRating,
   onToggleLike,
   onSelectRelatedAnime,
+  onSelectCharacter,
+  onSelectVoiceActor,
 }: AnimeDetailModalProps) {
   const [anime, setAnime] = useState<AnimeItem | null>(initialAnime);
   const [characters, setCharacters] = useState<CharacterItem[]>([]);
   const [loadingCharacters, setLoadingCharacters] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'characters' | 'relations' | 'where_to_watch' | 'manga' | 'discussion'>('overview');
+  const [recommendations, setRecommendations] = useState<RecommendedAnimeItem[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'characters' | 'relations' | 'where_to_watch' | 'manga' | 'discussion' | 'recommendations'>('overview');
   const [copied, setCopied] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
   const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const [communityScore, setCommunityScore] = useState<{ score: number | null, users: number } | null>(null);
   const [liveSynopsis, setLiveSynopsis] = useState<string | null>(initialAnime?.synopsis || null);
+
+  // Safety check: instantly close if adult or specifically blocked hentai title
+  useEffect(() => {
+    if (!initialAnime) return;
+    const malId = Number(initialAnime.mal_id);
+    const title = `${initialAnime.title || ''} ${initialAnime.title_english || ''}`.toLowerCase();
+    const rating = String(initialAnime.rating || '').toLowerCase();
+    if (
+      malId === 34246 ||
+      title.includes('rina witch') ||
+      title.includes('kimi no mana wa') ||
+      rating.includes('rx') ||
+      rating.includes('hentai')
+    ) {
+      onClose();
+    }
+  }, [initialAnime, onClose]);
 
   // Lock body and html scroll
   useEffect(() => {
@@ -141,9 +167,22 @@ export function AnimeDetailModal({
     if (!anime) return;
     setLoadingCharacters(true);
     getAnimeCharacters(anime.mal_id)
-      .then((data) => setCharacters(data.slice(0, 12)))
+      .then((data) => setCharacters(data.slice(0, 16)))
       .catch(() => setCharacters([]))
       .finally(() => setLoadingCharacters(false));
+  }, [anime?.mal_id]);
+
+  // Fetch recommendations when anime opens
+  useEffect(() => {
+    if (!anime?.mal_id) {
+      setRecommendations([]);
+      return;
+    }
+    setLoadingRecommendations(true);
+    getAnimeRecommendations(anime.mal_id)
+      .then((data) => setRecommendations(data || []))
+      .catch(() => setRecommendations([]))
+      .finally(() => setLoadingRecommendations(false));
   }, [anime?.mal_id]);
 
   // Dynamic countdown timer if reliable date/time exists
@@ -446,7 +485,7 @@ export function AnimeDetailModal({
                 </div>
                 <div>
                   <span className="text-neutral-400 block">Rating:</span>
-                  <span className="text-neutral-200 font-medium">{anime.rating || 'PG-13'}</span>
+                  <span className="text-neutral-200 font-medium">{anime.rating || 'Not Rated'}</span>
                 </div>
               </div>
 
@@ -598,7 +637,18 @@ export function AnimeDetailModal({
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>Characters</span>
+              <span>Characters & VA</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('recommendations')}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                activeTab === 'recommendations'
+                  ? 'bg-rose-500/20 text-rose-300 font-semibold'
+                  : 'text-neutral-400 hover:text-neutral-200'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Recommendations ({recommendations.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('manga')}
@@ -642,7 +692,7 @@ export function AnimeDetailModal({
               <div className="space-y-2">
                 <h3 className="text-sm font-bold text-neutral-200 uppercase tracking-wider">Synopsis</h3>
                 <p className="text-neutral-300 text-sm leading-relaxed whitespace-pre-line">
-                  {liveSynopsis || anime.synopsis || 'No synopsis provided for this title.'}
+                  {cleanSynopsis(liveSynopsis || anime.synopsis) || 'No synopsis provided for this title.'}
                 </p>
               </div>
 
@@ -816,7 +866,7 @@ export function AnimeDetailModal({
             </div>
           )}
 
-          {/* TAB CONTENT: Characters */}
+          {/* TAB CONTENT: Characters & Voice Actors */}
           {activeTab === 'characters' && (
             <div className="space-y-4">
               {loadingCharacters ? (
@@ -825,34 +875,145 @@ export function AnimeDetailModal({
                 </div>
               ) : characters.length === 0 ? (
                 <div className="text-center py-8 text-neutral-400 text-xs">
-                  No character data available.
+                  No character data available for this title.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {characters.map((char, idx) => {
+                    const primaryVa = char.voice_actors && char.voice_actors.length > 0
+                      ? char.voice_actors.find(v => v.language?.toLowerCase().includes('japanese')) || char.voice_actors[0]
+                      : null;
+
+                    return (
+                      <div
+                        key={`char-${char.character.mal_id}-${char.role}-${idx}`}
+                        className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition-all flex flex-col justify-between space-y-3"
+                      >
+                        {/* Character Top Row */}
+                        <div
+                          onClick={() => onSelectCharacter && onSelectCharacter(char.character.mal_id, char.character.name)}
+                          className="flex items-center gap-3 cursor-pointer group/char"
+                        >
+                          <div className="w-14 h-14 rounded-lg overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800">
+                            <MediaImage
+                              malId={char.character.mal_id}
+                              images={char.character.images}
+                              alt={char.character.name}
+                              title={char.character.name}
+                              mediaType="character"
+                              aspectRatio="aspect-square"
+                              loading="lazy"
+                              className="w-full h-full object-cover group-hover/char:scale-105 transition-transform"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h5 className="text-xs font-bold text-neutral-200 group-hover/char:text-rose-400 line-clamp-1 transition-colors">
+                              {char.character.name}
+                            </h5>
+                            <span className="text-[10px] text-neutral-400 capitalize block">
+                              {char.role} Role
+                            </span>
+                            <span className="text-[9px] text-rose-400/80 font-medium hover:underline inline-block mt-0.5">
+                              Explore Character →
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Voice Actor Row if available */}
+                        {primaryVa && (
+                          <div
+                            onClick={() => onSelectVoiceActor && onSelectVoiceActor(primaryVa.person.mal_id, primaryVa.person.name)}
+                            className="pt-2 border-t border-neutral-800/80 flex items-center justify-between gap-2 p-1.5 rounded-lg bg-neutral-950/60 hover:bg-neutral-950 hover:border-neutral-700 border border-transparent cursor-pointer group/va transition-all"
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              {primaryVa.person.images?.jpg?.image_url ? (
+                                <img
+                                  src={primaryVa.person.images.jpg.image_url}
+                                  alt={primaryVa.person.name}
+                                  referrerPolicy="no-referrer"
+                                  className="w-7 h-7 rounded-full object-cover bg-neutral-900 shrink-0"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
+                                  <Mic className="w-3.5 h-3.5 text-neutral-500" />
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[11px] font-semibold text-neutral-300 group-hover/va:text-rose-400 truncate transition-colors">
+                                  {primaryVa.person.name}
+                                </div>
+                                <div className="text-[9px] text-neutral-500">
+                                  {primaryVa.language} Seiyuu
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-[9px] font-medium text-neutral-400 group-hover/va:text-white px-1.5 py-0.5 bg-neutral-800 rounded">
+                              VA
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB CONTENT: Recommendations */}
+          {activeTab === 'recommendations' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-rose-400" />
+                    <span>Recommended If You Liked This Title</span>
+                  </h4>
+                  <p className="text-xs text-neutral-400">
+                    Curated affinities and community matches based on themes, genres, and audience ratings.
+                  </p>
+                </div>
+              </div>
+
+              {loadingRecommendations ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-4 border-neutral-800 border-t-rose-500 rounded-full animate-spin" />
+                </div>
+              ) : recommendations.length === 0 ? (
+                <div className="p-8 rounded-xl bg-neutral-900 border border-neutral-800 text-center text-neutral-400 text-xs">
+                  No community recommendations available for this title yet.
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {characters.map((char, idx) => (
+                  {recommendations.map((rec) => (
                     <div
-                      key={`char-${char.character.mal_id}-${char.role}-${idx}`}
-                      className="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 text-center space-y-2"
+                      key={`rec-${rec.mal_id}`}
+                      onClick={() => onSelectRelatedAnime && onSelectRelatedAnime(rec.mal_id)}
+                      className="group bg-neutral-900 border border-neutral-800 hover:border-rose-500/50 rounded-xl overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5"
                     >
-                      <div className="aspect-square w-full rounded-lg overflow-hidden bg-neutral-950">
-                        <MediaImage
-                          malId={char.character.mal_id}
-                          images={char.character.images}
-                          alt={char.character.name}
-                          title={char.character.name}
-                          mediaType="character"
-                          aspectRatio="aspect-square"
+                      <div className="aspect-[3/4] overflow-hidden bg-neutral-950 relative">
+                        <img
+                          src={rec.image_url}
+                          alt={rec.title}
+                          referrerPolicy="no-referrer"
                           loading="lazy"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                         />
+                        {rec.score && (
+                          <span className="absolute top-1.5 right-1.5 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-neutral-950/80 backdrop-blur-md text-amber-400 text-[10px] font-bold">
+                            <Star className="w-2.5 h-2.5 fill-amber-400" />
+                            {rec.score}
+                          </span>
+                        )}
                       </div>
-                      <div>
-                        <h5 className="text-xs font-bold text-neutral-200 line-clamp-1">
-                          {char.character.name}
+                      <div className="p-2.5">
+                        <h5 className="font-semibold text-xs text-white line-clamp-1 group-hover:text-rose-400 transition-colors">
+                          {rec.title_english || rec.title}
                         </h5>
-                        <span className="text-[10px] text-neutral-400 capitalize">
-                          {char.role}
-                        </span>
+                        <div className="flex items-center justify-between text-[10px] text-neutral-400 mt-1">
+                          <span>{rec.format || 'Anime'}</span>
+                          {rec.votes ? <span>{rec.votes} votes</span> : null}
+                        </div>
                       </div>
                     </div>
                   ))}

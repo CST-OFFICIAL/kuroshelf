@@ -134,6 +134,15 @@ export interface CharacterItem {
     name: string;
   };
   role: string;
+  voice_actors?: {
+    person: {
+      mal_id: number;
+      url?: string;
+      images?: JikanImages;
+      name: string;
+    };
+    language: string;
+  }[];
 }
 
 export type ShelfStatus = 'watching' | 'plan_to_watch' | 'completed' | 'on_hold' | 'dropped';
@@ -190,3 +199,81 @@ export interface WatchPlatform {
 }
 
 export type BaseJikanAnime = AnimeItem;
+
+export interface AiringScheduleItem extends AnimeItem {
+  airing_schedule?: {
+    episode: number;
+    airing_at: number;
+    time_until_airing: number;
+    airing_day: string;
+    airing_time: string;
+  };
+}
+
+export interface RecommendedAnimeItem {
+  mal_id: number;
+  title: string;
+  title_english?: string | null;
+  image_url: string;
+  score?: number | null;
+  votes?: number;
+  format?: string;
+  genres?: string[];
+}
+
+export interface CharacterDetail {
+  mal_id: number;
+  name: string;
+  name_kanji?: string | null;
+  nicknames?: string[];
+  about?: string | null;
+  favorites?: number;
+  image_url: string;
+  anime: {
+    mal_id: number;
+    title: string;
+    image_url: string;
+    role?: string;
+    score?: number | null;
+  }[];
+  voices?: {
+    person_id: number;
+    name: string;
+    language: string;
+    image_url: string;
+  }[];
+}
+
+export interface PersonDetail {
+  mal_id: number;
+  name: string;
+  family_name?: string | null;
+  given_name?: string | null;
+  birthday?: string | null;
+  about?: string | null;
+  favorites?: number;
+  image_url: string;
+  occupations?: string[];
+  roles: {
+    character_id: number;
+    character_name: string;
+    character_image: string;
+    role?: string;
+    anime_id: number;
+    anime_title: string;
+    anime_image: string;
+  }[];
+}
+
+export interface ShelfExportData {
+  version: string;
+  exportDate: string;
+  appName: string;
+  entries: ShelfEntry[];
+  stats?: {
+    totalEntries: number;
+    animeCount: number;
+    mangaCount: number;
+  };
+}
+

@@ -1,8 +1,9 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { AnimeItem, JikanPagination } from '../src/types';
-import { serverSearchAnime as jikanSearch, serverGetAnimeDetails as jikanGetById, serverGetTopAnime, serverGetSeasonalAnime, serverGetUpcomingAnime } from './jikanService';
+import { serverSearchAnime as jikanSearch, serverGetAnimeDetails as jikanGetById, serverGetTopAnime, serverGetSeasonalAnime, serverGetUpcomingAnime, isNsfwOrAdult } from './jikanService';
 import { ingestAnimeList } from './ingestionService';
+import { cleanOfficialText } from './officialSynopsisService';
 
 
 function mapDbToAnime(row: any): AnimeItem {
@@ -25,6 +26,7 @@ function mapDbToAnime(row: any): AnimeItem {
 
   return {
     ...row,
+    synopsis: cleanOfficialText(row.synopsis) || row.synopsis,
     genres: mappedGenres.length > 0 ? mappedGenres : (row.genres || []),
     studios: mappedStudios.length > 0 ? mappedStudios : (row.studios || []),
     streaming: mappedStreaming.length > 0 ? mappedStreaming : (row.streaming || []),
@@ -96,7 +98,7 @@ export async function getCatalogTopAnime(filter: string = 'bypopularity', page: 
 
   // TODO: genres fetching
   return {
-    data: (data || []).map(mapDbToAnime) as any[],
+    data: (data || []).filter(item => !isNsfwOrAdult(item)).map(mapDbToAnime) as any[],
     pagination: {
       last_visible_page: Math.ceil((count || 0) / limit),
       has_next_page: offset + limit < (count || 0),
@@ -164,7 +166,10 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
        const jikanResult = await jikanSearch(options);
        if (jikanResult.data && jikanResult.data.length > 0) {
          ingestAnimeList(jikanResult.data as any).catch(() => {});
-         return jikanResult as any;
+         return {
+           data: jikanResult.data.filter(item => !isNsfwOrAdult(item)) as any,
+           pagination: jikanResult.pagination
+         };
        }
      } catch (err) {
        // Live API failed (rate limits), silent fallback to empty array
@@ -172,7 +177,7 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
   }
 
   return {
-    data: (data || []).map(mapDbToAnime) as any[],
+    data: (data || []).filter(item => !isNsfwOrAdult(item)).map(mapDbToAnime) as any[],
     pagination: {
       last_visible_page: Math.ceil((count || 0) / limit),
       has_next_page: offset + limit < (count || 0),
@@ -183,16 +188,22 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
 }
 
 export async function getCatalogAnimeById(id: number): Promise<{ data: AnimeItem | null }> {
-  if (!isSupabaseConfigured) return { data: await jikanGetById(id) as any };
+  if (id === 34246) return { data: null };
+  if (!isSupabaseConfigured) {
+    const live = await jikanGetById(id);
+    if (!live || isNsfwOrAdult(live)) return { data: null };
+    return { data: live as any };
+  }
   const { data, error } = await supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*)), anime_streaming(url, streaming_providers(name))').eq('mal_id', id).single();
   
   if (data) {
+    if (isNsfwOrAdult(data)) return { data: null };
     let mapped = mapDbToAnime(data);
     // If streaming is missing, try to fetch it live from Jikan to backfill
     if (!mapped.streaming || mapped.streaming.length === 0) {
       try {
         const jikanRes = await jikanGetById(id);
-        if (jikanRes && jikanRes.streaming && jikanRes.streaming.length > 0) {
+        if (jikanRes && !isNsfwOrAdult(jikanRes) && jikanRes.streaming && jikanRes.streaming.length > 0) {
            mapped.streaming = jikanRes.streaming;
            // Fire and forget ingestion update
            ingestAnimeList([jikanRes] as any).catch(() => {});
@@ -203,7 +214,7 @@ export async function getCatalogAnimeById(id: number): Promise<{ data: AnimeItem
   }
 
   const jikanRes = await jikanGetById(id);
-  if (jikanRes) {
+  if (jikanRes && !isNsfwOrAdult(jikanRes)) {
     ingestAnimeList([jikanRes] as any).catch(() => {});
     return { data: jikanRes as any };
   }

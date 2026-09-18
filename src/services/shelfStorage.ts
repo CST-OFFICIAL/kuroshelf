@@ -54,7 +54,30 @@ export function getStoredShelf(): ShelfEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SHELF);
     if (!raw) return [];
-    return JSON.parse(raw);
+    const parsed: ShelfEntry[] = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    let hasNsfw = false;
+    const cleanShelf = parsed.filter((item) => {
+      if (!item) return false;
+      const t = String(item.title || '').toLowerCase();
+      if (
+        item.id === 34246 ||
+        t.includes('rina witch') ||
+        t.includes('kimi no mana wa') ||
+        t.includes('your magical name is rina')
+      ) {
+        hasNsfw = true;
+        return false;
+      }
+      return true;
+    });
+
+    if (hasNsfw) {
+      localStorage.setItem(STORAGE_KEYS.SHELF, JSON.stringify(cleanShelf));
+    }
+
+    return cleanShelf;
   } catch {
     return [];
   }

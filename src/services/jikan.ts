@@ -1,14 +1,36 @@
-import { AnimeItem, MangaItem, CharacterItem, JikanGenre, JikanPagination } from '../types';
+import {
+  AnimeItem,
+  MangaItem,
+  CharacterItem,
+  JikanGenre,
+  JikanPagination,
+  AiringScheduleItem,
+  RecommendedAnimeItem,
+  CharacterDetail,
+  PersonDetail,
+} from '../types';
 
 // In-memory cache to avoid duplicate calls during session
 const memoryCache = new Map<string, { data: unknown; pagination?: JikanPagination; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes cache
 
+function isNsfwOrAdultClient(item: any): boolean {
+  if (!item) return false;
+  const malId = Number(item.mal_id);
+  if (malId === 34246) return true;
+  if (item.isAdult === true) return true;
+  const rating = String(item.rating || '').toLowerCase();
+  if (rating.includes('rx') || rating.includes('hentai')) return true;
+  const title = `${item.title || ''} ${item.title_english || ''}`.toLowerCase();
+  if (title.includes('rina witch') || title.includes('kimi no mana wa') || title.includes('your magical name is rina')) return true;
+  return false;
+}
+
 function deduplicateByMalId<T extends { mal_id: number }>(items: T[]): T[] {
   if (!Array.isArray(items)) return [];
   const seen = new Set<number>();
   return items.filter((item) => {
-    if (!item || typeof item.mal_id !== 'number' || seen.has(item.mal_id)) {
+    if (!item || typeof item.mal_id !== 'number' || isNsfwOrAdultClient(item) || seen.has(item.mal_id)) {
       return false;
     }
     seen.add(item.mal_id);
@@ -164,7 +186,9 @@ export async function getUpcomingAnimePaginated(
 }
 
 export async function getAnimeById(id: number): Promise<AnimeItem | null> {
+  if (id === 34246) return null;
   const res = await fetchFromApi<AnimeItem | null>(`/api/anime/${id}`, null);
+  if (res.data && isNsfwOrAdultClient(res.data)) return null;
   return res.data;
 }
 
@@ -189,3 +213,30 @@ export async function searchManga(query: string, limit: number = 20, page: numbe
   const res = await fetchFromApi<MangaItem[]>(`/api/manga/search?q=${encodeURIComponent(clean)}&page=${page}&limit=${limit}`, []);
   return deduplicateByMalId(Array.isArray(res.data) ? res.data : []).slice(0, limit);
 }
+
+export async function getAiringSchedule(day?: string): Promise<AiringScheduleItem[]> {
+  const endpoint = day ? `/api/anime/schedule?day=${encodeURIComponent(day)}` : '/api/anime/schedule';
+  const res = await fetchFromApi<AiringScheduleItem[]>(endpoint, []);
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function getAnimeRecommendations(id: number): Promise<RecommendedAnimeItem[]> {
+  const endpoint = `/api/anime/${id}/recommendations`;
+  const res = await fetchFromApi<RecommendedAnimeItem[]>(endpoint, []);
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function getCharacterDetails(id: number, name?: string): Promise<CharacterDetail | null> {
+  const param = name ? `?name=${encodeURIComponent(name)}` : '';
+  const endpoint = `/api/characters/${id}${param}`;
+  const res = await fetchFromApi<CharacterDetail | null>(endpoint, null);
+  return res.data;
+}
+
+export async function getPersonDetails(id: number, name?: string): Promise<PersonDetail | null> {
+  const param = name ? `?name=${encodeURIComponent(name)}` : '';
+  const endpoint = `/api/people/${id}${param}`;
+  const res = await fetchFromApi<PersonDetail | null>(endpoint, null);
+  return res.data;
+}
+

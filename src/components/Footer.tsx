@@ -72,6 +72,13 @@ export function Footer({ onNavigateTab, onOpenInfoModal }: FooterProps) {
                 >
                   Top Rankings
                 </button>
+                <button
+                  type="button"
+                  onClick={() => handleNavClick('schedule')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Airing Schedule
+                </button>
               </div>
             </div>
 

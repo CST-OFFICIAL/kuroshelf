@@ -22,6 +22,11 @@ import {
   serverGetTopManga,
   serverSearchManga,
   serverGetTop100Anime,
+  serverGetAiringSchedule,
+  serverGetAnimeRecommendations,
+  serverGetCharacterDetails,
+  serverGetPersonDetails,
+  isNsfwOrAdult,
 } from './server/jikanService';
 
 // Extend Express Request type with authenticated user
@@ -420,6 +425,7 @@ async function startServer() {
           
           if (!error && data && data.length > 0) {
             const safeData = data.filter(item => {
+              if (isNsfwOrAdult(item)) return false;
               if (item.rating && (item.rating.includes('Rx') || item.rating.includes('Hentai'))) return false;
               if (item.anime_genres && Array.isArray(item.anime_genres)) {
                 for (const ag of item.anime_genres) {
@@ -467,14 +473,14 @@ async function startServer() {
       const combined: any[] = [];
 
       for (const item of supabaseItems) {
-        if (item.mal_id && !seenIds.has(item.mal_id)) {
+        if (item.mal_id && !seenIds.has(item.mal_id) && !isNsfwOrAdult(item)) {
           seenIds.add(item.mal_id);
           combined.push(item);
         }
       }
 
       for (const item of externalItems) {
-        if (item.mal_id && !seenIds.has(item.mal_id)) {
+        if (item.mal_id && !seenIds.has(item.mal_id) && !isNsfwOrAdult(item)) {
           seenIds.add(item.mal_id);
           combined.push(item);
         }
@@ -544,6 +550,18 @@ async function startServer() {
     }
   });
 
+  // Weekly Airing Schedule
+  app.get('/api/anime/schedule', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const day = typeof req.query.day === 'string' ? req.query.day : undefined;
+      const data = await serverGetAiringSchedule(day);
+      res.json({ success: true, data });
+    } catch (err) {
+      console.warn('[API /api/anime/schedule] Error:', err);
+      res.status(500).json({ success: false, data: [], error: 'Failed to fetch schedule' });
+    }
+  });
+
   app.get('/api/anime/:id', async (req: Request, res: Response): Promise<void> => {
     const id = Number(req.params.id);
     if (isNaN(id)) {
@@ -578,6 +596,59 @@ async function startServer() {
     } catch (err) {
       console.warn(`[API /api/anime/${id}/characters] Error:`, err);
       res.status(500).json({ success: false, data: [], error: 'Failed to fetch anime characters' });
+    }
+  });
+
+  // Anime Recommendations
+  app.get('/api/anime/:id/recommendations', async (req: Request, res: Response): Promise<void> => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      res.status(400).json({ success: false, error: 'Invalid anime ID' });
+      return;
+    }
+
+    try {
+      const data = await serverGetAnimeRecommendations(id);
+      res.json({ success: true, data });
+    } catch (err) {
+      console.warn(`[API /api/anime/${id}/recommendations] Error:`, err);
+      res.status(500).json({ success: false, data: [], error: 'Failed to fetch recommendations' });
+    }
+  });
+
+  // Character Details Explorer
+  app.get('/api/characters/:id', async (req: Request, res: Response): Promise<void> => {
+    const id = Number(req.params.id);
+    const name = typeof req.query.name === 'string' ? req.query.name : undefined;
+
+    try {
+      const data = await serverGetCharacterDetails(id, name);
+      if (!data) {
+        res.status(404).json({ success: false, error: 'Character not found' });
+        return;
+      }
+      res.json({ success: true, data });
+    } catch (err) {
+      console.warn(`[API /api/characters/${id}] Error:`, err);
+      res.status(500).json({ success: false, error: 'Failed to fetch character details' });
+    }
+  });
+
+  // Voice Actor / Staff Explorer
+  app.get('/api/people/:id', async (req: Request, res: Response): Promise<void> => {
+    const id = Number(req.params.id);
+    const name = typeof req.query.name === 'string' ? req.query.name : undefined;
+
+    try {
+      const data = await serverGetPersonDetails(id, name);
+      if (!data) {
+        res.status(404).json({ success: false, error: 'Person not found' });
+        return;
+      }
+      res.json({ success: true, data });
+    } catch (err) {
+      console.warn(`[API /api/people/${id}] Error:`, err);
+      res.status(500).json({ success: false, error: 'Failed to fetch person details' });
     }
   });
 

@@ -10,7 +10,9 @@ import {
   History,
   User,
   BarChart2,
-  Clock
+  Clock,
+  BarChart3,
+  Download
 } from 'lucide-react';
 import { MediaImage } from './MediaImage';
 
@@ -27,6 +29,8 @@ interface ShelfViewProps {
   onRemove: (id: number, mediaType: 'anime' | 'manga') => void;
   onToggleLike: (id: number, mediaType: 'anime' | 'manga', title: string, image: string) => void;
   onTabChange?: (tab: ShelfViewFilterTab) => void;
+  onOpenStats?: () => void;
+  onOpenImportExport?: () => void;
 }
 
 export function ShelfView({
@@ -39,6 +43,8 @@ export function ShelfView({
   onRemove,
   onToggleLike,
   onTabChange,
+  onOpenStats,
+  onOpenImportExport,
 }: ShelfViewProps) {
   const [filterTab, setFilterTab] = useState<ShelfViewFilterTab>(activeSubTab || 'all');
   const [mediaFilter, setMediaFilter] = useState<'all' | 'anime' | 'manga'>('all');
@@ -122,21 +128,47 @@ export function ShelfView({
           </p>
         </div>
 
-        {/* Media filter (Anime / Manga) */}
-        <div className="flex items-center gap-1 bg-neutral-900 p-1 rounded-xl border border-neutral-800 self-start">
-          {(['all', 'anime', 'manga'] as const).map((type) => (
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          {onOpenStats && (
             <button
-              key={type}
-              onClick={() => setMediaFilter(type)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                mediaFilter === type
-                  ? 'bg-rose-600 text-white shadow-sm'
-                  : 'text-neutral-400 hover:text-neutral-200'
-              }`}
+              id="open-shelf-stats-btn"
+              onClick={onOpenStats}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-xs font-semibold text-neutral-300 hover:text-white transition-colors"
+              title="View Visual Library Analytics"
             >
-              {type}
+              <BarChart3 className="w-3.5 h-3.5 text-rose-400" />
+              <span>Library Stats</span>
             </button>
-          ))}
+          )}
+
+          {onOpenImportExport && (
+            <button
+              id="open-shelf-backup-btn"
+              onClick={onOpenImportExport}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-xs font-semibold text-neutral-300 hover:text-white transition-colors"
+              title="Backup & Migration"
+            >
+              <Download className="w-3.5 h-3.5 text-rose-400" />
+              <span>Backup / Migrate</span>
+            </button>
+          )}
+
+          {/* Media filter (Anime / Manga) */}
+          <div className="flex items-center gap-1 bg-neutral-900 p-1 rounded-xl border border-neutral-800">
+            {(['all', 'anime', 'manga'] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => setMediaFilter(type)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                  mediaFilter === type
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

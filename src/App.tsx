@@ -5,7 +5,8 @@ import {
   getTopAnime, 
   getSeasonalAnime, 
   getUpcomingAnime, 
-  searchAnime 
+  searchAnime,
+  getAnimeById
 } from './services/jikan';
 import {
   getStoredShelf,
@@ -31,6 +32,11 @@ import { AnimeDetailModal } from './components/AnimeDetailModal';
 import { ShelfView, ShelfViewFilterTab } from './components/ShelfView';
 import { PollsView } from './components/PollsView';
 import { MangaSection } from './components/MangaSection';
+import { ScheduleView } from './components/ScheduleView';
+import { CharacterDetailModal } from './components/CharacterDetailModal';
+import { VoiceActorModal } from './components/VoiceActorModal';
+import { ShelfStatsModal } from './components/ShelfStatsModal';
+import { ShelfImportExportModal } from './components/ShelfImportExportModal';
 import { Footer } from './components/Footer';
 import { InfoModal, InfoModalType } from './components/InfoModal';
 import { AuthModal } from './components/AuthModal';
@@ -95,6 +101,14 @@ export function App() {
 
   // Modal detail view
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
+
+  // Sub-modals for Characters & Voice Actors explorer
+  const [selectedCharacter, setSelectedCharacter] = useState<{ id: number; name: string } | null>(null);
+  const [selectedVoiceActor, setSelectedVoiceActor] = useState<{ id: number; name: string } | null>(null);
+
+  // Shelf sub-modals for Stats & Import/Export
+  const [statsModalOpen, setStatsModalOpen] = useState(false);
+  const [importExportModalOpen, setImportExportModalOpen] = useState(false);
 
   // Sync user data from backend database
   const syncUserData = useCallback(async (user: AuthUser | null) => {
@@ -477,6 +491,29 @@ export function App() {
         credentials: 'include',
       }).catch((e) => console.warn('Failed to delete shelf item on server:', e));
     }
+  };
+
+  const handleImportShelf = (newItems: ShelfEntry[], mode: 'merge' | 'replace') => {
+    let updatedShelf: ShelfEntry[] = [];
+    if (mode === 'replace') {
+      updatedShelf = newItems;
+    } else {
+      const existingMap = new Map<string, ShelfEntry>();
+      shelf.forEach((item) => {
+        existingMap.set(`${item.mediaType || 'anime'}_${item.id}`, item);
+      });
+      newItems.forEach((item) => {
+        existingMap.set(`${item.mediaType || 'anime'}_${item.id}`, item);
+      });
+      updatedShelf = Array.from(existingMap.values());
+    }
+    try {
+      localStorage.setItem('kuro_shelf_items', JSON.stringify(updatedShelf));
+    } catch (e) {
+      console.warn('Failed to save imported shelf to localStorage:', e);
+    }
+    setShelf(updatedShelf);
+    setActivities(getStoredActivities());
   };
 
   const handleVotePoll = async (pollId: string, optionId: string) => {
@@ -885,17 +922,37 @@ export function App() {
             {/* 3. TAB: THIS SEASON */}
             {activeTab === 'seasonal' && (
               <div className="space-y-8">
-                <div className="border-b border-neutral-800 pb-6">
-                  <div className="flex items-center gap-2 text-rose-400 text-xs uppercase font-bold tracking-wider mb-1">
-                    <Sparkles className="w-4 h-4" />
-                    <span>Current Broadcast Schedule</span>
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-neutral-800 pb-6">
+                  <div>
+                    <div className="flex items-center gap-2 text-rose-400 text-xs uppercase font-bold tracking-wider mb-1">
+                      <Sparkles className="w-4 h-4" />
+                      <span>Current Season Premieres</span>
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-display">
+                      Seasonal Anime Directory
+                    </h1>
+                    <p className="text-xs sm:text-sm text-neutral-400 mt-1">
+                      Currently premiering series, sequels, and simulcasts airing this season.
+                    </p>
                   </div>
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-display">
-                    Seasonal Anime Directory
-                  </h1>
-                  <p className="text-xs sm:text-sm text-neutral-400 mt-1">
-                    Currently premiering series, sequels, and simulcasts airing this season.
-                  </p>
+
+                  <div className="flex items-center gap-1.5 bg-neutral-900 border border-neutral-800 p-1 rounded-xl text-xs self-start sm:self-auto">
+                    <button
+                      type="button"
+                      className="px-3.5 py-1.5 rounded-lg bg-neutral-800 text-white font-semibold shadow-sm border border-neutral-700"
+                    >
+                      Seasonal Grid
+                    </button>
+                    <button
+                      id="seasonal-switch-to-schedule-btn"
+                      type="button"
+                      onClick={() => setActiveTab('schedule')}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-neutral-400 hover:text-white transition-colors font-medium"
+                    >
+                      <Calendar className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Weekly Schedule</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
@@ -1187,6 +1244,16 @@ export function App() {
             {/* 5. TAB: MANGA */}
             {activeTab === 'manga' && <MangaSection />}
 
+            {/* TAB: SCHEDULE */}
+            {activeTab === 'schedule' && (
+              <ScheduleView
+                onSelectAnime={setSelectedAnime}
+                onAddToShelf={handleAddToShelf}
+                isItemInShelf={(id) => Boolean(getShelfItem(id))}
+                onNavigateTab={setActiveTab}
+              />
+            )}
+
             {/* 6. TAB: POLLS */}
             {activeTab === 'polls' && (
               <PollsView
@@ -1217,10 +1284,20 @@ export function App() {
                 activities={activities}
                 activeSubTab={shelfSubTab}
                 onTabChange={(tab) => setShelfSubTab(tab)}
-                onSelectMedia={(id) => {
+                onOpenStats={() => setStatsModalOpen(true)}
+                onOpenImportExport={() => setImportExportModalOpen(true)}
+                onSelectMedia={async (id) => {
                   const item = shelf.find((s) => s.id === id);
                   if (item) {
-                    // Fetch full anime if needed or open modal
+                    try {
+                      const fullAnime = await getAnimeById(id);
+                      if (fullAnime) {
+                        setSelectedAnime(fullAnime);
+                        return;
+                      }
+                    } catch {
+                      // fallback to minimal object
+                    }
                     setSelectedAnime({
                       mal_id: item.id,
                       url: '',
@@ -1280,9 +1357,68 @@ export function App() {
           onUpdateStatus={handleUpdateShelfStatus}
           onUpdateRating={handleUpdateRating}
           onToggleLike={handleToggleLike}
+          onSelectRelatedAnime={async (malId) => {
+            try {
+              const fullAnime = await getAnimeById(malId);
+              if (fullAnime) {
+                setSelectedAnime(fullAnime);
+              }
+            } catch (err) {
+              console.warn('Failed to load related anime:', err);
+            }
+          }}
+          onSelectCharacter={(charId, charName) => {
+            setSelectedCharacter({ id: charId, name: charName });
+          }}
+          onSelectVoiceActor={(vaId, vaName) => {
+            setSelectedVoiceActor({ id: vaId, name: vaName });
+          }}
         />
       )}
       </AnimatePresence>
+
+      {/* Character Profile Modal */}
+      {selectedCharacter && (
+        <CharacterDetailModal
+          characterId={selectedCharacter.id}
+          characterName={selectedCharacter.name}
+          onClose={() => setSelectedCharacter(null)}
+          onSelectAnime={setSelectedAnime}
+          onSelectVoiceActor={(personId, personName) => {
+            setSelectedVoiceActor({ id: personId, name: personName });
+          }}
+        />
+      )}
+
+      {/* Voice Actor Profile Modal */}
+      {selectedVoiceActor && (
+        <VoiceActorModal
+          personId={selectedVoiceActor.id}
+          personName={selectedVoiceActor.name}
+          onClose={() => setSelectedVoiceActor(null)}
+          onSelectAnime={setSelectedAnime}
+          onSelectCharacter={(charId, charName) => {
+            setSelectedCharacter({ id: charId, name: charName });
+          }}
+        />
+      )}
+
+      {/* Shelf Stats Analytics Modal */}
+      {statsModalOpen && (
+        <ShelfStatsModal
+          shelf={shelf}
+          onClose={() => setStatsModalOpen(false)}
+        />
+      )}
+
+      {/* Shelf Library Backup & Import/Export Modal */}
+      {importExportModalOpen && (
+        <ShelfImportExportModal
+          shelf={shelf}
+          onClose={() => setImportExportModalOpen(false)}
+          onImport={handleImportShelf}
+        />
+      )}
 
       {/* Footer */}
       <Footer

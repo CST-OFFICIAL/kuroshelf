@@ -11,7 +11,8 @@ import {
   Menu, 
   X,
   User as UserIcon,
-  Library
+  Library,
+  Calendar
 } from 'lucide-react';
 import { AuthUser } from '../types';
 
@@ -43,6 +44,7 @@ export function Navbar({
     { id: 'seasonal', label: 'This Season', icon: Sparkles },
     { id: 'rankings', label: 'Rankings', icon: Trophy },
     { id: 'advanced', label: 'Catalog', icon: Library },
+    { id: 'schedule', label: 'Schedule', icon: Calendar },
     { id: 'manga', label: 'Manga', icon: BookOpen },
     { id: 'polls', label: 'Predictions', icon: Vote },
     { id: 'shelf', label: 'My Shelf', icon: Bookmark, badge: shelfCount },

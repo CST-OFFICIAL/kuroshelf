@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { supabase, isSupabaseConfigured } from './supabase';
-import { fetchFromJikan } from './jikanService';
+import { fetchFromJikan, isNsfwOrAdult } from './jikanService';
 import { cleanOfficialText } from './officialSynopsisService';
 import { BaseJikanAnime } from '../src/types';
 
@@ -60,6 +60,7 @@ export async function ingestAnimeList(
   const anilistScores = await getAnilistScoresBatch(malIds);
 
   for (const item of animeList) {
+    if (!item || isNsfwOrAdult(item)) continue;
     result.recordsProcessed++;
     try {
       // 1. Identify if anime already exists via anime_sources or legacy mal_id

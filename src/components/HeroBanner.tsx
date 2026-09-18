@@ -2,6 +2,7 @@ import { AnimeItem, ShelfStatus } from '../types';
 import { Play, Plus, Check, Star, Calendar, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { MediaImage } from './MediaImage';
+import { cleanSynopsis } from '../utils/textUtils';
 
 interface HeroBannerProps {
   anime: AnimeItem | null;
@@ -131,7 +132,7 @@ export function HeroBanner({ anime, onSelect, onAddToShelf, isSavedInShelf }: He
 
           {/* Synopsis */}
           <p className="text-xs sm:text-sm text-neutral-300 line-clamp-2 sm:line-clamp-3 leading-relaxed max-w-3xl">
-            {anime.synopsis || 'No synopsis available.'}
+            {cleanSynopsis(anime.synopsis) || 'No synopsis available.'}
           </p>
 
           {/* Broadcast Countdown notice if available */}

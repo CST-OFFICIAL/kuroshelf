@@ -12,23 +12,30 @@ export function cleanOfficialText(text: string | null | undefined): string | nul
   if (!text || typeof text !== 'string') return null;
 
   let cleaned = text
-    // Normalize newlines from <br> tags
     .replace(/<br\s*\/?>/gi, '\n')
-    // Remove all remaining HTML tags
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n\n')
     .replace(/<[^>]+>/g, '')
-    // Unescape common HTML entities
     .replace(/&quot;/g, '"')
-    .replace(/&#039;|&apos;/g, "'")
+    .replace(/&#039;|&apos;|&#x27;|&#39;/g, "'")
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    // Remove automated source or rewrite tags
-    .replace(/\s*\[Written by MAL Rewrite\]\s*/gi, '')
-    .replace(/\s*\(Source:.*?\)\s*/gi, '')
-    .trim();
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&mdash;|&#8212;/g, '—')
+    .replace(/&ndash;|&#8211;/g, '–')
+    .replace(/&hellip;|&#8230;/g, '…')
+    .replace(/\(Source:[^)]*\)/gi, '')
+    .replace(/\[Source:[^\]]*\]/gi, '')
+    .replace(/\[Written by MAL Rewrite\]/gi, '')
+    .replace(/\(Written by MAL Rewrite\)/gi, '')
+    .replace(/([.!?])\s*(Notes?:)/gi, '$1\n\n$2');
 
-  // Normalize excessive newlines
-  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+  const lines = cleaned
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  cleaned = lines.join('\n\n').trim();
 
   return cleaned.length > 0 ? cleaned : null;
 }
