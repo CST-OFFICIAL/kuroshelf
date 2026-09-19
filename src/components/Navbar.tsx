@@ -167,14 +167,24 @@ export function Navbar({
           <button
             id="nav-auth-button"
             onClick={() => currentUser ? onTabChange('profile') : onOpenAuth()}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-              currentUser
-                ? 'bg-neutral-900 border-neutral-700 text-rose-300 hover:border-rose-500/50'
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+              activeTab === 'profile'
+                ? 'bg-rose-600 border-rose-500 text-white shadow-md shadow-rose-900/30'
+                : currentUser
+                ? 'bg-neutral-900 border-neutral-700 text-neutral-200 hover:border-rose-500/50 hover:text-white'
                 : 'bg-rose-600 border-rose-500 text-white hover:bg-rose-500 shadow-sm'
             }`}
           >
-            <UserIcon className="w-3.5 h-3.5" />
-            <span className="truncate max-w-[100px]">
+            {currentUser?.avatar_url ? (
+              <img
+                src={currentUser.avatar_url}
+                alt=""
+                className="w-4 h-4 rounded-full object-cover border border-rose-400"
+              />
+            ) : (
+              <UserIcon className="w-3.5 h-3.5" />
+            )}
+            <span className="truncate max-w-[110px]">
               {currentUser ? currentUser.display_name || currentUser.username : 'Sign In'}
             </span>
           </button>

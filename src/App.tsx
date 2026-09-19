@@ -728,8 +728,6 @@ export function App() {
 
       {/* Main Content Area */}
       <div className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col justify-start">
-        
-
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
           <div className="w-full space-y-10">
         {/* Error banner if API is down */}
@@ -1616,13 +1614,19 @@ export function App() {
                 getIsLiked={(id) => getShelfItem(id)?.isLiked || false}
               />
             )}
-            {/* 7. TAB: MY SHELF */}
-            {activeTab === 'profile' && currentUser && (
+            {/* TAB: PROFILE */}
+            {activeTab === 'profile' && (
               <ProfileView
                 currentUser={currentUser}
                 onProfileUpdated={setCurrentUser}
                 onNavigateTab={setActiveTab}
                 onOpenStats={() => setStatsModalOpen(true)}
+                onOpenImportExport={() => setImportExportModalOpen(true)}
+                onOpenAuth={() => setAuthModalOpen(true)}
+                shelf={shelf}
+                activities={activities}
+                onSelectAnime={setSelectedAnime}
+                onSelectManga={(title) => handleNavigateToManga(title)}
                 shelfCount={shelf.length}
               />
             )}

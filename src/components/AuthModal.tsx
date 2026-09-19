@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, User, Lock, Mail, LogIn, LogOut, CheckCircle2, Shield, Eye, EyeOff, KeyRound, Sparkles } from 'lucide-react';
+import { X, User, Lock, Mail, LogIn, LogOut, CheckCircle2, Shield, Eye, EyeOff, Sparkles, AlertCircle } from 'lucide-react';
 import { AuthUser } from '../types';
-import { loginUser, logoutUser, loginWithGoogle, sendEmailOtp, verifyEmailOtp, updateProfileSetup } from '../services/authService';
+import { loginUser, logoutUser, loginWithGoogle, registerUser, updateProfileSetup } from '../services/authService';
+import { validateUsername } from '../services/profileCustomizationService';
 
 interface AuthModalProps {
   currentUser: AuthUser | null;
@@ -9,7 +10,7 @@ interface AuthModalProps {
   onAuthSuccess: (user: AuthUser | null) => void;
 }
 
-type AuthTab = 'login' | 'register' | 'otp' | 'setup_profile';
+type AuthTab = 'login' | 'register' | 'setup_profile';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -27,27 +28,21 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
   }, []);
 
   const [tab, setTab] = useState<AuthTab>('login');
+  // All inputs strictly start empty - no pre-filled boxes as requested
   const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
   const [username, setUsername] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [countdown, setCountdown] = useState(0);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (countdown > 0) {
-      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-    }
-    return () => clearTimeout(timer);
-  }, [countdown]);
 
   useEffect(() => {
     if (currentUser && !currentUser.profile_setup_complete) {
       setTab('setup_profile');
+      setUsername('');
+      setDisplayName('');
     }
   }, [currentUser]);
 
@@ -55,11 +50,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
     e.preventDefault();
     setError(null);
     if (!identifier.trim() || !password) {
-      setError('Please enter your email and password');
-      return;
-    }
-    if (!EMAIL_REGEX.test(identifier.trim())) {
-      setError('Please enter a valid email address.');
+      setError('Please enter your email or username and password');
       return;
     }
     setLoading(true);
@@ -73,7 +64,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
           onClose();
         }
       } else {
-        setError(res.error || 'Failed to sign in');
+        setError(res.error || 'Failed to sign in. Please verify your credentials.');
       }
     } catch {
       setError('Connection error. Please try again.');
@@ -82,49 +73,39 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
     }
   };
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (countdown > 0) return;
     setError(null);
+
+    const validation = validateUsername(username.trim(), null);
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid username');
+      return;
+    }
+
+    if (!displayName.trim() || displayName.trim().length < 2) {
+      setError('Display name must be at least 2 characters.');
+      return;
+    }
+
     if (!email.trim() || !EMAIL_REGEX.test(email.trim())) {
-      setError('A valid email address is required.');
+      setError('Please enter a valid email address.');
       return;
     }
-    setLoading(true);
-    try {
-      const res = await sendEmailOtp(email.trim());
-      if (res.success) {
-        setTab('otp');
-        setCountdown(60);
-      } else {
-        setError(res.error || 'Failed to send verification code');
-      }
-    } catch {
-      setError('Connection error. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (!otp.trim()) {
-      setError('Please enter the verification code');
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters.');
       return;
     }
+
     setLoading(true);
     try {
-      const res = await verifyEmailOtp(email.trim(), otp.trim());
+      const res = await registerUser(username.trim(), displayName.trim(), email.trim(), password);
       if (res.success && res.user) {
         onAuthSuccess(res.user);
-        if (!res.user.profile_setup_complete) {
-          setTab('setup_profile');
-        } else {
-          onClose();
-        }
+        onClose();
       } else {
-        setError(res.error || 'Invalid or expired verification code');
+        setError(res.error || 'Failed to create account');
       }
     } catch {
       setError('Connection error. Please try again.');
@@ -132,32 +113,27 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
       setLoading(false);
     }
   };
-
-  const [displayName, setDisplayName] = useState('');
 
   const handleSetupProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!username.trim() || username.trim().length < 4 || username.trim().length > 30) {
-      setError('Username must be between 4 and 30 characters.');
+
+    const validation = validateUsername(username.trim(), currentUser);
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid username');
       return;
     }
-    if (!displayName.trim() || displayName.trim().length < 2 || displayName.trim().length > 50) {
-      setError('Display name must be between 2 and 50 characters.');
-      return;
-    }
-    
-    // Check for alphanumeric in username (no spaces)
-    if (!/^[a-zA-Z0-9_.]+$/.test(username.trim())) {
-      setError('Username can only contain letters, numbers, and underscores.');
+
+    if (!displayName.trim() || displayName.trim().length < 2) {
+      setError('Display name must be at least 2 characters.');
       return;
     }
 
     setLoading(true);
     try {
       const res = await updateProfileSetup(username.trim(), displayName.trim(), password || undefined);
-      if (res.success) {
-        onAuthSuccess(currentUser ? { ...currentUser, username: username.trim(), display_name: displayName.trim(), profile_setup_complete: true } : null);
+      if (res.success && res.user) {
+        onAuthSuccess(res.user);
         onClose();
       } else {
         setError(res.error || 'Failed to complete profile setup');
@@ -175,6 +151,8 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
       await logoutUser();
       onAuthSuccess(null);
       onClose();
+    } catch {
+      setError('Failed to sign out');
     } finally {
       setLoading(false);
     }
@@ -258,13 +236,17 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
             /* Setup Profile Form */
             <div className="space-y-6">
               <div className="text-center space-y-1">
-                <h4 className="text-lg font-bold text-white">Complete your profile</h4>
-                <p className="text-xs text-neutral-400">Choose a username to join the community.</p>
+                <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto mb-2">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <h4 className="text-lg font-bold text-white">Create Your Shelf Identity</h4>
+                <p className="text-xs text-neutral-400">Set your name and handle to get started.</p>
               </div>
 
               {error && (
-                <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300">
-                  {error}
+                <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                  <span>{error}</span>
                 </div>
               )}
 
@@ -279,7 +261,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                       type="text"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="Otaku Explorer"
+                      placeholder="e.g. Shadow Ronin"
                       required
                       minLength={2}
                       className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500"
@@ -288,22 +270,29 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs text-neutral-400 font-medium block">
-                    Username
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-neutral-400 font-medium block">
+                      Username
+                    </label>
+                    <span className="text-[10px] text-neutral-400">4 chars or fewer reserved for Admins</span>
+                  </div>
                   <div className="relative">
                     <span className="text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold">@</span>
                     <input
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_.]/g, ''))}
-                      placeholder="otaku_explorer"
+                      placeholder="e.g. anime_curator"
                       required
-                      minLength={3}
                       className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500"
                     />
                   </div>
-                  <p className="text-[10px] text-neutral-400 mt-1">Unique identifier. Only letters, numbers, and underscores.</p>
+                  {username.trim().toLowerCase() === 'kuro' && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-amber-400 font-medium mt-1">
+                      <Shield className="w-3.5 h-3.5" />
+                      <span>Admin Account: @Kuro will be granted full Administrator authority.</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -317,7 +306,6 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      minLength={8}
                       className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-10 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500"
                     />
                     <button
@@ -333,61 +321,10 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs transition-colors shadow-md shadow-rose-950/50"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs transition-colors shadow-md shadow-rose-950/50 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>{loading ? 'Saving...' : 'Complete Setup'}</span>
-                </button>
-              </form>
-            </div>
-          ) : tab === 'otp' ? (
-            /* OTP Form */
-            <div className="space-y-6">
-              <div className="text-center space-y-1">
-                <h4 className="text-lg font-bold text-white">Check your email</h4>
-                <p className="text-xs text-neutral-400">We sent a verification code to {email}</p>
-              </div>
-
-              {error && (
-                <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300">
-                  {error}
-                </div>
-              )}
-
-              <form onSubmit={handleVerifyOtp} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs text-neutral-400 font-medium block">
-                    Verification Code
-                  </label>
-                  <div className="relative">
-                    <KeyRound className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      placeholder="Enter 6-digit code"
-                      required
-                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500 text-center tracking-[0.5em]"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs transition-colors shadow-md shadow-rose-950/50"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>{loading ? 'Verifying...' : 'Verify Code'}</span>
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={handleSendOtp}
-                  disabled={loading || countdown > 0}
-                  className="w-full flex items-center justify-center gap-2 py-2 text-xs text-neutral-400 hover:text-white transition-colors disabled:opacity-50 disabled:hover:text-neutral-400"
-                >
-                  <span>{countdown > 0 ? `Resend code in ${countdown}s` : "Didn't receive the code? Resend"}</span>
+                  <span>{loading ? 'Saving Identity...' : 'Good to Go — Start Exploring'}</span>
                 </button>
               </form>
             </div>
@@ -400,7 +337,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                     setTab('login');
                     setError(null);
                   }}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                     tab === 'login'
                       ? 'bg-neutral-800 text-white shadow-sm'
                       : 'text-neutral-400 hover:text-neutral-300'
@@ -413,7 +350,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                     setTab('register');
                     setError(null);
                   }}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                     tab === 'register'
                       ? 'bg-neutral-800 text-white shadow-sm'
                       : 'text-neutral-400 hover:text-neutral-300'
@@ -424,8 +361,9 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
               </div>
 
               {error && (
-                <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300">
-                  {error}
+                <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800/60 text-xs text-rose-300 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                  <span>{error}</span>
                 </div>
               )}
 
@@ -433,15 +371,15 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-xs text-neutral-400 font-medium block">
-                      Email Address
+                      Email or Username
                     </label>
                     <div className="relative">
                       <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
-                        type="text" inputMode="email" autoCapitalize="none" autoCorrect="off"
+                        type="text"
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
-                        placeholder="name@example.com"
+                        placeholder="e.g. Kuro or name@example.com"
                         required
                         className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500"
                       />
@@ -475,14 +413,62 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs transition-colors shadow-md shadow-rose-950/50"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs transition-colors shadow-md shadow-rose-950/50 cursor-pointer"
                   >
                     <LogIn className="w-4 h-4" />
                     <span>{loading ? 'Signing In...' : 'Sign In'}</span>
                   </button>
                 </form>
               ) : (
-                <form onSubmit={handleSendOtp} className="space-y-4">
+                <form onSubmit={handleRegister} className="space-y-3.5">
+                  <div className="space-y-1">
+                    <label className="text-xs text-neutral-400 font-medium block">
+                      Display Name
+                    </label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="e.g. Otaku Master"
+                        required
+                        minLength={2}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-neutral-400 font-medium block">
+                        Username
+                      </label>
+                      <span className="text-[10px] text-neutral-400">4 chars or fewer for Admins</span>
+                    </div>
+                    <div className="relative">
+                      <span className="text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold">@</span>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_.]/g, ''))}
+                        placeholder="e.g. otaku_master"
+                        required
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+                    {username.trim().toLowerCase() === 'kuro' ? (
+                      <div className="flex items-center gap-1.5 text-[11px] text-amber-400 font-medium mt-1">
+                        <Shield className="w-3.5 h-3.5" />
+                        <span>Admin Account: @Kuro will be created with Administrator authority.</span>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-neutral-400 mt-1">
+                        Regular users must be 5+ characters. (Usernames ≤ 4 chars are admin exclusive).
+                      </p>
+                    )}
+                  </div>
+
                   <div className="space-y-1">
                     <label className="text-xs text-neutral-400 font-medium block">
                       Email Address
@@ -490,7 +476,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                     <div className="relative">
                       <Mail className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
-                        type="text" inputMode="email" autoCapitalize="none" autoCorrect="off"
+                        type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="name@example.com"
@@ -500,13 +486,38 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                     </div>
                   </div>
 
+                  <div className="space-y-1">
+                    <label className="text-xs text-neutral-400 font-medium block">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        minLength={6}
+                        className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-10 py-2 text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-rose-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-300"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs transition-colors shadow-md shadow-rose-950/50"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs transition-colors shadow-md shadow-rose-950/50 cursor-pointer"
                   >
-                    <Mail className="w-4 h-4" />
-                    <span>{loading ? 'Sending Code...' : 'Send Verification Code'}</span>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{loading ? 'Creating Account...' : 'Join Kuro Shelf & Start Exploring'}</span>
                   </button>
                 </form>
               )}
@@ -522,14 +533,14 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
                   setLoading(true);
                   const res = await loginWithGoogle();
                   if (!res.success) {
-                    setError(res.error || 'Failed to sign in with Google');
+                    setError(res.error || 'Google sign-in is available when Supabase is connected.');
                     setLoading(false);
                   }
                 }}
                 disabled={loading}
-                className="w-full mt-4 flex items-center justify-center gap-2 py-3 px-4 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors font-medium border border-gray-700"
+                className="w-full mt-4 flex items-center justify-center gap-2 py-2.5 px-4 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition-colors font-medium border border-neutral-800 text-xs cursor-pointer"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                   <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />

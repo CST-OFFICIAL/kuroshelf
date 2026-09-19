@@ -102,7 +102,36 @@ export interface AuthUser {
   username: string;
   display_name?: string | null;
   avatar_url?: string | null;
+  role?: 'admin' | 'user';
   created_at: string;
+}
+
+export interface UserProfileCustomization {
+  avatar_url?: string;
+  avatar_preset?: string;
+  avatar_frame_color?: 'rose' | 'cyan' | 'amber' | 'violet' | 'emerald' | 'dragon_gold' | 'astral_sovereign' | 'void_singularity';
+  banner_preset?: string;
+  banner_custom_url?: string;
+  status_message?: string;
+  bio?: string;
+  favorite_quote?: string;
+  gender?: 'Male' | 'Female' | 'Non-binary' | 'Rather not say' | 'Others' | '';
+  favorite_genres?: string[];
+  pinned_shelf_ids?: number[];
+  social_discord?: string;
+  social_anilist?: string;
+  social_mal?: string;
+  title_language_preference?: 'romaji' | 'english' | 'japanese';
+  spoiler_blur_enabled?: boolean;
+}
+
+export interface OtakuBadge {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  color: string;
 }
 
 export interface MangaItem {
