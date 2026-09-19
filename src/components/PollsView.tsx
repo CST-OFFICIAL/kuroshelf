@@ -1,13 +1,14 @@
 import { PredictionPoll } from '../types';
-import { Vote, CheckCircle2, Clock } from 'lucide-react';
+import { Vote, CheckCircle2, Clock, ArrowRight } from 'lucide-react';
 
 interface PollsViewProps {
   polls: PredictionPoll[];
   userVotes: Record<string, string>;
   onVote: (pollId: string, optionId: string) => void;
+  onSelectAnime?: (animeId?: number, animeTitle?: string) => void;
 }
 
-export function PollsView({ polls, userVotes, onVote }: PollsViewProps) {
+export function PollsView({ polls, userVotes, onVote, onSelectAnime }: PollsViewProps) {
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       {/* Header */}
@@ -51,9 +52,22 @@ export function PollsView({ polls, userVotes, onVote }: PollsViewProps) {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
                 <div>
                   {poll.animeTitle && (
-                    <span className="text-xs font-bold text-rose-400 uppercase tracking-wide block mb-1">
-                      {poll.animeTitle}
-                    </span>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-rose-400 uppercase tracking-wide">
+                        {poll.animeTitle}
+                      </span>
+                      {onSelectAnime && (
+                        <button
+                          type="button"
+                          onClick={() => onSelectAnime(poll.animeId, poll.animeTitle)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-[10px] font-medium border border-rose-500/20 transition-colors cursor-pointer"
+                          title={`Inspect ${poll.animeTitle}`}
+                        >
+                          <span>Inspect Title</span>
+                          <ArrowRight className="w-2.5 h-2.5" />
+                        </button>
+                      )}
+                    </div>
                   )}
                   <h3 className="text-base sm:text-lg font-bold text-white">
                     {poll.question}

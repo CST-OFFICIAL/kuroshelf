@@ -52,8 +52,30 @@ import {
   RefreshCw,
   AlertCircle, Star,
   List,
-  LayoutGrid
+  LayoutGrid,
+  Compass,
+  X,
+  ChevronRight
 } from 'lucide-react';
+
+const DISCOVER_GENRE_PILLS = [
+  { name: 'Sports', value: '30' },
+  { name: 'Action', value: '1' },
+  { name: 'Romance', value: '22' },
+  { name: 'Comedy', value: '4' },
+  { name: 'Fantasy', value: '10' },
+  { name: 'Sci-Fi', value: '24' },
+  { name: 'Isekai', value: '62' },
+  { name: 'Shounen', value: '27' },
+  { name: 'Seinen', value: '42' },
+  { name: 'Mystery', value: '7' },
+  { name: 'Supernatural', value: '37' },
+  { name: 'Slice of Life', value: '36' },
+  { name: 'Mecha', value: '18' },
+  { name: 'Psychological', value: '40' },
+  { name: 'Suspense', value: '41' },
+  { name: 'Drama', value: '8' },
+];
 
 export function App() {
   // Navigation
@@ -63,12 +85,18 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
-  // Scroll up on tab change
+  // Fast GPU-friendly instant scroll on tab change to prevent mobile stutter
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo(0, 0);
   }, [activeTab]);
 
-
+  // Discover page genre filtering state
+  const [discoverGenre, setDiscoverGenre] = useState<string | null>(null);
+  const [discoverGenreResults, setDiscoverGenreResults] = useState<AnimeItem[]>([]);
+  const [loadingDiscoverGenre, setLoadingDiscoverGenre] = useState(false);
+  const [discoverGenrePage, setDiscoverGenrePage] = useState(1);
+  const [discoverGenreHasMore, setDiscoverGenreHasMore] = useState(true);
+  const [exploreGenre, setExploreGenre] = useState<number | string | null>(null);
 
   // Data states
   const [spotlightAnime, setSpotlightAnime] = useState<AnimeItem | null>(null);
@@ -220,6 +248,7 @@ export function App() {
           id: String(p.id),
           question: p.question,
           animeTitle: p.title,
+          animeId: p.anime_id ?? undefined,
           status: p.status === 'active' ? 'active' : 'closed',
           endsAt: p.ends_at,
           totalVotes: p.total_votes,
@@ -302,6 +331,115 @@ export function App() {
       .catch((err) => console.warn('[Rankings] Notice:', err))
       .finally(() => setLoadingRankings(false));
   }, [rankingFilter, activeTab, rankingGenre, rankingYear]);
+
+  // Discover page genre filtering logic
+  const handleSelectDiscoverGenre = useCallback(async (genreVal: string | null, pageNum: number = 1) => {
+    let targetVal = genreVal;
+    if (genreVal) {
+      const match = DISCOVER_GENRE_PILLS.find(
+        (p) => p.value === genreVal || p.name.toLowerCase() === genreVal.toLowerCase()
+      );
+      if (match) {
+        targetVal = match.value;
+      }
+    }
+
+    setDiscoverGenre(targetVal);
+    setActiveTab('home');
+
+    if (!targetVal) {
+      setDiscoverGenreResults([]);
+      setDiscoverGenrePage(1);
+      setDiscoverGenreHasMore(true);
+      return;
+    }
+    setLoadingDiscoverGenre(true);
+    try {
+      const params = new URLSearchParams({
+        genres: targetVal,
+        limit: '24',
+        page: String(pageNum),
+      });
+      const res = await fetch(`/api/anime/search?${params.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        const data = json.data || [];
+        if (pageNum === 1) {
+          setDiscoverGenreResults(data);
+          setTimeout(() => {
+            const el = document.getElementById('discover-genre-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 80);
+        } else {
+          setDiscoverGenreResults((prev) => [...prev, ...data]);
+        }
+        setDiscoverGenreHasMore(data.length >= 24);
+        setDiscoverGenrePage(pageNum);
+      }
+    } catch (err) {
+      console.warn('Discover genre fetch error:', err);
+    } finally {
+      setLoadingDiscoverGenre(false);
+    }
+  }, []);
+
+  const loadMoreDiscoverGenre = () => {
+    if (!discoverGenre || loadingDiscoverGenre) return;
+    handleSelectDiscoverGenre(discoverGenre, discoverGenrePage + 1);
+  };
+
+  const handleOpenGenreInExplore = (genre: string | number) => {
+    setExploreGenre(genre);
+    setActiveTab('explore');
+    window.scrollTo(0, 0);
+  };
+
+  // Interconnected navigation states & helpers
+  const [mangaSearchQuery, setMangaSearchQuery] = useState('');
+
+  const handleNavigateToManga = (mangaTitle: string) => {
+    setMangaSearchQuery(mangaTitle);
+    setActiveTab('manga');
+    window.scrollTo(0, 0);
+  };
+
+  const handleSelectStudio = (studioName: string) => {
+    setSearchQuery(studioName);
+    setDebouncedQuery(studioName);
+    setActiveTab('discover');
+    window.scrollTo(0, 0);
+  };
+
+  const handleSelectYearSeason = (year: number) => {
+    setRankingYear(String(year));
+    setActiveTab('rankings');
+    window.scrollTo(0, 0);
+  };
+
+  const handleSelectPollAnime = async (animeId?: number, animeTitle?: string) => {
+    if (animeId) {
+      try {
+        const anime = await getAnimeById(animeId);
+        if (anime) {
+          setSelectedAnime(anime);
+          return;
+        }
+      } catch {
+        // fallback to search
+      }
+    }
+    if (animeTitle) {
+      try {
+        const results = await searchAnime(animeTitle, 1);
+        if (results && results.length > 0) {
+          setSelectedAnime(results[0]);
+          return;
+        }
+      } catch {
+        // fallback
+      }
+    }
+  };
 
   // Search execution with error handling and empty states
   const executeSearch = useCallback(async (query: string) => {
@@ -692,21 +830,27 @@ export function App() {
             )}
           </div>
         ) : (
-          <>
+          <div
+            key={activeTab}
+            id={`tab-panel-${activeTab}`}
+            role="tabpanel"
+            className="tab-view-container w-full"
+          >
+            {/* TAB: ADMIN */}
+            {activeTab === 'admin' && <AdminSyncPage />}
+
             {/* TAB: EXPLORE */}
             {activeTab === 'explore' && (
               <ExploreView 
+                initialGenre={exploreGenre}
                 onSelectAnime={setSelectedAnime}
-                getShelfStatus={(id) => getShelfItem(id)?.status || null || null}
+                getShelfStatus={(id) => getShelfItem(id)?.status || null}
                 onUpdateStatus={handleUpdateShelfStatus}
                 onToggleLike={handleToggleLike}
                 getIsLiked={(id) => getShelfItem(id)?.isLiked || false}
               />
             )}
-          </>
-        )}
             {/* 2. TAB: HOME (DISCOVER) */}
-            {activeTab === 'admin' && <AdminSyncPage />}
         {activeTab === 'home' && (
               loadingInitial ? (
                 <div className="space-y-8 animate-pulse">
@@ -728,8 +872,171 @@ export function App() {
                     onSelect={setSelectedAnime}
                     onAddToShelf={handleAddToShelf}
                     isSavedInShelf={Boolean(spotlightAnime && getShelfItem(spotlightAnime.mal_id))}
+                    onSelectGenre={(g) => handleSelectDiscoverGenre(g)}
                   />
 
+                  {/* Discover by Genre & Theme Quick Filter Carousel */}
+                  <div
+                    id="discover-genre-section"
+                    className="p-3.5 sm:p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800/80 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                          <Compass className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-xs font-bold text-neutral-200 uppercase tracking-wider">
+                          Discover by Genre & Theme
+                        </span>
+                      </div>
+                      {discoverGenre && (
+                        <button
+                          id="reset-discover-genre-btn"
+                          onClick={() => handleSelectDiscoverGenre(null)}
+                          className="text-xs text-rose-400 hover:text-rose-300 font-medium flex items-center gap-1 transition-colors px-2 py-0.5 rounded-md hover:bg-rose-500/10 cursor-pointer"
+                        >
+                          <span>Clear Filter</span>
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 scroll-smooth">
+                      <button
+                        id="discover-genre-featured"
+                        onClick={() => handleSelectDiscoverGenre(null)}
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
+                          discoverGenre === null
+                            ? 'bg-rose-600 text-white font-semibold shadow-sm shadow-rose-950/40 border border-rose-500'
+                            : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-800/80'
+                        }`}
+                      >
+                        All Featured
+                      </button>
+                      {DISCOVER_GENRE_PILLS.map((pill) => {
+                        const isSelected = discoverGenre === pill.value;
+                        return (
+                          <button
+                            key={pill.value}
+                            id={`discover-genre-${pill.name.toLowerCase().replace(/\s+/g, '-')}`}
+                            onClick={() => handleSelectDiscoverGenre(isSelected ? null : pill.value)}
+                            className={`px-3.5 py-1.5 rounded-full text-xs shrink-0 transition-all flex items-center gap-1.5 cursor-pointer ${
+                              isSelected
+                                ? 'bg-rose-600 text-white font-semibold shadow-sm shadow-rose-950/40 border border-rose-500'
+                                : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-800/80 font-medium'
+                            }`}
+                          >
+                            <span>{pill.name}</span>
+                            {isSelected && <X className="w-3 h-3 text-rose-200 ml-0.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Dynamic View: If a Genre is Selected, Show Genre Results */}
+                  {discoverGenre ? (
+                    <section className="flex flex-col gap-4 p-4 rounded-2xl bg-neutral-900/40 border border-neutral-800/80">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-800/70">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400">
+                            <Sparkles className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h2 className="text-lg font-bold text-white font-display tracking-tight leading-snug">
+                                {DISCOVER_GENRE_PILLS.find((p) => p.value === discoverGenre)?.name || 'Genre'} Anime
+                              </h2>
+                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 font-semibold border border-rose-500/30">
+                                {discoverGenreResults.length} loaded
+                              </span>
+                            </div>
+                            <span className="text-xs text-neutral-400">
+                              Curated titles matching this genre from catalog & live index
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            onClick={() => handleOpenGenreInExplore(discoverGenre)}
+                            className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white font-medium transition-colors px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 hover:border-neutral-700"
+                          >
+                            <span>Open in Full Catalog</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-rose-400" />
+                          </button>
+                          <button
+                            onClick={() => handleSelectDiscoverGenre(null)}
+                            className="text-xs text-neutral-400 hover:text-rose-300 font-medium transition-colors px-2.5 py-1.5 rounded-lg hover:bg-neutral-800 flex items-center gap-1"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Dismiss</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {loadingDiscoverGenre && discoverGenreResults.length === 0 ? (
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4 animate-pulse">
+                          {Array.from({ length: 12 }).map((_, i) => (
+                            <div key={i} className="aspect-[3/4] rounded-xl bg-neutral-900 border border-neutral-800" />
+                          ))}
+                        </div>
+                      ) : discoverGenreResults.length === 0 ? (
+                        <div className="py-12 text-center border border-dashed border-neutral-800 rounded-2xl bg-neutral-900/30">
+                          <Compass className="w-8 h-8 mx-auto text-neutral-600 mb-2" />
+                          <h3 className="text-sm font-semibold text-white">No titles found for this genre</h3>
+                          <button
+                            onClick={() => handleSelectDiscoverGenre(null)}
+                            className="mt-3 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold"
+                          >
+                            Show All Discover
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                            {discoverGenreResults.map((anime, idx) => {
+                              const shelfItem = getShelfItem(anime.mal_id);
+                              return (
+                                <AnimeCard
+                                  key={`discover-genre-${anime.mal_id}-${idx}`}
+                                  anime={anime}
+                                  onSelect={setSelectedAnime}
+                                  isLiked={shelfItem?.isLiked}
+                                  onToggleLike={handleToggleLike}
+                                  shelfStatus={shelfItem?.status}
+                                  onUpdateShelfStatus={handleUpdateShelfStatus}
+                                  onSelectGenre={(g) => handleSelectDiscoverGenre(g)}
+                                />
+                              );
+                            })}
+                          </div>
+
+                          {discoverGenreHasMore && (
+                            <div className="flex justify-center pt-4">
+                              <button
+                                onClick={loadMoreDiscoverGenre}
+                                disabled={loadingDiscoverGenre}
+                                className="px-5 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white rounded-xl text-xs font-semibold transition-all disabled:opacity-50 flex items-center gap-2"
+                              >
+                                {loadingDiscoverGenre ? (
+                                  <>
+                                    <div className="w-3 h-3 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                                    <span>Loading...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>Load More {DISCOVER_GENRE_PILLS.find((p) => p.value === discoverGenre)?.name || ''} Anime</span>
+                                    <ChevronRight className="w-3.5 h-3.5" />
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </section>
+                  ) : (
+                    <>
                   {/* Currently Airing Row */}
                   <section className="flex flex-col gap-4">
                     <div className="flex items-center justify-between pb-2 mb-1">
@@ -765,6 +1072,7 @@ export function App() {
                             onToggleLike={handleToggleLike}
                             shelfStatus={shelfItem?.status}
                             onUpdateShelfStatus={handleUpdateShelfStatus}
+                            onSelectGenre={(g) => handleSelectDiscoverGenre(g)}
                           />
                         );
                       })}
@@ -910,11 +1218,14 @@ export function App() {
                             onToggleLike={handleToggleLike}
                             shelfStatus={shelfItem?.status}
                             onUpdateShelfStatus={handleUpdateShelfStatus}
+                            onSelectGenre={(g) => handleSelectDiscoverGenre(g)}
                           />
                         );
                       })}
                     </div>
                   </section>
+                  </>
+                  )}
                 </div>
               )
             )}
@@ -1242,7 +1553,37 @@ export function App() {
             )}
 
             {/* 5. TAB: MANGA */}
-            {activeTab === 'manga' && <MangaSection />}
+            {activeTab === 'manga' && (
+              <MangaSection
+                shelf={shelf}
+                onAddToShelf={(manga, status) => {
+                  const poster =
+                    manga.images.webp?.large_image_url ||
+                    manga.images.jpg.large_image_url ||
+                    manga.images.jpg.image_url;
+                  const existing = shelf.find((s) => s.id === manga.mal_id && s.mediaType === 'manga');
+                  saveShelfEntry({
+                    id: manga.mal_id,
+                    mediaType: 'manga',
+                    title: manga.title,
+                    image: poster,
+                    status,
+                    progress: existing?.progress || 0,
+                    totalUnits: manga.chapters,
+                    isLiked: existing?.isLiked || false,
+                    userRating: existing?.userRating,
+                  });
+                  setShelf(getStoredShelf());
+                  setActivities(getStoredActivities());
+                }}
+                onToggleLike={(id, mediaType, title, image) => {
+                  const updated = toggleShelfLike(id, mediaType, title, image);
+                  setShelf(updated);
+                  setActivities(getStoredActivities());
+                }}
+                initialSearchQuery={mangaSearchQuery}
+              />
+            )}
 
             {/* TAB: SCHEDULE */}
             {activeTab === 'schedule' && (
@@ -1260,6 +1601,7 @@ export function App() {
                 polls={polls}
                 userVotes={userVotes}
                 onVote={handleVotePoll}
+                onSelectAnime={handleSelectPollAnime}
               />
             )}
 
@@ -1276,7 +1618,13 @@ export function App() {
             )}
             {/* 7. TAB: MY SHELF */}
             {activeTab === 'profile' && currentUser && (
-              <ProfileView currentUser={currentUser} onProfileUpdated={setCurrentUser} />
+              <ProfileView
+                currentUser={currentUser}
+                onProfileUpdated={setCurrentUser}
+                onNavigateTab={setActiveTab}
+                onOpenStats={() => setStatsModalOpen(true)}
+                shelfCount={shelf.length}
+              />
             )}
             {activeTab === 'shelf' && (
               <ShelfView
@@ -1289,6 +1637,10 @@ export function App() {
                 onSelectMedia={async (id) => {
                   const item = shelf.find((s) => s.id === id);
                   if (item) {
+                    if (item.mediaType === 'manga') {
+                      handleNavigateToManga(item.title);
+                      return;
+                    }
                     try {
                       const fullAnime = await getAnimeById(id);
                       if (fullAnime) {
@@ -1338,6 +1690,8 @@ export function App() {
               />
             )}
           </div>
+        )}
+          </div>
       </main>
 
         
@@ -1373,6 +1727,13 @@ export function App() {
           onSelectVoiceActor={(vaId, vaName) => {
             setSelectedVoiceActor({ id: vaId, name: vaName });
           }}
+          onSelectGenre={(genreName) => {
+            setSelectedAnime(null);
+            handleSelectDiscoverGenre(genreName);
+          }}
+          onSelectStudio={handleSelectStudio}
+          onSelectYear={handleSelectYearSeason}
+          onNavigateToManga={handleNavigateToManga}
         />
       )}
       </AnimatePresence>
@@ -1383,8 +1744,12 @@ export function App() {
           characterId={selectedCharacter.id}
           characterName={selectedCharacter.name}
           onClose={() => setSelectedCharacter(null)}
-          onSelectAnime={setSelectedAnime}
+          onSelectAnime={(anime) => {
+            setSelectedCharacter(null);
+            setSelectedAnime(anime);
+          }}
           onSelectVoiceActor={(personId, personName) => {
+            setSelectedCharacter(null);
             setSelectedVoiceActor({ id: personId, name: personName });
           }}
         />
@@ -1396,8 +1761,12 @@ export function App() {
           personId={selectedVoiceActor.id}
           personName={selectedVoiceActor.name}
           onClose={() => setSelectedVoiceActor(null)}
-          onSelectAnime={setSelectedAnime}
+          onSelectAnime={(anime) => {
+            setSelectedVoiceActor(null);
+            setSelectedAnime(anime);
+          }}
           onSelectCharacter={(charId, charName) => {
+            setSelectedVoiceActor(null);
             setSelectedCharacter({ id: charId, name: charName });
           }}
         />

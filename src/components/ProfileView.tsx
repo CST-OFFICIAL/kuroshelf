@@ -1,14 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Shield, Save, CheckCircle2, AlertCircle, LogOut } from 'lucide-react';
+import { Shield, Save, CheckCircle2, AlertCircle, LogOut, Bookmark, BarChart3, Calendar, Vote, BookOpen, ChevronRight } from 'lucide-react';
 import { AuthUser } from '../types';
 import { updateProfileSetup, logoutUser } from '../services/authService';
 
 interface ProfileViewProps {
   currentUser: AuthUser;
   onProfileUpdated: (user: AuthUser) => void;
+  onNavigateTab?: (tab: string) => void;
+  onOpenStats?: () => void;
+  shelfCount?: number;
 }
 
-export function ProfileView({ currentUser, onProfileUpdated }: ProfileViewProps) {
+export function ProfileView({
+  currentUser,
+  onProfileUpdated,
+  onNavigateTab,
+  onOpenStats,
+  shelfCount = 0,
+}: ProfileViewProps) {
   const [displayName, setDisplayName] = useState(currentUser.display_name || currentUser.username || '');
   const [username, setUsername] = useState(currentUser.username || '');
   const [loading, setLoading] = useState(false);
@@ -154,6 +163,123 @@ export function ProfileView({ currentUser, onProfileUpdated }: ProfileViewProps)
           </div>
         </form>
       </div>
+
+      {/* Quick Interconnected Navigation Hub */}
+      {onNavigateTab && (
+        <div className="mt-8 space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+            Quick Hub & Library
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => onNavigateTab('shelf')}
+              className="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-850 flex items-center justify-between text-left transition-all group cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 group-hover:scale-105 transition-transform">
+                  <Bookmark className="w-4 h-4" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-semibold text-white group-hover:text-rose-400 transition-colors">
+                    My Shelf & Watchlist
+                  </h5>
+                  <p className="text-[11px] text-neutral-400">
+                    {shelfCount > 0 ? `${shelfCount} saved titles` : 'Track anime & manga progress'}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-rose-400 transition-colors" />
+            </button>
+
+            {onOpenStats && (
+              <button
+                type="button"
+                onClick={onOpenStats}
+                className="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-850 flex items-center justify-between text-left transition-all group cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 group-hover:scale-105 transition-transform">
+                    <BarChart3 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-semibold text-white group-hover:text-cyan-400 transition-colors">
+                      Analytics & Stats
+                    </h5>
+                    <p className="text-[11px] text-neutral-400">
+                      View episode count, ratings, and breakdown
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-cyan-400 transition-colors" />
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => onNavigateTab('schedule')}
+              className="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-850 flex items-center justify-between text-left transition-all group cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 group-hover:scale-105 transition-transform">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-semibold text-white group-hover:text-amber-400 transition-colors">
+                    Weekly Airing Schedule
+                  </h5>
+                  <p className="text-[11px] text-neutral-400">
+                    Live broadcast countdowns & air times
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-amber-400 transition-colors" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigateTab('manga')}
+              className="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-850 flex items-center justify-between text-left transition-all group cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-violet-500/10 text-violet-400 border border-violet-500/20 group-hover:scale-105 transition-transform">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-semibold text-white group-hover:text-violet-400 transition-colors">
+                    Manga & Light Novels
+                  </h5>
+                  <p className="text-[11px] text-neutral-400">
+                    Browse published volumes and chapters
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-violet-400 transition-colors" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigateTab('polls')}
+              className="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-850 flex items-center justify-between text-left transition-all group cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition-transform">
+                  <Vote className="w-4 h-4" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-semibold text-white group-hover:text-emerald-400 transition-colors">
+                    Predictions & Polls
+                  </h5>
+                  <p className="text-[11px] text-neutral-400">
+                    Cast your votes on weekly episode predictions
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-neutral-500 group-hover:text-emerald-400 transition-colors" />
+            </button>
+          </div>
+        </div>
+      )}
       
       <div className="mt-8 p-4 rounded-xl bg-neutral-900/50 border border-neutral-800/80 text-xs text-neutral-300 space-y-2">
         <div className="flex items-center gap-2 text-neutral-400">

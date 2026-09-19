@@ -11,6 +11,7 @@ interface AnimeCardProps {
   shelfStatus?: ShelfStatus | null;
   onUpdateShelfStatus?: (anime: AnimeItem, status: ShelfStatus) => void;
   rank?: number;
+  onSelectGenre?: (genreName: string) => void;
 }
 
 export const AnimeCard = React.memo(function AnimeCard({
@@ -21,6 +22,7 @@ export const AnimeCard = React.memo(function AnimeCard({
   shelfStatus = null,
   onUpdateShelfStatus,
   rank,
+  onSelectGenre,
 }: AnimeCardProps) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
 
@@ -179,16 +181,25 @@ export const AnimeCard = React.memo(function AnimeCard({
           </div>
         </div>
 
-        {/* Genres */}
-        {anime.genres && anime.genres.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {anime.genres.slice(0, 2).map((g, i) => (
-              <span
+        {/* Genres & Tags */}
+        {((anime.genres && anime.genres.length > 0) || (anime.demographics && anime.demographics.length > 0)) && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            {(anime.genres || []).slice(0, 2).map((g, i) => (
+              <button
                 key={g.name || `genre-${i}`}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-800/80 text-neutral-400 border border-neutral-800"
+                type="button"
+                onClick={(e) => {
+                  if (onSelectGenre && g.name) {
+                    e.stopPropagation();
+                    onSelectGenre(g.name);
+                  }
+                }}
+                className={`inline-flex items-center text-[10px] font-medium leading-none px-2 py-0.5 rounded-md bg-neutral-900/90 text-neutral-300 border border-neutral-800/90 whitespace-nowrap transition-colors ${
+                  onSelectGenre ? 'hover:text-rose-300 hover:border-rose-500/40 hover:bg-neutral-800/80 cursor-pointer' : ''
+                }`}
               >
                 {g.name}
-              </span>
+              </button>
             ))}
           </div>
         )}

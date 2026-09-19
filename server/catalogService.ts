@@ -1,7 +1,7 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { AnimeItem, JikanPagination } from '../src/types';
-import { serverSearchAnime as jikanSearch, serverGetAnimeDetails as jikanGetById, serverGetTopAnime, serverGetSeasonalAnime, serverGetUpcomingAnime, isNsfwOrAdult } from './jikanService';
+import { serverSearchAnime as jikanSearch, serverGetAnimeDetails as jikanGetById, serverGetTopAnime, serverGetSeasonalAnime, serverGetUpcomingAnime, isNsfwOrAdult, resolveGenreInfo } from './jikanService';
 import { ingestAnimeList } from './ingestionService';
 import { cleanOfficialText } from './officialSynopsisService';
 
@@ -115,13 +115,51 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
   const clean = options.query?.trim() || '';
 
   if (!isSupabaseConfigured) {
-    return { data: [], pagination: { last_visible_page: 1, has_next_page: false, current_page: 1, items: { count: 0, total: 0, per_page: limit } } };
+    try {
+      const liveRes = await jikanSearch(options);
+      return {
+        data: (liveRes?.data || []).filter((item: any) => !isNsfwOrAdult(item)),
+        pagination: liveRes?.pagination || {
+          last_visible_page: 1,
+          has_next_page: false,
+          current_page: page,
+          items: { count: liveRes?.data?.length || 0, total: liveRes?.data?.length || 0, per_page: limit }
+        }
+      };
+    } catch {
+      return { data: [], pagination: { last_visible_page: 1, has_next_page: false, current_page: 1, items: { count: 0, total: 0, per_page: limit } } };
+    }
   }
   
   let query;
   if (options.genres && options.genres !== 'all') {
+    const genreTokens = String(options.genres).split(',').map(s => s.trim()).filter(Boolean);
+    const resolvedMalIds: number[] = [];
+    const resolvedNames: string[] = [];
+
+    genreTokens.forEach(token => {
+      const meta = resolveGenreInfo(token);
+      if (meta && meta.mal_id > 0) {
+        resolvedMalIds.push(meta.mal_id);
+      }
+      if (meta && meta.name) {
+        resolvedNames.push(meta.name);
+      } else if (isNaN(Number(token))) {
+        resolvedNames.push(token);
+      }
+    });
+
     query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(*)), anime_studios(studios(*)), anime_streaming(url, streaming_providers(name))', { count: 'exact' });
-    query = query.eq('anime_genres.genres.mal_id', Number(options.genres));
+
+    if (resolvedMalIds.length > 0) {
+      if (resolvedMalIds.length === 1) {
+        query = query.eq('anime_genres.genres.mal_id', resolvedMalIds[0]);
+      } else {
+        query = query.in('anime_genres.genres.mal_id', resolvedMalIds);
+      }
+    } else if (resolvedNames.length > 0) {
+      query = query.ilike('anime_genres.genres.name', `%${resolvedNames[0]}%`);
+    }
   } else {
     query = supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*)), anime_streaming(url, streaming_providers(name))', { count: 'exact' });
   }
@@ -159,30 +197,45 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
     console.log('[Catalog] searchCatalogAnime DB query error:', error.message);
   }
 
-  // If local DB is empty, trigger Live API fallback for queries and genre searches
-  if ((clean || options.genres !== 'all') && (!data || data.length === 0)) {
+  const localItems: AnimeItem[] = (data || []).filter(item => !isNsfwOrAdult(item)).map(mapDbToAnime) as any[];
+
+  // If local DB is empty or has fewer items than limit for a search/genre query, trigger Live API fallback to supplement!
+  const hasSearchOrFilter = Boolean(clean || (options.genres && options.genres !== 'all') || (options.status && options.status !== 'all') || (options.type && options.type !== 'all'));
+  if (hasSearchOrFilter && localItems.length < limit) {
      try {
-       console.log('[Catalog] Local DB search empty, triggering live API ingestion...');
+       console.log('[Catalog] Local DB results sparse (' + localItems.length + '/' + limit + '), triggering live API fallback...');
        const jikanResult = await jikanSearch(options);
        if (jikanResult.data && jikanResult.data.length > 0) {
+         // Ingest in background
          ingestAnimeList(jikanResult.data as any).catch(() => {});
+         
+         const existingIds = new Set(localItems.map(item => item.mal_id));
+         const safeFallbackItems = (jikanResult.data as any[])
+           .filter(item => !isNsfwOrAdult(item) && !existingIds.has(item.mal_id));
+
+         const combinedItems = [...localItems, ...safeFallbackItems].slice(0, limit);
          return {
-           data: jikanResult.data.filter(item => !isNsfwOrAdult(item)) as any,
-           pagination: jikanResult.pagination
+           data: combinedItems,
+           pagination: {
+             last_visible_page: Math.max(Math.ceil(((count || 0) + safeFallbackItems.length) / limit), 1),
+             has_next_page: jikanResult.pagination?.has_next_page || combinedItems.length === limit,
+             current_page: page,
+             items: { count: combinedItems.length, total: Math.max(count || 0, combinedItems.length), per_page: limit }
+           }
          };
        }
      } catch (err) {
-       // Live API failed (rate limits), silent fallback to empty array
+       // Live API failed (rate limits), silent fallback to existing local items
      }
   }
 
   return {
-    data: (data || []).filter(item => !isNsfwOrAdult(item)).map(mapDbToAnime) as any[],
+    data: localItems,
     pagination: {
       last_visible_page: Math.ceil((count || 0) / limit),
       has_next_page: offset + limit < (count || 0),
       current_page: page,
-      items: { count: data?.length || 0, total: count || 0, per_page: limit }
+      items: { count: localItems.length, total: count || 0, per_page: limit }
     }
   };
 }
@@ -199,14 +252,25 @@ export async function getCatalogAnimeById(id: number): Promise<{ data: AnimeItem
   if (data) {
     if (isNsfwOrAdult(data)) return { data: null };
     let mapped = mapDbToAnime(data);
-    // If streaming is missing, try to fetch it live from Jikan to backfill
-    if (!mapped.streaming || mapped.streaming.length === 0) {
+    // If genres or streaming are missing, fetch live from Jikan to backfill
+    if (!mapped.genres || mapped.genres.length === 0 || !mapped.streaming || mapped.streaming.length === 0) {
       try {
         const jikanRes = await jikanGetById(id);
-        if (jikanRes && !isNsfwOrAdult(jikanRes) && jikanRes.streaming && jikanRes.streaming.length > 0) {
-           mapped.streaming = jikanRes.streaming;
-           // Fire and forget ingestion update
-           ingestAnimeList([jikanRes] as any).catch(() => {});
+        if (jikanRes && !isNsfwOrAdult(jikanRes)) {
+          if ((!mapped.genres || mapped.genres.length === 0) && jikanRes.genres && jikanRes.genres.length > 0) {
+            mapped.genres = jikanRes.genres;
+          }
+          if (jikanRes.themes && jikanRes.themes.length > 0) {
+            mapped.themes = jikanRes.themes;
+          }
+          if (jikanRes.demographics && jikanRes.demographics.length > 0) {
+            mapped.demographics = jikanRes.demographics;
+          }
+          if (jikanRes.streaming && jikanRes.streaming.length > 0) {
+            mapped.streaming = jikanRes.streaming;
+          }
+          // Fire and forget ingestion update
+          ingestAnimeList([jikanRes] as any).catch(() => {});
         }
       } catch (e) {}
     }

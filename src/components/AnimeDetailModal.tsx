@@ -20,6 +20,7 @@ import {
   Radio,
   Sparkles,
   Mic,
+  Compass,
 } from 'lucide-react';
 import { AnimeItem, CharacterItem, ShelfStatus, WatchPlatform, RecommendedAnimeItem } from '../types';
 import { getAnimeCharacters, getAnimeById, getAnimeRecommendations } from '../services/jikan';
@@ -43,6 +44,10 @@ interface AnimeDetailModalProps {
   onSelectRelatedAnime?: (malId: number) => void;
   onSelectCharacter?: (characterId: number, characterName: string) => void;
   onSelectVoiceActor?: (personId: number, personName: string) => void;
+  onSelectGenre?: (genreName: string) => void;
+  onSelectStudio?: (studioName: string) => void;
+  onSelectYear?: (year: number, season?: string) => void;
+  onNavigateToManga?: (mangaTitle: string) => void;
 }
 
 export function AnimeDetailModal({
@@ -59,6 +64,10 @@ export function AnimeDetailModal({
   onSelectRelatedAnime,
   onSelectCharacter,
   onSelectVoiceActor,
+  onSelectGenre,
+  onSelectStudio,
+  onSelectYear,
+  onNavigateToManga,
 }: AnimeDetailModalProps) {
   const [anime, setAnime] = useState<AnimeItem | null>(initialAnime);
   const [characters, setCharacters] = useState<CharacterItem[]>([]);
@@ -413,6 +422,72 @@ export function AnimeDetailModal({
                 )}
               </div>
 
+              {/* Prominent Genres, Demographics & Themes Badges */}
+              {((anime.genres && anime.genres.length > 0) || (anime.demographics && anime.demographics.length > 0) || (anime.themes && anime.themes.length > 0)) && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  {anime.demographics?.map((d, i) => (
+                    <button
+                      key={`modal-top-demo-${d.name || i}`}
+                      type="button"
+                      onClick={() => {
+                        if (onSelectGenre && d.name) {
+                          onClose();
+                          onSelectGenre(d.name);
+                        }
+                      }}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg font-semibold border transition-all ${
+                        onSelectGenre
+                          ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25 hover:border-amber-400 hover:text-amber-200 cursor-pointer'
+                          : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                      }`}
+                      title={`Filter by demographic: ${d.name}`}
+                    >
+                      <span>{d.name}</span>
+                    </button>
+                  ))}
+                  {anime.genres?.map((g, i) => (
+                    <button
+                      key={`modal-top-genre-${g.name || i}`}
+                      type="button"
+                      onClick={() => {
+                        if (onSelectGenre && g.name) {
+                          onClose();
+                          onSelectGenre(g.name);
+                        }
+                      }}
+                      className={`inline-flex items-center px-2.5 py-1 text-xs rounded-lg font-medium border transition-all ${
+                        onSelectGenre
+                          ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/25 hover:text-white hover:border-rose-400 cursor-pointer'
+                          : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                      }`}
+                      title={`Filter by genre: ${g.name}`}
+                    >
+                      <span>{g.name}</span>
+                    </button>
+                  ))}
+                  {anime.themes?.slice(0, 4).map((t, i) => (
+                    <button
+                      key={`modal-top-theme-${t.name || i}`}
+                      type="button"
+                      onClick={() => {
+                        if (onSelectGenre && t.name) {
+                          onClose();
+                          onSelectGenre(t.name);
+                        }
+                      }}
+                      className={`inline-flex items-center px-2 py-1 text-xs rounded-lg font-normal border transition-all ${
+                        onSelectGenre
+                          ? 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-neutral-200 hover:border-neutral-700 cursor-pointer'
+                          : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                      }`}
+                      title={`Filter by theme: ${t.name}`}
+                    >
+                      <span>#{t.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Stats Bar */}
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <div className="flex flex-col gap-1">
@@ -469,15 +544,58 @@ export function AnimeDetailModal({
                 </div>
                 <div>
                   <span className="text-neutral-400 block">Premiered:</span>
-                  <span className="text-neutral-200 font-medium capitalize">
-                    {anime.season ? `${anime.season} ${anime.year}` : anime.year || 'N/A'}
-                  </span>
+                  {anime.season || anime.year ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (anime.year && onSelectYear) {
+                          onClose();
+                          onSelectYear(anime.year, anime.season);
+                        }
+                      }}
+                      className={`font-medium capitalize text-left transition-colors ${
+                        onSelectYear && anime.year
+                          ? 'text-neutral-200 hover:text-rose-400 underline decoration-dotted underline-offset-2 cursor-pointer'
+                          : 'text-neutral-200'
+                      }`}
+                      title={anime.year ? `View rankings for year ${anime.year}` : undefined}
+                    >
+                      {anime.season ? `${anime.season} ${anime.year}` : anime.year}
+                    </button>
+                  ) : (
+                    <span className="text-neutral-200 font-medium">N/A</span>
+                  )}
                 </div>
                 <div>
                   <span className="text-neutral-400 block">Studio:</span>
-                  <span className="text-neutral-200 font-medium">
-                    {anime.studios?.map((s) => s.name).join(', ') || 'N/A'}
-                  </span>
+                  <div className="flex flex-wrap gap-1 mt-0.5">
+                    {anime.studios && anime.studios.length > 0 ? (
+                      anime.studios.map((s, idx) => (
+                        <span key={s.mal_id || s.name || idx}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (onSelectStudio && s.name) {
+                                onClose();
+                                onSelectStudio(s.name);
+                              }
+                            }}
+                            className={`font-medium transition-colors ${
+                              onSelectStudio
+                                ? 'text-neutral-200 hover:text-rose-400 underline decoration-dotted underline-offset-2 cursor-pointer'
+                                : 'text-neutral-200'
+                            }`}
+                            title={`Search titles produced by studio ${s.name}`}
+                          >
+                            {s.name}
+                          </button>
+                          {idx < (anime.studios?.length ?? 1) - 1 ? ', ' : ''}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-neutral-200 font-medium">N/A</span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <span className="text-neutral-400 block">Source:</span>
@@ -487,6 +605,52 @@ export function AnimeDetailModal({
                   <span className="text-neutral-400 block">Rating:</span>
                   <span className="text-neutral-200 font-medium">{anime.rating || 'Not Rated'}</span>
                 </div>
+                {/* Genres row in metadata */}
+                {((anime.genres && anime.genres.length > 0) || (anime.demographics && anime.demographics.length > 0)) && (
+                  <div className="col-span-2 sm:col-span-3 pt-2 border-t border-neutral-800/80">
+                    <span className="text-neutral-400 block mb-1 font-semibold text-[11px] uppercase tracking-wider">Genres & Categories:</span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {anime.demographics?.map((d, i) => (
+                        <button
+                          key={`meta-demo-${d.name || i}`}
+                          type="button"
+                          onClick={() => {
+                            if (onSelectGenre && d.name) {
+                              onClose();
+                              onSelectGenre(d.name);
+                            }
+                          }}
+                          className={`text-xs px-2 py-0.5 rounded-md font-semibold transition-colors ${
+                            onSelectGenre
+                              ? 'bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 hover:text-amber-200 cursor-pointer'
+                              : 'bg-amber-500/10 text-amber-300'
+                          }`}
+                        >
+                          {d.name}
+                        </button>
+                      ))}
+                      {anime.genres?.map((g, i) => (
+                        <button
+                          key={`meta-genre-${g.name || i}`}
+                          type="button"
+                          onClick={() => {
+                            if (onSelectGenre && g.name) {
+                              onClose();
+                              onSelectGenre(g.name);
+                            }
+                          }}
+                          className={`text-xs px-2 py-0.5 rounded-md font-medium transition-colors ${
+                            onSelectGenre
+                              ? 'bg-neutral-800 text-neutral-200 hover:text-rose-300 hover:bg-neutral-700 cursor-pointer'
+                              : 'bg-neutral-800 text-neutral-300'
+                          }`}
+                        >
+                          {g.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Countdown or Scheduled Broadcast */}
@@ -666,25 +830,76 @@ export function AnimeDetailModal({
           {/* TAB CONTENT: Overview */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* Genres & Themes */}
-              {((anime.genres && anime.genres.length > 0) || (anime.themes && anime.themes.length > 0)) && (
-                <div className="flex flex-wrap gap-2">
-                  {anime.genres?.map((g, i) => (
-                    <span
-                      key={`genre-${g.name || i}`}
-                      className="px-2.5 py-1 text-xs rounded-lg bg-neutral-900 text-neutral-300 border border-neutral-800 font-medium"
-                    >
-                      {g.name}
-                    </span>
-                  ))}
-                  {anime.themes?.map((t, i) => (
-                    <span
-                      key={`theme-${t.name || i}`}
-                      className="px-2.5 py-1 text-xs rounded-lg bg-neutral-900/60 text-neutral-400 border border-neutral-800 font-medium"
-                    >
-                      #{t.name}
-                    </span>
-                  ))}
+              {/* Genres, Demographics & Themes */}
+              {((anime.genres && anime.genres.length > 0) || (anime.themes && anime.themes.length > 0) || (anime.demographics && anime.demographics.length > 0)) && (
+                <div className="space-y-3 p-4 rounded-xl bg-neutral-900/60 border border-neutral-800/80">
+                  <div className="flex items-center gap-1.5 text-neutral-300 text-xs font-bold uppercase tracking-wider">
+                    <Compass className="w-4 h-4 text-rose-500" />
+                    <span>Genres & Themes</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {anime.demographics?.map((d, i) => (
+                      <button
+                        key={`tab-demo-${d.name || i}`}
+                        type="button"
+                        onClick={() => {
+                          if (onSelectGenre && d.name) {
+                            onClose();
+                            onSelectGenre(d.name);
+                          }
+                        }}
+                        className={`px-3 py-1.5 text-xs rounded-lg font-semibold flex items-center gap-1.5 border transition-all ${
+                          onSelectGenre
+                            ? 'bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25 hover:border-amber-400 hover:text-amber-200 cursor-pointer'
+                            : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                        }`}
+                        title={`Explore ${d.name} anime`}
+                      >
+                        <span>{d.name}</span>
+                        <span className="text-[10px] text-amber-400/70 font-normal">demographic</span>
+                      </button>
+                    ))}
+                    {anime.genres?.map((g, i) => (
+                      <button
+                        key={`tab-genre-${g.name || i}`}
+                        type="button"
+                        onClick={() => {
+                          if (onSelectGenre && g.name) {
+                            onClose();
+                            onSelectGenre(g.name);
+                          }
+                        }}
+                        className={`px-3 py-1.5 text-xs rounded-lg font-medium border transition-all ${
+                          onSelectGenre
+                            ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/25 hover:text-white hover:border-rose-400 cursor-pointer'
+                            : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                        }`}
+                        title={`Explore ${g.name} anime`}
+                      >
+                        {g.name}
+                      </button>
+                    ))}
+                    {anime.themes?.map((t, i) => (
+                      <button
+                        key={`tab-theme-${t.name || i}`}
+                        type="button"
+                        onClick={() => {
+                          if (onSelectGenre && t.name) {
+                            onClose();
+                            onSelectGenre(t.name);
+                          }
+                        }}
+                        className={`px-2.5 py-1.5 text-xs rounded-lg font-normal border transition-all ${
+                          onSelectGenre
+                            ? 'bg-neutral-900 text-neutral-300 border-neutral-800 hover:text-white hover:border-neutral-700 cursor-pointer'
+                            : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                        }`}
+                        title={`Explore #${t.name} titles`}
+                      >
+                        #{t.name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -832,12 +1047,27 @@ export function AnimeDetailModal({
                                   {ent.name}
                                 </p>
                               </div>
-                              {isAnime && onSelectRelatedAnime ? (
+                              {ent.type === 'manga' && onNavigateToManga ? (
                                 <button
-                                  onClick={() => onSelectRelatedAnime(ent.mal_id)}
-                                  className="p-1 text-rose-500 hover:text-rose-300 transition-colors shrink-0"
-                                  title="View Anime"
+                                  type="button"
+                                  onClick={() => {
+                                    onClose();
+                                    onNavigateToManga(ent.name);
+                                  }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs font-semibold border border-rose-500/30 transition-colors shrink-0"
+                                  title="Search and track in Manga Shelf"
                                 >
+                                  <BookOpen className="w-3.5 h-3.5" />
+                                  <span>Find Manga</span>
+                                </button>
+                              ) : isAnime && onSelectRelatedAnime ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onSelectRelatedAnime(ent.mal_id)}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-rose-300 text-xs font-semibold transition-colors shrink-0"
+                                  title="View Anime Details"
+                                >
+                                  <span>View Anime</span>
                                   <ExternalLink className="w-3.5 h-3.5" />
                                 </button>
                               ) : (
@@ -1044,15 +1274,32 @@ export function AnimeDetailModal({
                     </p>
                   </div>
 
-                  <a
-                    href={amazonAffiliateUrl}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-colors shadow-md shadow-amber-950/40"
-                  >
-                    <span>Check on Amazon</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {onNavigateToManga && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          onNavigateToManga(anime.title);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-colors shadow-md shadow-rose-950/40"
+                        title="View chapters, authors, and track on your Kuro Shelf"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>Search Manga Shelf</span>
+                      </button>
+                    )}
+
+                    <a
+                      href={amazonAffiliateUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-colors shadow-md shadow-amber-950/40"
+                    >
+                      <span>Check on Amazon</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
                 </div>
 
                 {siteConfig.affiliate.amazonAssociatesActive && (

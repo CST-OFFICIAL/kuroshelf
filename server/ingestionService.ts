@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { supabase, isSupabaseConfigured } from './supabase';
-import { fetchFromJikan, isNsfwOrAdult } from './jikanService';
+import { fetchFromJikan, isNsfwOrAdult, GENRE_NAME_TO_MAL_ID } from './jikanService';
 import { cleanOfficialText } from './officialSynopsisService';
 import { BaseJikanAnime } from '../src/types';
 
@@ -168,21 +168,25 @@ export async function ingestAnimeList(
         // Combine genres, explicit_genres, themes, demographics if they exist in Jikan response
         const allTags = [...item.genres, ...(item.themes || []), ...(item.demographics || []), ...(item.explicit_genres || [])];
         for (const g of allTags) {
-          if (g.mal_id && g.name) {
-             const { data: genreData, error: gErr } = await supabase
+          const gName = g?.name?.trim();
+          if (gName) {
+             const derivedMalId = Number(g.mal_id) || Number(GENRE_NAME_TO_MAL_ID[gName.toLowerCase()]) || null;
+             const { data: genreData } = await supabase
               .from('genres')
-              .select('id')
-              .eq('name', g.name)
+              .select('id, mal_id')
+              .eq('name', gName)
               .maybeSingle();
 
              let genreId = genreData?.id;
              if (!genreId) {
-                const { data: newGenre, error: ngErr } = await supabase
+                const { data: newGenre } = await supabase
                   .from('genres')
-                  .insert({ name: g.name, type: g.type || 'anime', mal_id: g.mal_id })
+                  .insert({ name: gName, type: g.type || 'anime', mal_id: derivedMalId })
                   .select('id')
                   .single();
                 if (newGenre) genreId = newGenre.id;
+             } else if (!genreData.mal_id && derivedMalId) {
+                await supabase.from('genres').update({ mal_id: derivedMalId }).eq('id', genreId);
              }
 
              if (genreId) {

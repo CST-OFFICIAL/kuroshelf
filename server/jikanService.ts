@@ -229,7 +229,7 @@ export async function fetchFromJikan<T>(
   // 3. Attempt network request with gentle rate-limit handling & silent fallback
   try {
     const result = await enqueueJikanRequest(async () => {
-      const isSearch = endpoint.includes('?q=') || endpoint.includes('&q=');
+      const isSearch = endpoint.includes('?q=') || endpoint.includes('&q=') || endpoint.includes('genres=');
       const maxRetries = isSearch ? 1 : 2;
       let attempts = 0;
 
@@ -243,22 +243,18 @@ export async function fetchFromJikan<T>(
               'Accept': 'application/json',
               'Accept-Encoding': 'gzip, deflate, br'
             },
-            signal: AbortSignal.timeout(7000),
+            signal: AbortSignal.timeout(isSearch ? 4500 : 7000),
           });
 
           console.log('Jikan HTTP Status:', res.status, url);
           if (res.status === 429) {
             // Upstream Jikan rate limit: wait and retry
-            await new Promise((resolve) => setTimeout(resolve, 1000 * attempts));
+            await new Promise((resolve) => setTimeout(resolve, 800 * attempts));
             continue;
           }
 
           if (res.status === 504 || res.status === 502 || res.status === 503) {
-            console.log('Jikan 504, retrying...');
-            if (attempts <= maxRetries) {
-              await new Promise((resolve) => setTimeout(resolve, 1000 * attempts));
-              continue;
-            }
+            console.log('Jikan', res.status, 'gateway timeout, failing over to resilient fallback immediately');
             return null;
           }
 
@@ -335,36 +331,141 @@ export interface SearchAnimeOptions {
 
 
 
-const GENRE_MAP: Record<string, string> = {
-  '1': 'Action',
-  '2': 'Adventure',
-  '4': 'Comedy',
-  '8': 'Drama',
-  '10': 'Fantasy',
-  '22': 'Romance',
-  '24': 'Sci-Fi',
-  '36': 'Slice of Life',
-  '62': 'Isekai',
-  '14': 'Horror',
-  '7': 'Mystery',
-  '30': 'Sports'
+export const ANILIST_GENRE_SET = new Set([
+  'Action', 'Adventure', 'Comedy', 'Drama', 'Ecchi', 'Fantasy', 'Horror',
+  'Mahou Shoujo', 'Mecha', 'Music', 'Mystery', 'Psychological', 'Romance',
+  'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural', 'Thriller'
+]);
+
+export interface GenreMeta {
+  mal_id: number;
+  name: string;
+  isAnilistGenre: boolean;
+}
+
+export const GENRE_METADATA_MAP: Record<string, GenreMeta> = {
+  // Action & Adventure
+  'action': { mal_id: 1, name: 'Action', isAnilistGenre: true },
+  'adventure': { mal_id: 2, name: 'Adventure', isAnilistGenre: true },
+  'racing': { mal_id: 3, name: 'Racing', isAnilistGenre: false },
+  'cars': { mal_id: 3, name: 'Racing', isAnilistGenre: false },
+  'comedy': { mal_id: 4, name: 'Comedy', isAnilistGenre: true },
+  'demons': { mal_id: 6, name: 'Demons', isAnilistGenre: false },
+  'mystery': { mal_id: 7, name: 'Mystery', isAnilistGenre: true },
+  'drama': { mal_id: 8, name: 'Drama', isAnilistGenre: true },
+  'ecchi': { mal_id: 9, name: 'Ecchi', isAnilistGenre: true },
+  'fantasy': { mal_id: 10, name: 'Fantasy', isAnilistGenre: true },
+  'strategy game': { mal_id: 11, name: 'Strategy Game', isAnilistGenre: false },
+  'historical': { mal_id: 13, name: 'Historical', isAnilistGenre: false },
+  'horror': { mal_id: 14, name: 'Horror', isAnilistGenre: true },
+  'kids': { mal_id: 15, name: 'Kids', isAnilistGenre: false },
+  'martial arts': { mal_id: 17, name: 'Martial Arts', isAnilistGenre: false },
+  'mecha': { mal_id: 18, name: 'Mecha', isAnilistGenre: true },
+  'music': { mal_id: 19, name: 'Music', isAnilistGenre: true },
+  'parody': { mal_id: 20, name: 'Parody', isAnilistGenre: false },
+  'samurai': { mal_id: 21, name: 'Samurai', isAnilistGenre: false },
+  'romance': { mal_id: 22, name: 'Romance', isAnilistGenre: true },
+  'school': { mal_id: 23, name: 'School', isAnilistGenre: false },
+  'sci-fi': { mal_id: 24, name: 'Sci-Fi', isAnilistGenre: true },
+  'scifi': { mal_id: 24, name: 'Sci-Fi', isAnilistGenre: true },
+  'shoujo': { mal_id: 25, name: 'Shoujo', isAnilistGenre: false },
+  'girls love': { mal_id: 26, name: 'Girls Love', isAnilistGenre: false },
+  'shounen': { mal_id: 27, name: 'Shounen', isAnilistGenre: false },
+  'space': { mal_id: 29, name: 'Space', isAnilistGenre: false },
+  'sports': { mal_id: 30, name: 'Sports', isAnilistGenre: true },
+  'super power': { mal_id: 31, name: 'Super Power', isAnilistGenre: false },
+  'vampire': { mal_id: 32, name: 'Vampire', isAnilistGenre: false },
+  'harem': { mal_id: 35, name: 'Harem', isAnilistGenre: false },
+  'slice of life': { mal_id: 36, name: 'Slice of Life', isAnilistGenre: true },
+  'supernatural': { mal_id: 37, name: 'Supernatural', isAnilistGenre: true },
+  'military': { mal_id: 38, name: 'Military', isAnilistGenre: false },
+  'detective': { mal_id: 39, name: 'Detective', isAnilistGenre: false },
+  'psychological': { mal_id: 40, name: 'Psychological', isAnilistGenre: true },
+  'suspense': { mal_id: 41, name: 'Thriller', isAnilistGenre: true },
+  'thriller': { mal_id: 41, name: 'Thriller', isAnilistGenre: true },
+  'seinen': { mal_id: 42, name: 'Seinen', isAnilistGenre: false },
+  'josei': { mal_id: 43, name: 'Josei', isAnilistGenre: false },
+  'award winning': { mal_id: 46, name: 'Award Winning', isAnilistGenre: false },
+  'gourmet': { mal_id: 47, name: 'Gourmet', isAnilistGenre: false },
+  'gore': { mal_id: 58, name: 'Gore', isAnilistGenre: false },
+  'isekai': { mal_id: 62, name: 'Isekai', isAnilistGenre: false },
+  'mahou shoujo': { mal_id: 66, name: 'Mahou Shoujo', isAnilistGenre: true },
+  'magic': { mal_id: 10, name: 'Fantasy', isAnilistGenre: true },
+  'survival': { mal_id: 76, name: 'Survival', isAnilistGenre: false },
+  'time travel': { mal_id: 78, name: 'Time Travel', isAnilistGenre: false },
+  'video game': { mal_id: 79, name: 'Video Game', isAnilistGenre: false },
 };
 
-export const GENRE_NAME_TO_MAL_ID: Record<string, string> = {
-  action: '1',
-  adventure: '2',
-  comedy: '4',
-  drama: '8',
-  fantasy: '10',
-  romance: '22',
-  'sci-fi': '24',
-  'slice of life': '36',
-  isekai: '62',
-  horror: '14',
-  mystery: '7',
-  sports: '30'
+export const MAL_ID_METADATA_MAP: Record<number, GenreMeta> = {
+  1: { mal_id: 1, name: 'Action', isAnilistGenre: true },
+  2: { mal_id: 2, name: 'Adventure', isAnilistGenre: true },
+  3: { mal_id: 3, name: 'Racing', isAnilistGenre: false },
+  4: { mal_id: 4, name: 'Comedy', isAnilistGenre: true },
+  6: { mal_id: 6, name: 'Demons', isAnilistGenre: false },
+  7: { mal_id: 7, name: 'Mystery', isAnilistGenre: true },
+  8: { mal_id: 8, name: 'Drama', isAnilistGenre: true },
+  9: { mal_id: 9, name: 'Ecchi', isAnilistGenre: true },
+  10: { mal_id: 10, name: 'Fantasy', isAnilistGenre: true },
+  11: { mal_id: 11, name: 'Strategy Game', isAnilistGenre: false },
+  13: { mal_id: 13, name: 'Historical', isAnilistGenre: false },
+  14: { mal_id: 14, name: 'Horror', isAnilistGenre: true },
+  15: { mal_id: 15, name: 'Kids', isAnilistGenre: false },
+  17: { mal_id: 17, name: 'Martial Arts', isAnilistGenre: false },
+  18: { mal_id: 18, name: 'Mecha', isAnilistGenre: true },
+  19: { mal_id: 19, name: 'Music', isAnilistGenre: true },
+  20: { mal_id: 20, name: 'Parody', isAnilistGenre: false },
+  21: { mal_id: 21, name: 'Samurai', isAnilistGenre: false },
+  22: { mal_id: 22, name: 'Romance', isAnilistGenre: true },
+  23: { mal_id: 23, name: 'School', isAnilistGenre: false },
+  24: { mal_id: 24, name: 'Sci-Fi', isAnilistGenre: true },
+  25: { mal_id: 25, name: 'Shoujo', isAnilistGenre: false },
+  26: { mal_id: 26, name: 'Girls Love', isAnilistGenre: false },
+  27: { mal_id: 27, name: 'Shounen', isAnilistGenre: false },
+  29: { mal_id: 29, name: 'Space', isAnilistGenre: false },
+  30: { mal_id: 30, name: 'Sports', isAnilistGenre: true },
+  31: { mal_id: 31, name: 'Super Power', isAnilistGenre: false },
+  32: { mal_id: 32, name: 'Vampire', isAnilistGenre: false },
+  35: { mal_id: 35, name: 'Harem', isAnilistGenre: false },
+  36: { mal_id: 36, name: 'Slice of Life', isAnilistGenre: true },
+  37: { mal_id: 37, name: 'Supernatural', isAnilistGenre: true },
+  38: { mal_id: 38, name: 'Military', isAnilistGenre: false },
+  39: { mal_id: 39, name: 'Detective', isAnilistGenre: false },
+  40: { mal_id: 40, name: 'Psychological', isAnilistGenre: true },
+  41: { mal_id: 41, name: 'Thriller', isAnilistGenre: true },
+  42: { mal_id: 42, name: 'Seinen', isAnilistGenre: false },
+  43: { mal_id: 43, name: 'Josei', isAnilistGenre: false },
+  46: { mal_id: 46, name: 'Award Winning', isAnilistGenre: false },
+  47: { mal_id: 47, name: 'Gourmet', isAnilistGenre: false },
+  58: { mal_id: 58, name: 'Gore', isAnilistGenre: false },
+  62: { mal_id: 62, name: 'Isekai', isAnilistGenre: false },
+  66: { mal_id: 66, name: 'Mahou Shoujo', isAnilistGenre: true },
+  76: { mal_id: 76, name: 'Survival', isAnilistGenre: false },
+  78: { mal_id: 78, name: 'Time Travel', isAnilistGenre: false },
+  79: { mal_id: 79, name: 'Video Game', isAnilistGenre: false }
 };
 
+export function resolveGenreInfo(rawGenre: string | number): GenreMeta | null {
+  if (!rawGenre || rawGenre === 'all') return null;
+  const asNum = Number(rawGenre);
+  if (!isNaN(asNum) && MAL_ID_METADATA_MAP[asNum]) {
+    return MAL_ID_METADATA_MAP[asNum];
+  }
+  const cleanStr = String(rawGenre).trim().toLowerCase();
+  if (GENRE_METADATA_MAP[cleanStr]) {
+    return GENRE_METADATA_MAP[cleanStr];
+  }
+  // Title-case fallback
+  const capitalized = cleanStr.charAt(0).toUpperCase() + cleanStr.slice(1);
+  return {
+    mal_id: asNum || 0,
+    name: capitalized,
+    isAnilistGenre: ANILIST_GENRE_SET.has(capitalized)
+  };
+}
+
+export const GENRE_NAME_TO_MAL_ID: Record<string, string> = Object.fromEntries(
+  Object.entries(GENRE_METADATA_MAP).map(([k, v]) => [k, String(v.mal_id)])
+);
 
 const FORMAT_MAP: Record<string, string> = {
   tv: 'TV',
@@ -382,7 +483,10 @@ const STATUS_MAP: Record<string, string> = {
 };
 
 async function searchAnilistFallback(query: string, page: number, limit: number, genreId?: string, typeApi: string = "ALL", statusStr?: string, orderBy?: string, originalType?: string): Promise<BaseJikanAnime[]> {
-  const genreStr = genreId && genreId !== 'all' ? GENRE_MAP[genreId] : undefined;
+  const genreMeta = genreId ? resolveGenreInfo(genreId) : null;
+  const genreStr = genreMeta?.isAnilistGenre ? genreMeta.name : undefined;
+  const tagStr = genreMeta && !genreMeta.isAnilistGenre ? genreMeta.name : undefined;
+
   const formatStr = originalType && originalType !== 'all' ? FORMAT_MAP[originalType.toLowerCase()] : undefined;
   const statusApi = statusStr && statusStr !== 'all' ? STATUS_MAP[statusStr.toLowerCase()] : undefined;
   
@@ -393,10 +497,15 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
 
   const typeArg = typeApi !== 'ALL' ? ', $type: MediaType' : '';
   const typeFilter = typeApi !== 'ALL' ? ', type: $type' : '';
+  const genreArg = genreStr ? ', $genre: String' : '';
+  const genreFilter = genreStr ? ', genre: $genre' : '';
+  const tagArg = tagStr ? ', $tag: String' : '';
+  const tagFilter = tagStr ? ', tag: $tag' : '';
+
   const anilistQuery = `
-  query ($search: String, $genre: String, $format: MediaFormat, $status: MediaStatus, $page: Int, $perPage: Int${typeArg}) {
+  query ($search: String, $format: MediaFormat, $status: MediaStatus, $page: Int, $perPage: Int${genreArg}${tagArg}${typeArg}) {
     Page(page: $page, perPage: $perPage) {
-      media(search: $search, genre: $genre, format: $format, status: $status, sort: [${sort}], isAdult: false, genre_not_in: ["Hentai"]${typeFilter}) {
+      media(search: $search, format: $format, status: $status, sort: [${sort}], isAdult: false, genre_not_in: ["Hentai"]${genreFilter}${tagFilter}${typeFilter}) {
         idMal
         title { romaji english native }
         coverImage { large }
@@ -417,6 +526,7 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
     const variables: any = { page, perPage: limit };
     if (query) variables.search = query;
     if (genreStr) variables.genre = genreStr;
+    if (tagStr) variables.tag = tagStr;
     if (formatStr) variables.format = formatStr;
     if (statusApi) variables.status = statusApi;
 
@@ -454,7 +564,12 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
           airing: m.status === 'RELEASING',
           score: m.averageScore ? (m.averageScore / 10) : null,
           year: m.seasonYear || null,
-          genres: (m.genres || []).map((g: string) => ({ mal_id: 0, type: 'anime', name: g, url: '' }))
+          genres: (m.genres || []).map((g: string) => ({
+            mal_id: Number(GENRE_NAME_TO_MAL_ID[g.toLowerCase()]) || 0,
+            type: 'anime',
+            name: g,
+            url: ''
+          }))
         };
       });
   } catch (err) {
@@ -480,7 +595,15 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
   if (page > 1) params.set('page', String(page));
   if (options.type && options.type !== 'all') params.set('type', options.type);
   if (options.status && options.status !== 'all') params.set('status', options.status);
-  if (options.genres && options.genres !== 'all') params.set('genres', options.genres);
+  if (options.genres && options.genres !== 'all') {
+    // Ensure Jikan gets numeric MAL IDs
+    const genreTokens = String(options.genres).split(',').map(s => s.trim()).filter(Boolean);
+    const resolvedMalIds = genreTokens.map(token => {
+      const meta = resolveGenreInfo(token);
+      return meta && meta.mal_id > 0 ? String(meta.mal_id) : token;
+    });
+    params.set('genres', resolvedMalIds.join(','));
+  }
   if (options.orderBy) params.set('order_by', options.orderBy);
   if (options.sort) params.set('sort', options.sort);
 
@@ -508,9 +631,11 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
       }
     } catch(e) {}
     
-    // If Jikan fails or returns empty for a valid string query, force fallback to Anilist!
-    if ((!jikanData || jikanData.length === 0) && clean) {
-       console.log("Triggering anilist fallback for:", clean); const anilistData = await searchAnilistFallback(clean, page, limit, options.genres, anilistType, options.status, options.orderBy, options.type);
+    // If Jikan fails or returns empty for a query or genre/filter search, trigger fallback to Anilist!
+    const hasFilter = Boolean(clean || (options.genres && options.genres !== 'all') || (options.status && options.status !== 'all') || (options.type && options.type !== 'all'));
+    if ((!jikanData || jikanData.length === 0) && hasFilter) {
+       console.log("Triggering anilist fallback for query:", clean, "genre:", options.genres);
+       const anilistData = await searchAnilistFallback(clean, page, limit, options.genres, anilistType, options.status, options.orderBy, options.type);
        if (anilistData && anilistData.length > 0) {
           return {
             data: anilistData,

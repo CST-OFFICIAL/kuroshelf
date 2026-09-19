@@ -9,9 +9,10 @@ interface HeroBannerProps {
   onSelect: (anime: AnimeItem) => void;
   onAddToShelf: (anime: AnimeItem, status: ShelfStatus) => void;
   isSavedInShelf: boolean;
+  onSelectGenre?: (genre: string) => void;
 }
 
-export function HeroBanner({ anime, onSelect, onAddToShelf, isSavedInShelf }: HeroBannerProps) {
+export function HeroBanner({ anime, onSelect, onAddToShelf, isSavedInShelf, onSelectGenre }: HeroBannerProps) {
   const [countdown, setCountdown] = useState<string | null>(null);
 
   useEffect(() => {
@@ -108,6 +109,21 @@ export function HeroBanner({ anime, onSelect, onAddToShelf, isSavedInShelf }: He
                 <span className="capitalize">{anime.season}</span> {anime.year}
               </span>
             )}
+            {anime.genres?.slice(0, 3).map((g) => (
+              <button
+                key={g.name}
+                type="button"
+                onClick={() => onSelectGenre?.(g.name)}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  onSelectGenre
+                    ? 'bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-rose-300 border border-neutral-800 cursor-pointer'
+                    : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                }`}
+                title={`Explore ${g.name} anime`}
+              >
+                {g.name}
+              </button>
+            ))}
           </div>
 
           {/* Title */}
