@@ -27,11 +27,22 @@ import {
   UserPlus,
   Crown,
   X,
-  Flame,
-  Search
+  Cloud,
+  HardDrive,
+  Upload,
+  Image as ImageIcon,
+  ShieldAlert,
+  Trash2,
+  Loader2
 } from 'lucide-react';
-import { AuthUser, ShelfEntry, UserActivity, UserProfileCustomization } from '../types';
+import { AuthUser, ShelfEntry, UserActivity, UserProfileCustomization, DailyStreakInfo } from '../types';
 import { updateProfileSetup, logoutUser } from '../services/authService';
+import {
+  isGoogleDriveConnected,
+  requestGoogleDriveAuth,
+  uploadBackupToDrive,
+  disconnectGoogleDrive
+} from '../services/googleDriveService';
 import {
   AVATAR_PRESETS,
   BANNER_THEMES,
@@ -52,6 +63,7 @@ import {
 import { AnimeAvatar } from './AnimeAvatar';
 import { AdminDragonBanner } from './AdminDragonBanner';
 import { NormalBannerArt } from './NormalBannerArt';
+import { DailyStreakWidget } from './DailyStreakWidget';
 
 interface ProfileViewProps {
   currentUser: AuthUser | null;
@@ -65,6 +77,10 @@ interface ProfileViewProps {
   onSelectAnime?: (anime: any) => void;
   onSelectManga?: (title: string) => void;
   shelfCount?: number;
+  streakInfo?: DailyStreakInfo;
+  onStreakUpdated?: (info: DailyStreakInfo) => void;
+  onOpenAccountSwitcher?: () => void;
+  savedAccountsCount?: number;
 }
 
 export function ProfileView({
@@ -78,7 +94,11 @@ export function ProfileView({
   activities = [],
   onSelectAnime,
   onSelectManga,
-  shelfCount: _shelfCount = 0
+  shelfCount: _shelfCount = 0,
+  streakInfo,
+  onStreakUpdated,
+  onOpenAccountSwitcher,
+  savedAccountsCount = 1,
 }: ProfileViewProps) {
   // Active inner profile tab
   const [activeProfileTab, setActiveProfileTab] = useState<'showcase' | 'edit' | 'preferences' | 'admin_console'>('showcase');
@@ -100,9 +120,9 @@ export function ProfileView({
   const [displayName, setDisplayName] = useState(currentUser?.display_name || currentUser?.username || '');
   const [username, setUsername] = useState(currentUser?.username || '');
   const [gender, setGender] = useState<string>(customization.gender || '');
-  const [selectedPresetId, setSelectedPresetId] = useState(customization.avatar_preset || 'ronin');
-  const [frameColor, setFrameColor] = useState(customization.avatar_frame_color || 'rose');
-  const [selectedBannerId, setSelectedBannerId] = useState(customization.banner_preset || 'cyberpunk');
+  const [selectedPresetId, setSelectedPresetId] = useState(customization.avatar_preset || 'silly_derp_cat');
+  const [frameColor, setFrameColor] = useState(customization.avatar_frame_color || 'none');
+  const [selectedBannerId, setSelectedBannerId] = useState(customization.banner_preset || 'midnight_obsidian');
   const [statusMessage, setStatusMessage] = useState(customization.status_message || '');
   const [bio, setBio] = useState(customization.bio || '');
   const [favoriteQuote, setFavoriteQuote] = useState(customization.favorite_quote || '');
@@ -127,6 +147,136 @@ export function ProfileView({
   // Pin selector modal
   const [pinSelectorOpen, setPinSelectorOpen] = useState(false);
 
+  // Google Drive state
+  const [driveSyncing, setDriveSyncing] = useState(false);
+  const [driveStatusMsg, setDriveStatusMsg] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Custom Avatar & Safety Moderation state
+  const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(
+    customization.avatar_url || currentUser?.avatar_url || null
+  );
+  const [avatarScanning, setAvatarScanning] = useState(false);
+  const [avatarScanResult, setAvatarScanResult] = useState<{
+    safe: boolean;
+    message: string;
+  } | null>(null);
+  const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAvatarUploadError(null);
+    setAvatarScanResult(null);
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarUploadError('Please select a valid image file (JPEG, PNG, WEBP, or GIF).');
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      setAvatarUploadError('Image is too large. Please select a photo under 8MB.');
+      return;
+    }
+
+    setAvatarScanning(true);
+
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Failed to read image file.'));
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = () => reject(new Error('Failed to parse image data.'));
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              const size = 320;
+              canvas.width = size;
+              canvas.height = size;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                reject(new Error('Canvas context could not be created.'));
+                return;
+              }
+
+              const minDim = Math.min(img.width, img.height);
+              const sx = (img.width - minDim) / 2;
+              const sy = (img.height - minDim) / 2;
+              ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+              resolve(dataUrl);
+            } catch (canvasErr) {
+              reject(canvasErr);
+            }
+          };
+          img.src = reader.result as string;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch('/api/moderate-avatar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageBase64: base64Data,
+          mimeType: 'image/jpeg',
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.safe) {
+        setAvatarScanResult({
+          safe: false,
+          message:
+            data.reason ||
+            'This photo was flagged by our safety guard as containing explicit, adult, or graphic material. In order to protect community members, please choose a friendly or anime-appropriate picture.',
+        });
+      } else {
+        setCustomAvatarUrl(base64Data);
+        setAvatarScanResult({
+          safe: true,
+          message: '✓ Photo verified safe by Community Guard! Remember to click "Save Changes" below.',
+        });
+      }
+    } catch (err: any) {
+      console.error('Avatar upload/moderation error:', err);
+      setAvatarUploadError(err.message || 'Failed to scan image. Please try again.');
+    } finally {
+      setAvatarScanning(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveCustomAvatar = () => {
+    setCustomAvatarUrl(null);
+    setAvatarScanResult(null);
+    setAvatarUploadError(null);
+  };
+
+  const handleDriveBackupFromProfile = async () => {
+    try {
+      setDriveSyncing(true);
+      setDriveStatusMsg(null);
+      if (!isGoogleDriveConnected()) {
+        await requestGoogleDriveAuth();
+      }
+      const file = await uploadBackupToDrive(shelf, customization);
+      setDriveStatusMsg({
+        type: 'success',
+        message: `Backup "${file.name}" saved to Google Drive with ${shelf.length} titles!`
+      });
+    } catch (err: any) {
+      setDriveStatusMsg({ type: 'error', message: err.message || 'Failed to backup to Google Drive.' });
+    } finally {
+      setDriveSyncing(false);
+    }
+  };
+
   // Async submission state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,6 +291,7 @@ export function ProfileView({
       const loaded = getStoredProfileCustomization(currentUser.id);
       setCustomization(loaded);
       setSelectedPresetId(loaded.avatar_preset || 'ronin');
+      setCustomAvatarUrl(loaded.avatar_url || currentUser.avatar_url || null);
       setFrameColor(loaded.avatar_frame_color || 'rose');
       setSelectedBannerId(loaded.banner_preset || 'cyberpunk');
       setStatusMessage(loaded.status_message || '');
@@ -200,29 +351,6 @@ export function ProfileView({
     () => availableBanners.find((b) => b.id === selectedBannerId) || availableBanners[0] || BANNER_THEMES[0],
     [availableBanners, selectedBannerId]
   );
-
-  // Selected avatar preset
-  const activeAvatarPreset = useMemo(
-    () => AVATAR_PRESETS.find((p) => p.id === selectedPresetId) || AVATAR_PRESETS[0],
-    [selectedPresetId]
-  );
-
-  // Frame colors
-  const frameBorderClass = useMemo(() => {
-    switch (frameColor) {
-      case 'cyan':
-        return 'border-cyan-400 shadow-cyan-500/30';
-      case 'amber':
-        return 'border-amber-400 shadow-amber-500/30';
-      case 'violet':
-        return 'border-purple-400 shadow-purple-500/30';
-      case 'emerald':
-        return 'border-emerald-400 shadow-emerald-500/30';
-      case 'rose':
-      default:
-        return 'border-rose-500 shadow-rose-500/30';
-    }
-  }, [frameColor]);
 
   // Pinned items from actual shelf
   const pinnedItems = useMemo(() => {
@@ -296,7 +424,7 @@ export function ProfileView({
           username.trim(),
           displayName.trim(),
           undefined,
-          undefined
+          customAvatarUrl || undefined
         );
 
         if (!res.success) {
@@ -308,6 +436,7 @@ export function ProfileView({
 
       // Save local aesthetic customization
       const updatedCustom: UserProfileCustomization = {
+        avatar_url: customAvatarUrl || undefined,
         avatar_preset: selectedPresetId,
         avatar_frame_color: frameColor,
         banner_preset: selectedBannerId,
@@ -333,6 +462,7 @@ export function ProfileView({
           ...currentUser,
           username: username.trim(),
           display_name: displayName.trim(),
+          avatar_url: customAvatarUrl || null,
           role: isNowAdmin ? 'admin' : (currentUser.role || 'user'),
           profile_setup_complete: true
         });
@@ -429,9 +559,9 @@ export function ProfileView({
   return (
     <div className="w-full max-w-5xl mx-auto py-6 sm:py-8 px-4 sm:px-6 space-y-6">
       {/* 1. HERO PROFILE CARD */}
-      <div className="relative rounded-3xl overflow-hidden bg-neutral-900/90 border border-neutral-800 shadow-2xl">
+      <div className="relative rounded-3xl overflow-visible bg-neutral-900/90 border border-neutral-800 shadow-2xl">
         {/* Banner Artwork Backdrop with Popping Dragon & Normal Art */}
-        <div className={`relative h-44 sm:h-60 w-full overflow-visible bg-gradient-to-r ${activeBannerTheme.gradient}`}>
+        <div className={`relative h-48 sm:h-64 w-full overflow-visible rounded-t-3xl bg-gradient-to-r ${activeBannerTheme.gradient}`}>
           {/* If Exclusive Admin Banner: Japanese Dragon bursting out */}
           {activeBannerTheme.isAdminOnly ? (
             <AdminDragonBanner themeId={activeBannerTheme.id} />
@@ -467,6 +597,7 @@ export function ProfileView({
               <div className="relative group">
                 <AnimeAvatar
                   presetId={selectedPresetId}
+                  customAvatarUrl={customAvatarUrl || currentUser.avatar_url || undefined}
                   frameColor={frameColor}
                   size="2xl"
                   isAdmin={isAdmin}
@@ -588,6 +719,24 @@ export function ProfileView({
                   </>
                 )}
               </button>
+
+              {onOpenAccountSwitcher && (
+                <button
+                  type="button"
+                  id="profile-switch-account-button"
+                  onClick={onOpenAccountSwitcher}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-neutral-800/90 hover:bg-neutral-800 border border-neutral-700/80 text-xs font-semibold text-neutral-200 transition-all cursor-pointer"
+                  title={`Switch Account (${savedAccountsCount} logged in)`}
+                >
+                  <Users className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Switch Account</span>
+                  {savedAccountsCount > 1 && (
+                    <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 text-[10px] font-bold">
+                      {savedAccountsCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
               <button
                 type="button"
@@ -720,6 +869,16 @@ export function ProfileView({
       {/* 3. TAB CONTENT: SHOWCASE & LIBRARY */}
       {activeProfileTab === 'showcase' && (
         <div className="space-y-6">
+          {/* Daily Streak Widget */}
+          {streakInfo && onStreakUpdated && (
+            <DailyStreakWidget
+              userId={currentUser.id}
+              streakInfo={streakInfo}
+              onStreakUpdated={onStreakUpdated}
+              compact={false}
+            />
+          )}
+
           {/* Quick Metrics Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
             <div className="p-4 rounded-2xl bg-neutral-900/90 border border-neutral-800 flex flex-col">
@@ -1155,11 +1314,13 @@ export function ProfileView({
                 </label>
                 <div className="flex flex-wrap items-center gap-2.5">
                   {[
-                    { id: 'rose', name: 'Crimson Rose', bg: 'bg-rose-500' },
-                    { id: 'cyan', name: 'Cyber Cyan', bg: 'bg-cyan-400' },
-                    { id: 'amber', name: 'Solar Amber', bg: 'bg-amber-400' },
-                    { id: 'violet', name: 'Arcane Violet', bg: 'bg-purple-400' },
-                    { id: 'emerald', name: 'Jade Emerald', bg: 'bg-emerald-400' }
+                    { id: 'none', name: 'None (Default)', bg: 'bg-neutral-600' },
+                    { id: 'simple_blurple', name: 'Blurple', bg: 'bg-[#5865f2]' },
+                    { id: 'simple_emerald', name: 'Green', bg: 'bg-[#57f287]' },
+                    { id: 'simple_ruby', name: 'Red', bg: 'bg-[#ed4245]' },
+                    { id: 'simple_amber', name: 'Yellow', bg: 'bg-[#fee75c]' },
+                    { id: 'simple_fuchsia', name: 'Pink', bg: 'bg-[#eb459e]' },
+                    { id: 'simple_cyan', name: 'Mint / Cyan', bg: 'bg-[#23a55a]' }
                   ].map((color) => (
                     <button
                       key={color.id}
@@ -1177,18 +1338,20 @@ export function ProfileView({
                   ))}
                 </div>
 
-                {/* Exclusive Admin Avatar Frames */}
+                {/* Exclusive Admin Avatar Frames (Exactly 5 for Admin) */}
                 {isAdmin && (
                   <div className="pt-3 mt-3 border-t border-neutral-800/80 space-y-2">
                     <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold">
                       <Crown className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Sovereign Admin Exclusive Frames</span>
+                      <span>Admin Exclusive Sovereign Frames (5 Max)</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2.5">
                       {[
-                        { id: 'dragon_gold', name: 'Imperial Dragon (Gold & Claws)', badge: 'Gilded Dragon' },
-                        { id: 'astral_sovereign', name: 'Celestial Astral God', badge: 'Rotating Halo' },
-                        { id: 'void_singularity', name: 'Obsidian Void Singularity', badge: 'Dark Corona' }
+                        { id: 'dragon_gold', name: 'Imperial Dragon (Gold Crown & Claws)' },
+                        { id: 'shadow_arise', name: 'Shadow Monarch (Necrotic Flame)' },
+                        { id: 'infinity_void', name: 'Limitless Void (Rotating Ring)' },
+                        { id: 'sun_god_flame', name: 'Sun God (Solar Corona Flare)' },
+                        { id: 'susanoo_chakra', name: 'Perfect Susanoo (Chakra Crown)' }
                       ].map((adminFrame) => (
                         <button
                           key={adminFrame.id}
@@ -1209,27 +1372,267 @@ export function ProfileView({
                 )}
               </div>
 
-              {/* Presets Grid */}
+              {/* Custom Photo Upload with AI Content Safety Moderation */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-neutral-950/90 border border-neutral-800 space-y-4 shadow-inner">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="space-y-1">
+                    <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-rose-400" />
+                      <span>Custom Profile Photo (Gallery / Device Upload)</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
+                        AI Moderated
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-neutral-400 leading-relaxed max-w-xl">
+                      Upload your desired photo directly from your gallery or computer. Every upload is automatically scanned by our AI Safety Guard to ensure an explicit-free, family-friendly anime community.
+                    </p>
+                  </div>
+
+                  {customAvatarUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCustomAvatar}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-red-950/50 hover:text-red-300 border border-neutral-800 hover:border-red-900/60 text-xs font-semibold text-neutral-300 transition-colors shrink-0 cursor-pointer"
+                      title="Remove custom photo and use an anime preset"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Revert to Anime Preset</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Live Preview & File Picker Area */}
+                <div className="flex flex-col sm:flex-row items-center gap-4 pt-1">
+                  {/* Avatar Frame Live Preview */}
+                  <div className="flex items-center gap-3.5 shrink-0 bg-neutral-900/80 p-3 rounded-2xl border border-neutral-800/80">
+                    <div className="relative">
+                      <AnimeAvatar
+                        presetId={selectedPresetId}
+                        customAvatarUrl={customAvatarUrl}
+                        frameColor={frameColor}
+                        size="xl"
+                        isAdmin={isAdmin}
+                      />
+                      {customAvatarUrl && (
+                        <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-rose-600 text-white font-mono text-[9px] font-bold shadow-md">
+                          Custom
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-left space-y-0.5">
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <span>{customAvatarUrl ? 'Custom Photo Active' : 'Anime Preset Active'}</span>
+                      </div>
+                      <div className="text-[11px] text-neutral-400">
+                        {customAvatarUrl ? 'Gallery photo framed' : `Preset: ${selectedPresetId}`}
+                      </div>
+                      <div className="text-[10px] text-neutral-500">
+                        Frame: <span className="capitalize text-neutral-300">{frameColor.replace('_', ' ')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* File Upload Trigger */}
+                  <div className="flex-1 w-full space-y-2">
+                    <label
+                      className={`relative flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 border-dashed text-xs font-semibold cursor-pointer transition-all text-center ${
+                        avatarScanning
+                          ? 'bg-rose-950/20 border-rose-500/50 text-neutral-300 cursor-not-allowed'
+                          : 'bg-neutral-900/70 hover:bg-neutral-900 border-neutral-700/80 hover:border-rose-500 text-neutral-200 hover:text-white group'
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        onChange={handleAvatarFileChange}
+                        disabled={avatarScanning}
+                        className="sr-only"
+                      />
+                      {avatarScanning ? (
+                        <>
+                          <Loader2 className="w-6 h-6 text-rose-400 animate-spin" />
+                          <div className="space-y-0.5">
+                            <span className="font-bold text-white text-xs block">
+                              AI Content Safety Guard is scanning your image...
+                            </span>
+                            <span className="text-[11px] text-neutral-400 block">
+                              Checking against nudity, explicit, or violent material
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="p-2.5 rounded-xl bg-neutral-800 group-hover:bg-rose-500/20 text-neutral-300 group-hover:text-rose-400 transition-colors">
+                            <Upload className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <span className="font-bold text-white text-xs block">
+                              Choose Photo from Gallery / Device
+                            </span>
+                            <span className="text-[11px] text-neutral-400 block mt-0.5">
+                              JPEG, PNG, WEBP up to 8MB • Auto-cropped to square avatar
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                </div>
+
+                {/* Moderation Scan Outcome Notice */}
+                {avatarScanResult && (
+                  <div
+                    className={`p-3.5 rounded-xl border flex items-start gap-3 text-xs animate-in fade-in duration-300 ${
+                      avatarScanResult.safe
+                        ? 'bg-emerald-950/40 border-emerald-800/70 text-emerald-200 shadow-sm'
+                        : 'bg-red-950/50 border-red-800/80 text-red-200 shadow-lg shadow-red-950/30'
+                    }`}
+                  >
+                    {avatarScanResult.safe ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <ShieldAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                    )}
+                    <div className="space-y-1">
+                      <p className="font-bold text-xs">
+                        {avatarScanResult.safe
+                          ? 'Community Safety Guard Approved'
+                          : 'Image Blocked by AI Safety Guard'}
+                      </p>
+                      <p className="opacity-95 leading-relaxed text-[11px]">
+                        {avatarScanResult.message}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {avatarUploadError && (
+                  <div className="p-3.5 rounded-xl bg-red-950/40 border border-red-800/60 text-xs text-red-200 flex items-center gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                    <span>{avatarUploadError}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Sovereign Exclusive Avatars (Only visible to Admins) */}
+              {isAdmin && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/40 via-purple-950/30 to-amber-950/40 border border-amber-500/40 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-amber-400" />
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-300">
+                      Sovereign Administrator Exclusive Avatars
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30 ml-auto">
+                      Admin Only
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-200/80">
+                    Handcrafted, mature sovereign avatars (Kuro-Ryu Sovereign, Shadow Monarch, Limitless Awakened, Blood Moon Ronin, and Celestial Susanoo Tengu) reserved exclusively for Admins (5 Max).
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-1">
+                    {AVATAR_PRESETS.filter((p) => p.isAdminOnly).map((preset) => {
+                      const isSelected = selectedPresetId === preset.id && !customAvatarUrl;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPresetId(preset.id);
+                            setCustomAvatarUrl(null);
+                            setAvatarScanResult(null);
+                          }}
+                          className={`p-3 rounded-2xl border flex flex-col items-center gap-2.5 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-amber-950/60 border-amber-400 shadow-xl shadow-amber-950/50 ring-2 ring-amber-400/80 scale-[1.04]'
+                              : 'bg-neutral-950/80 border-amber-500/30 hover:border-amber-400/70'
+                          }`}
+                        >
+                          <div className="w-16 h-16 rounded-full overflow-hidden shadow-lg flex items-center justify-center">
+                            <AnimeAvatar presetId={preset.id} frameColor="dragon_gold" size="lg" />
+                          </div>
+                          <div className="text-center w-full">
+                            <h5 className="text-xs font-extrabold text-amber-200 truncate">{preset.name}</h5>
+                            <span className="text-[10px] text-amber-400/80 font-medium">{preset.badge}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Silly & Fun Avatars */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-neutral-300 block">
-                  Choose Anime Avatar Preset
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-neutral-300 flex items-center gap-1.5">
+                    <span>Silly & Fun Avatars</span>
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px] border border-amber-500/20">Community Favorites</span>
+                  </label>
+                  {customAvatarUrl && (
+                    <span className="text-[11px] text-neutral-400">
+                      Selecting a preset will switch from your custom photo.
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-                  {AVATAR_PRESETS.map((preset) => {
-                    const isSelected = selectedPresetId === preset.id;
+                  {AVATAR_PRESETS.filter((p) => !p.isAdminOnly && p.category === 'Silly & Fun').map((preset) => {
+                    const isSelected = selectedPresetId === preset.id && !customAvatarUrl;
                     return (
                       <button
                         key={preset.id}
                         type="button"
-                        onClick={() => setSelectedPresetId(preset.id)}
+                        onClick={() => {
+                          setSelectedPresetId(preset.id);
+                          setCustomAvatarUrl(null);
+                          setAvatarScanResult(null);
+                        }}
                         className={`p-3 rounded-2xl border flex flex-col items-center gap-2.5 transition-all cursor-pointer ${
                           isSelected
-                            ? 'bg-neutral-800 border-rose-500 shadow-lg shadow-rose-950/40 ring-2 ring-rose-500/50 scale-[1.03]'
+                            ? 'bg-neutral-800 border-amber-500 shadow-lg shadow-amber-950/40 ring-2 ring-amber-500/50 scale-[1.03]'
                             : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700'
                         }`}
                       >
                         <div className="w-14 h-14 rounded-full overflow-hidden shadow-md flex items-center justify-center">
-                          <AnimeAvatar presetId={preset.id} frameColor="rose" size="md" />
+                          <AnimeAvatar presetId={preset.id} frameColor="none" size="md" />
+                        </div>
+                        <div className="text-center w-full">
+                          <h5 className="text-xs font-bold text-white truncate">{preset.name}</h5>
+                          <span className="text-[10px] text-neutral-500">{preset.badge}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Aesthetic Noir & Minimalist Avatars */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-neutral-300 flex items-center gap-1.5">
+                    <span>Aesthetic & Minimalist Avatars</span>
+                    <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400 text-[10px] border border-neutral-700">Clean Vector Art</span>
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {AVATAR_PRESETS.filter((p) => !p.isAdminOnly && p.category !== 'Silly & Fun').map((preset) => {
+                    const isSelected = selectedPresetId === preset.id && !customAvatarUrl;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPresetId(preset.id);
+                          setCustomAvatarUrl(null);
+                          setAvatarScanResult(null);
+                        }}
+                        className={`p-3 rounded-2xl border flex flex-col items-center gap-2.5 transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-neutral-800 border-indigo-500 shadow-lg shadow-indigo-950/40 ring-2 ring-indigo-500/50 scale-[1.03]'
+                            : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700'
+                        }`}
+                      >
+                        <div className="w-14 h-14 rounded-full overflow-hidden shadow-md flex items-center justify-center">
+                          <AnimeAvatar presetId={preset.id} frameColor="none" size="md" />
                         </div>
                         <div className="text-center w-full">
                           <h5 className="text-xs font-bold text-white truncate">{preset.name}</h5>
@@ -1259,17 +1662,17 @@ export function ProfileView({
                   <div className="flex items-center gap-2">
                     <Crown className="w-4 h-4 text-amber-400" />
                     <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-300">
-                      Sovereign Administrator Banners (Exclusive to Admins)
+                      Sovereign Administrator Banners (5 Max — With Frame Breakout Effect)
                     </h4>
                     <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30 ml-auto">
                       Admin Only
                     </span>
                   </div>
                   <p className="text-[11px] text-amber-200/80">
-                    High-visual animated banners featuring custom cosmic vortex accretion rings, celestial auroras, and the imperial watermark. Normal users cannot discover or equip these.
+                    High-visual interactive banners designed to dramatically break out of the profile banner frame for a sovereign feel.
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
                     {BANNER_THEMES.filter((t) => t.isAdminOnly).map((theme) => {
                       const isSelected = selectedBannerId === theme.id;
                       return (
@@ -1303,12 +1706,17 @@ export function ProfileView({
                 </div>
               )}
 
-              {/* Standard Themes */}
+              {/* Atmospheric & Mature Standard Themes */}
               <div className="space-y-3">
-                <label className="text-xs font-semibold text-neutral-300 block">
-                  Curated Banner Themes
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-neutral-300 block">
+                    Atmospheric & Mature Dark Banners
+                  </label>
+                  <span className="text-[11px] text-neutral-500">
+                    Subtle, minimalist, aesthetic themes
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {BANNER_THEMES.filter((t) => !t.isAdminOnly).map((theme) => {
                     const isSelected = selectedBannerId === theme.id;
                     return (
@@ -1316,19 +1724,27 @@ export function ProfileView({
                         key={theme.id}
                         type="button"
                         onClick={() => setSelectedBannerId(theme.id)}
-                        className={`h-24 rounded-2xl p-4 flex flex-col justify-end text-left border relative overflow-hidden transition-all cursor-pointer ${
+                        className={`h-28 rounded-2xl p-4 flex flex-col justify-between text-left border relative overflow-hidden transition-all cursor-pointer ${
                           isSelected
-                            ? 'border-white shadow-xl ring-2 ring-rose-500'
+                            ? 'border-white shadow-xl ring-2 ring-rose-500 scale-[1.02]'
                             : 'border-neutral-800 hover:border-neutral-700'
                         } bg-gradient-to-r ${theme.gradient}`}
                       >
-                        <div className="absolute inset-0 bg-black/20" />
+                        {/* NormalBannerArt preview in background */}
+                        <NormalBannerArt themeId={theme.id} />
+                        <div className="absolute inset-0 bg-black/25 pointer-events-none" />
+                        <div className="relative z-10 flex justify-end">
+                          {isSelected && (
+                            <span className="p-1 rounded-full bg-rose-500 text-white shadow-md">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                        </div>
                         <div className="relative z-10">
                           <h5 className="text-xs font-bold text-white flex items-center gap-1.5">
                             <span>{theme.name}</span>
-                            {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-rose-400" />}
                           </h5>
-                          <p className="text-[10px] text-neutral-300 mt-0.5">{theme.tagline}</p>
+                          <p className="text-[10px] text-neutral-300/80 mt-0.5 line-clamp-2 leading-tight">{theme.tagline}</p>
                         </div>
                       </button>
                     );
@@ -1639,6 +2055,83 @@ export function ProfileView({
               </div>
             </div>
           )}
+
+          {/* Google Drive Cloud Backup */}
+          <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 text-neutral-300">
+                <Cloud className="w-5 h-5 text-blue-400" />
+                <h3 className="text-sm font-bold uppercase tracking-wider">
+                  Google Drive Cloud Backup
+                </h3>
+              </div>
+              {isGoogleDriveConnected() && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Connected
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-neutral-400 leading-relaxed max-w-2xl">
+              Safely store snapshot backups of your anime and manga shelves directly in your Google Drive cloud account. You can restore or export your library at any time.
+            </p>
+
+            {driveStatusMsg && (
+              <div
+                className={`p-3 rounded-xl border text-xs flex items-center justify-between gap-2 ${
+                  driveStatusMsg.type === 'success'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                }`}
+              >
+                <span>{driveStatusMsg.message}</span>
+                <button
+                  type="button"
+                  onClick={() => setDriveStatusMsg(null)}
+                  className="text-neutral-500 hover:text-neutral-300 text-xs px-1"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={handleDriveBackupFromProfile}
+                disabled={driveSyncing}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-blue-900/30 transition-all cursor-pointer"
+              >
+                <Cloud className="w-4 h-4" />
+                <span>{driveSyncing ? 'Backing up to Drive...' : 'Backup Shelf to Google Drive'}</span>
+              </button>
+
+              {onOpenImportExport && (
+                <button
+                  type="button"
+                  onClick={onOpenImportExport}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 text-xs font-semibold text-neutral-300 transition-colors cursor-pointer"
+                >
+                  <HardDrive className="w-4 h-4 text-neutral-400" />
+                  <span>Manage Drive Backups & Restores</span>
+                </button>
+              )}
+
+              {isGoogleDriveConnected() && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    disconnectGoogleDrive();
+                    setDriveStatusMsg({ type: 'success', message: 'Google Drive disconnected.' });
+                  }}
+                  className="px-3 py-2 rounded-xl bg-neutral-950 hover:bg-neutral-800 border border-neutral-800 text-xs text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer"
+                >
+                  Disconnect Drive
+                </button>
+              )}
+            </div>
+          </div>
 
           {/* Account Security & Sign Out */}
           <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-4">

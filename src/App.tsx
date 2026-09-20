@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence } from 'motion/react';
-import { AnimeItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll, AuthUser } from './types';
+import { AnimeItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll, AuthUser, DailyStreakInfo, ThemeMode, ViewDistance } from './types';
 import { 
   getTopAnime, 
   getSeasonalAnime, 
@@ -20,8 +20,18 @@ import {
   getUserVotes,
   castPollVote,
 } from './services/shelfStorage';
-import { getCurrentUser, getAuthHeaders } from './services/authService';
+import { getCurrentUser, getAuthHeaders, getSavedAccounts } from './services/authService';
 import { fetchServerPolls, voteInPoll } from './services/pollService';
+import { getStreakInfo } from './services/streakService';
+import { 
+  getStoredThemeMode, 
+  setStoredThemeMode, 
+  applyTheme, 
+  getStoredViewDistance, 
+  setStoredViewDistance,
+  applyViewScale,
+  setupSystemThemeListener 
+} from './services/themeService';
 
 import { Navbar } from './components/Navbar';
 import { HeroBanner } from './components/HeroBanner';
@@ -42,6 +52,9 @@ import { InfoModal, InfoModalType } from './components/InfoModal';
 import { AuthModal } from './components/AuthModal';
 import { ProfileView } from './components/ProfileView';
 import { AdminSyncPage } from './components/AdminSyncPage';
+import { DailyStreakModal } from './components/DailyStreakModal';
+import { AccountSwitcherModal } from './components/AccountSwitcherModal';
+import { AppearanceModal } from './components/AppearanceModal';
 import { 
   Flame, 
   Sparkles, 
@@ -126,6 +139,56 @@ export function App() {
   const [activities, setActivities] = useState<UserActivity[]>([]);
   const [polls, setPolls] = useState<PredictionPoll[]>([]);
   const [userVotes, setUserVotes] = useState<Record<string, string>>({});
+
+  // Daily Otaku Streak state
+  const [streakInfo, setStreakInfo] = useState<DailyStreakInfo>(() => getStreakInfo(currentUser?.id));
+  const [streakModalOpen, setStreakModalOpen] = useState(false);
+
+  // Multi-Account Switcher state
+  const [accountSwitcherOpen, setAccountSwitcherOpen] = useState(false);
+  const [savedAccountsCount, setSavedAccountsCount] = useState<number>(() => getSavedAccounts().length);
+
+  // Screen Appearance & MAL View Distance state
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredThemeMode());
+  const [viewDistance, setViewDistance] = useState<ViewDistance>(() => getStoredViewDistance());
+  const [appearanceModalOpen, setAppearanceModalOpen] = useState(false);
+
+  // Apply theme on mount and whenever themeMode changes
+  useEffect(() => {
+    applyTheme(themeMode);
+    if (themeMode === 'system') {
+      const cleanup = setupSystemThemeListener(() => {
+        applyTheme('system');
+      });
+      return cleanup;
+    }
+  }, [themeMode]);
+
+  // Apply zoom / view scale on mount and whenever viewDistance changes
+  useEffect(() => {
+    applyViewScale(viewDistance);
+  }, [viewDistance]);
+
+  const handleThemeModeChange = (mode: ThemeMode) => {
+    setThemeMode(mode);
+    setStoredThemeMode(mode);
+  };
+
+  const handleViewDistanceChange = (distance: ViewDistance) => {
+    setViewDistance(distance);
+    setStoredViewDistance(distance);
+  };
+
+  // Card grid layout class based on viewDistance (Zoomed in 85%/90% vs 75% vs 100%)
+  const cardGridClass = useMemo(() => {
+    if (viewDistance === '67%' || viewDistance === '75%') {
+      return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5';
+    }
+    if (viewDistance === '85%' || viewDistance === '90%' || viewDistance === 'far') {
+      return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-5 sm:gap-6';
+    }
+    return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 sm:gap-6';
+  }, [viewDistance]);
 
   // Modal detail view
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
@@ -273,6 +336,24 @@ export function App() {
     });
   }, [syncUserData]);
 
+  // Synchronize scoped storage and streaks when active user changes
+  useEffect(() => {
+    if (currentUser) {
+      setShelf(getStoredShelf(currentUser.id));
+      setActivities(getStoredActivities(currentUser.id));
+      setStreakInfo(getStreakInfo(currentUser.id));
+      setSavedAccountsCount(getSavedAccounts().length);
+    }
+  }, [currentUser]);
+
+  const handleAccountSwitched = useCallback((newUser: AuthUser) => {
+    setCurrentUser(newUser);
+    setShelf(getStoredShelf(newUser.id));
+    setActivities(getStoredActivities(newUser.id));
+    setStreakInfo(getStreakInfo(newUser.id));
+    setSavedAccountsCount(getSavedAccounts().length);
+    syncUserData(newUser);
+  }, [syncUserData]);
   
   // Fetch initial anime datasets
   const loadInitialData = useCallback(async () => {
@@ -710,7 +791,7 @@ export function App() {
   const isSearchActive = debouncedQuery.trim().length > 0;
 
   return (
-    <div className="min-h-screen w-full bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-rose-500/30 selection:text-rose-200">
+    <div className="min-h-screen w-full bg-[var(--color-bg-base)] text-[var(--color-text-main)] flex flex-col font-sans selection:bg-rose-500/30 selection:text-rose-400 transition-colors duration-200">
       {/* Top Navigation */}
       <Navbar
         activeTab={isSearchActive ? '' : activeTab}
@@ -724,11 +805,20 @@ export function App() {
         onSearchSubmit={handleSearchSubmit}
         currentUser={currentUser}
         onOpenAuth={() => setAuthModalOpen(true)}
+        streakInfo={streakInfo}
+        onOpenStreakModal={() => setStreakModalOpen(true)}
+        onOpenAccountSwitcher={() => setAccountSwitcherOpen(true)}
+        savedAccountsCount={savedAccountsCount}
+        themeMode={themeMode}
+        onOpenAppearanceModal={() => setAppearanceModalOpen(true)}
+        viewDistance={viewDistance}
+        onViewDistanceChange={handleViewDistanceChange}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col justify-start">
-        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10">
+      {/* Main Content Area centered with spacious side margins (leaving sides open for future ads without cramped layout) */}
+      <div className="flex-1 w-full flex justify-center py-6 sm:py-8">
+        {/* Center Main Stage (Spacious center max-w-6xl / max-w-7xl, leaving clean generous side space) */}
+        <main className="flex-1 min-w-0 max-w-6xl xl:max-w-7xl w-full px-4 sm:px-6 lg:px-8 space-y-8 transition-all">
           <div className="w-full space-y-10">
         {/* Error banner if API is down */}
         {apiError && (
@@ -807,7 +897,7 @@ export function App() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+              <div className={cardGridClass}>
                 {searchResults.map((anime, idx) => {
                    
                    
@@ -846,6 +936,7 @@ export function App() {
                 onUpdateStatus={handleUpdateShelfStatus}
                 onToggleLike={handleToggleLike}
                 getIsLiked={(id) => getShelfItem(id)?.isLiked || false}
+                viewDistance={viewDistance}
               />
             )}
             {/* 2. TAB: HOME (DISCOVER) */}
@@ -855,7 +946,7 @@ export function App() {
                   <div className="w-full h-80 sm:h-96 rounded-2xl bg-neutral-900 border border-neutral-800" />
                   <div className="space-y-4">
                     <div className="h-6 w-48 bg-neutral-900 rounded" />
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                    <div className={cardGridClass}>
                       {Array.from({ length: 6 }).map((_, i) => (
                         <div key={i} className="aspect-[3/4] rounded-xl bg-neutral-900 border border-neutral-800" />
                       ))}
@@ -973,7 +1064,7 @@ export function App() {
                       </div>
 
                       {loadingDiscoverGenre && discoverGenreResults.length === 0 ? (
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4 animate-pulse">
+                        <div className={`${cardGridClass} animate-pulse`}>
                           {Array.from({ length: 12 }).map((_, i) => (
                             <div key={i} className="aspect-[3/4] rounded-xl bg-neutral-900 border border-neutral-800" />
                           ))}
@@ -991,7 +1082,7 @@ export function App() {
                         </div>
                       ) : (
                         <>
-                          <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                          <div className={cardGridClass}>
                             {discoverGenreResults.map((anime, idx) => {
                               const shelfItem = getShelfItem(anime.mal_id);
                               return (
@@ -1056,7 +1147,7 @@ export function App() {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                    <div className={cardGridClass}>
                       {airingAnime.slice(0, 18).map((anime, idx) => {
                          
                          
@@ -1095,7 +1186,7 @@ export function App() {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                    <div className={cardGridClass}>
                       {seasonalAnime.slice(0, 18).map((anime, idx) => {
                          
                          
@@ -1202,7 +1293,7 @@ export function App() {
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                    <div className={cardGridClass}>
                       {topRankedAnime.slice(0, 18).map((anime, idx) => {
                          
                          
@@ -1264,7 +1355,7 @@ export function App() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                <div className={cardGridClass}>
                   {seasonalAnime.map((anime, idx) => {
                      
                      
@@ -1411,7 +1502,7 @@ export function App() {
                 </div>
 
                 {loadingRankings ? (
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                  <div className={cardGridClass}>
                     {Array.from({ length: 12 }).map((_, i) => (
                       <div
                         key={i}
@@ -1527,7 +1618,7 @@ export function App() {
                         })}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                      <div className={cardGridClass}>
                         {topRankedAnime.map((anime, idx) => {
                           const shelfItem = getShelfItem(anime.mal_id);
                           return (
@@ -1554,6 +1645,7 @@ export function App() {
             {activeTab === 'manga' && (
               <MangaSection
                 shelf={shelf}
+                viewDistance={viewDistance}
                 onAddToShelf={(manga, status) => {
                   const poster =
                     manga.images.webp?.large_image_url ||
@@ -1590,6 +1682,7 @@ export function App() {
                 onAddToShelf={handleAddToShelf}
                 isItemInShelf={(id) => Boolean(getShelfItem(id))}
                 onNavigateTab={setActiveTab}
+                viewDistance={viewDistance}
               />
             )}
 
@@ -1628,6 +1721,10 @@ export function App() {
                 onSelectAnime={setSelectedAnime}
                 onSelectManga={(title) => handleNavigateToManga(title)}
                 shelfCount={shelf.length}
+                streakInfo={streakInfo}
+                onStreakUpdated={setStreakInfo}
+                onOpenAccountSwitcher={() => setAccountSwitcherOpen(true)}
+                savedAccountsCount={savedAccountsCount}
               />
             )}
             {activeTab === 'shelf' && (
@@ -1638,6 +1735,7 @@ export function App() {
                 onTabChange={(tab) => setShelfSubTab(tab)}
                 onOpenStats={() => setStatsModalOpen(true)}
                 onOpenImportExport={() => setImportExportModalOpen(true)}
+                viewDistance={viewDistance}
                 onSelectMedia={async (id) => {
                   const item = shelf.find((s) => s.id === id);
                   if (item) {
@@ -1696,9 +1794,7 @@ export function App() {
           </div>
         )}
           </div>
-      </main>
-
-        
+        </main>
       </div>
 
       {/* Detail Modal */}
@@ -1824,6 +1920,39 @@ export function App() {
               syncUserData(user);
             }
           }}
+        />
+      )}
+
+      {/* Daily Streak Modal */}
+      {streakModalOpen && (
+        <DailyStreakModal
+          userId={currentUser?.id}
+          streakInfo={streakInfo}
+          onStreakUpdated={setStreakInfo}
+          onClose={() => setStreakModalOpen(false)}
+        />
+      )}
+
+      {/* Multi-Account Switcher Modal */}
+      {accountSwitcherOpen && (
+        <AccountSwitcherModal
+          currentUser={currentUser}
+          onClose={() => setAccountSwitcherOpen(false)}
+          onAccountSwitched={handleAccountSwitched}
+          onOpenAddNewAccount={() => {
+            setAuthModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* Screen Appearance & View Distance Modal */}
+      {appearanceModalOpen && (
+        <AppearanceModal
+          themeMode={themeMode}
+          onThemeModeChange={handleThemeModeChange}
+          viewDistance={viewDistance}
+          onViewDistanceChange={handleViewDistanceChange}
+          onClose={() => setAppearanceModalOpen(false)}
         />
       )}
     </div>

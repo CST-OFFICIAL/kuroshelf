@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { AnimeItem } from '../types';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { AnimeItem, ViewDistance } from '../types';
 import { AnimeCard } from './AnimeCard';
 import { Filter, Sparkles, X, ChevronRight } from 'lucide-react';
 
@@ -10,6 +10,7 @@ interface ExploreViewProps {
   onToggleLike: (anime: AnimeItem) => void;
   getIsLiked: (id: number) => boolean;
   initialGenre?: number | string | null;
+  viewDistance?: ViewDistance;
 }
 
 export interface GenreOption {
@@ -58,6 +59,7 @@ export function ExploreView({
   onToggleLike,
   getIsLiked,
   initialGenre = null,
+  viewDistance = '85%',
 }: ExploreViewProps) {
   const [selectedGenre, setSelectedGenre] = useState<number | string | null>(initialGenre);
   const [activeCategory, setActiveCategory] = useState<'all' | 'genre' | 'theme' | 'demographic'>('all');
@@ -128,20 +130,30 @@ export function ExploreView({
     ? filteredGenres.slice(0, 15)
     : filteredGenres;
 
+  const cardGridClass = useMemo(() => {
+    if (viewDistance === '67%' || viewDistance === '75%') {
+      return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5';
+    }
+    if (viewDistance === '85%' || viewDistance === '90%' || viewDistance === 'far') {
+      return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-6';
+    }
+    return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 sm:gap-6';
+  }, [viewDistance]);
+
   return (
     <div className="space-y-6">
       {/* Header and Filter Controls */}
-      <div className="flex flex-col gap-4 border-b border-neutral-800 pb-6">
+      <div className="flex flex-col gap-4 border-b border-slate-200 dark:border-neutral-800 pb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2 text-rose-400 text-xs uppercase font-bold tracking-wider mb-1">
+            <div className="flex items-center gap-2 text-rose-500 dark:text-rose-400 text-xs uppercase font-bold tracking-wider mb-1">
               <Filter className="w-3.5 h-3.5" />
               <span>Catalog Discovery</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold font-display text-white">
+            <h2 className="text-xl sm:text-2xl font-bold font-display text-slate-900 dark:text-white">
               {currentGenreObj ? `${currentGenreObj.name} Anime` : 'Explore the Catalog'}
             </h2>
-            <p className="text-xs text-neutral-400 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">
               {currentGenreObj 
                 ? `Showing high-rated and trending ${currentGenreObj.name} titles from local catalog & live index`
                 : 'Browse by popular genres, themes, and demographics'}
@@ -149,16 +161,16 @@ export function ExploreView({
           </div>
 
           {/* Sub-category tabs */}
-          <div className="flex items-center gap-1.5 p-1 bg-neutral-900 border border-neutral-800 rounded-lg self-start sm:self-auto">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-xl self-start sm:self-auto">
             {(['all', 'genre', 'theme', 'demographic'] as const).map(cat => (
               <button
                 key={cat}
                 id={`filter-category-${cat}`}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors capitalize ${
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors capitalize cursor-pointer ${
                   activeCategory === cat
                     ? 'bg-rose-600 text-white shadow-sm'
-                    : 'text-neutral-400 hover:text-white'
+                    : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {cat === 'all' ? 'All Types' : cat + 's'}
@@ -175,7 +187,7 @@ export function ExploreView({
             className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
               selectedGenre === null
                 ? 'bg-rose-600 text-white font-semibold shadow-sm shadow-rose-950/40 border border-rose-500'
-                : 'bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 hover:bg-neutral-800/80'
+                : 'bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-neutral-700'
             }`}
           >
             All / Popular
@@ -191,7 +203,7 @@ export function ExploreView({
                 className={`px-3.5 py-1.5 rounded-full text-xs transition-all flex items-center gap-1.5 cursor-pointer ${
                   isSelected
                     ? 'bg-rose-600 text-white font-semibold shadow-sm shadow-rose-950/40 border border-rose-500'
-                    : 'bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 hover:bg-neutral-800/80 font-medium'
+                    : 'bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-neutral-700 font-medium'
                 }`}
               >
                 <span>{g.name}</span>
@@ -203,7 +215,7 @@ export function ExploreView({
           {activeCategory === 'all' && filteredGenres.length > 15 && (
             <button
               onClick={() => setShowAllPills(prev => !prev)}
-              className="px-3 py-1.5 rounded-full text-xs font-medium bg-neutral-900/60 border border-dashed border-neutral-700 text-rose-400 hover:text-rose-300 hover:border-rose-500/50 transition-all cursor-pointer"
+              className="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-neutral-900/60 border border-dashed border-slate-300 dark:border-neutral-700 text-rose-600 dark:text-rose-400 hover:border-rose-500/50 transition-all cursor-pointer"
             >
               {showAllPills ? 'Show fewer tags' : `+${filteredGenres.length - 15} more`}
             </button>
@@ -212,16 +224,16 @@ export function ExploreView({
 
         {/* Active Filter Indicator */}
         {selectedGenre !== null && (
-          <div className="flex items-center justify-between text-xs py-2 px-3 bg-rose-500/10 border border-rose-500/20 rounded-lg">
-            <div className="flex items-center gap-2 text-rose-300">
-              <Sparkles className="w-4 h-4 text-rose-400 shrink-0" />
+          <div className="flex items-center justify-between text-xs py-2 px-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl">
+            <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300">
+              <Sparkles className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" />
               <span>
                 Filtering by <strong>{currentGenreObj ? currentGenreObj.name : selectedGenre}</strong> ({results.length} titles loaded)
               </span>
             </div>
             <button
               onClick={() => setSelectedGenre(null)}
-              className="text-xs text-rose-400 hover:text-white font-medium underline transition-colors"
+              className="text-xs text-rose-600 dark:text-rose-400 hover:underline font-medium transition-colors cursor-pointer"
             >
               Clear filter
             </button>
@@ -231,27 +243,27 @@ export function ExploreView({
 
       {/* Grid Results */}
       {loading && results.length === 0 ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4 sm:gap-6 animate-pulse">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="aspect-[3/4] rounded-xl bg-neutral-900 border border-neutral-800" />
+        <div className={`${cardGridClass} animate-pulse`}>
+          {Array.from({ length: 14 }).map((_, i) => (
+            <div key={i} className="aspect-[3/4] rounded-xl bg-slate-200/70 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800" />
           ))}
         </div>
       ) : results.length === 0 ? (
-        <div className="py-16 text-center border border-dashed border-neutral-800 rounded-2xl bg-neutral-900/30">
-          <Filter className="w-8 h-8 mx-auto text-neutral-600 mb-3" />
-          <h3 className="text-base font-semibold text-white">No titles found for this genre</h3>
-          <p className="text-xs text-neutral-400 mt-1 max-w-sm mx-auto">
+        <div className="py-16 text-center border border-dashed border-slate-200 dark:border-neutral-800 rounded-2xl bg-white dark:bg-neutral-900/30">
+          <Filter className="w-8 h-8 mx-auto text-slate-400 dark:text-neutral-600 mb-3" />
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">No titles found for this genre</h3>
+          <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 max-w-sm mx-auto">
             Try selecting a different genre or clearing the current filter to view popular anime.
           </p>
           <button
             onClick={() => setSelectedGenre(null)}
-            className="mt-4 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold transition-colors"
+            className="mt-4 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
           >
             Reset Filters
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4 sm:gap-6">
+        <div className={cardGridClass}>
           {results.map((anime, idx) => (
             <AnimeCard
               key={`explore-${anime.mal_id}-${idx}`}
@@ -274,7 +286,7 @@ export function ExploreView({
             id="explore-load-more-btn"
             onClick={loadMore}
             disabled={loading}
-            className="px-6 py-2.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white rounded-xl text-xs font-semibold transition-all disabled:opacity-50 flex items-center gap-2"
+            className="px-6 py-2.5 bg-white dark:bg-neutral-900 hover:bg-slate-50 dark:hover:bg-neutral-800 border border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white rounded-xl text-xs font-semibold transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-xs"
           >
             {loading ? (
               <>

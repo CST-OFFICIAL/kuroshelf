@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { MangaItem, ShelfEntry, ShelfStatus } from '../types';
+import { useState, useEffect, useMemo } from 'react';
+import { MangaItem, ShelfEntry, ShelfStatus, ViewDistance } from '../types';
 import { getTopManga, searchManga } from '../services/jikan';
 import {
   BookOpen,
@@ -24,6 +24,7 @@ interface MangaSectionProps {
   onToggleLike?: (id: number, mediaType: 'anime' | 'manga', title: string, image: string) => void;
   onSelectManga?: (manga: MangaItem) => void;
   initialSearchQuery?: string;
+  viewDistance?: ViewDistance;
 }
 
 export function MangaSection({
@@ -32,12 +33,23 @@ export function MangaSection({
   onToggleLike,
   onSelectManga,
   initialSearchQuery = '',
+  viewDistance = '85%',
 }: MangaSectionProps) {
   const [mangaList, setMangaList] = useState<MangaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(initialSearchQuery);
   const [selectedMangaDetail, setSelectedMangaDetail] = useState<MangaItem | null>(null);
   const [activeStatusMenuId, setActiveStatusMenuId] = useState<number | null>(null);
+
+  const mangaGridClass = useMemo(() => {
+    if (viewDistance === '67%' || viewDistance === '75%') {
+      return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5';
+    }
+    if (viewDistance === '85%' || viewDistance === '90%' || viewDistance === 'far') {
+      return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-6';
+    }
+    return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 sm:gap-6';
+  }, [viewDistance]);
 
   // Sync if initialSearchQuery updates from another tab/modal
   useEffect(() => {
@@ -147,8 +159,8 @@ export function MangaSection({
 
       {/* Manga Grid */}
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {Array.from({ length: 12 }).map((_, i) => (
+        <div className={mangaGridClass}>
+          {Array.from({ length: 10 }).map((_, i) => (
             <div
               key={i}
               className="aspect-[3/4] rounded-xl bg-neutral-900 animate-pulse border border-neutral-800"
@@ -160,7 +172,7 @@ export function MangaSection({
           No manga titles found matching &quot;{search}&quot;. Try a different title or author name.
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className={mangaGridClass}>
           {mangaList.map((manga, idx) => {
             const shelfItem = getShelfItem(manga.mal_id);
             const isLiked = shelfItem?.isLiked || false;

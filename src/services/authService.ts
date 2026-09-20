@@ -1,7 +1,196 @@
 
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { AuthUser } from '../types';
-import { isAdminUser, validateUsername } from './profileCustomizationService';
+import { AuthUser, SavedAccount } from '../types';
+import { isAdminUser, validateUsername, saveStoredProfileCustomization, getStoredProfileCustomization } from './profileCustomizationService';
+
+const SAVED_ACCOUNTS_KEY = 'kuro_saved_accounts';
+
+export function getSavedAccounts(): SavedAccount[] {
+  try {
+    const raw = localStorage.getItem(SAVED_ACCOUNTS_KEY);
+    let accounts: SavedAccount[] = raw ? JSON.parse(raw) : [];
+    
+    // Auto-migrate current active user if not already in saved accounts
+    const activeRaw = localStorage.getItem('kuro_local_user');
+    if (activeRaw) {
+      const activeUser: AuthUser = JSON.parse(activeRaw);
+      if (!accounts.some((a) => a.user.id === activeUser.id)) {
+        accounts.push({
+          user: activeUser,
+          token: localStorage.getItem('kuro_local_token'),
+          lastActiveAt: Date.now(),
+        });
+        localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(accounts));
+      }
+    }
+    return accounts;
+  } catch (e) {
+    console.warn('[Auth] Failed to load saved accounts:', e);
+    return [];
+  }
+}
+
+export function saveAccount(user: AuthUser, token?: string | null): SavedAccount[] {
+  try {
+    const current = getSavedAccounts();
+    const existingIndex = current.findIndex((a) => a.user.id === user.id);
+    const updatedAccount: SavedAccount = {
+      user,
+      token: token !== undefined ? token : (existingIndex >= 0 ? current[existingIndex].token : null),
+      lastActiveAt: Date.now(),
+    };
+
+    let updatedList: SavedAccount[];
+    if (existingIndex >= 0) {
+      updatedList = [...current];
+      updatedList[existingIndex] = updatedAccount;
+    } else {
+      updatedList = [updatedAccount, ...current];
+    }
+
+    localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(updatedList));
+    return updatedList;
+  } catch (e) {
+    console.warn('[Auth] Failed to save account to saved list:', e);
+    return [];
+  }
+}
+
+export async function switchAccount(userId: string): Promise<AuthUser | null> {
+  const accounts = getSavedAccounts();
+  const target = accounts.find((a) => a.user.id === userId);
+  if (!target) return null;
+
+  // Set active user & token
+  localStorage.setItem('kuro_local_user', JSON.stringify(target.user));
+  if (target.token) {
+    localStorage.setItem('kuro_local_token', target.token);
+  } else {
+    localStorage.removeItem('kuro_local_token');
+  }
+
+  // Update last active
+  saveAccount(target.user, target.token);
+  return target.user;
+}
+
+export async function removeSavedAccount(userId: string): Promise<{ remainingAccounts: SavedAccount[]; nextActiveUser: AuthUser | null }> {
+  const current = getSavedAccounts();
+  const filtered = current.filter((a) => a.user.id !== userId);
+  localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(filtered));
+
+  const activeRaw = localStorage.getItem('kuro_local_user');
+  let nextActive: AuthUser | null = null;
+  if (activeRaw) {
+    try {
+      const activeUser: AuthUser = JSON.parse(activeRaw);
+      if (activeUser.id === userId) {
+        // Active user was removed, switch to next or null
+        if (filtered.length > 0) {
+          nextActive = filtered[0].user;
+          localStorage.setItem('kuro_local_user', JSON.stringify(nextActive));
+          if (filtered[0].token) {
+            localStorage.setItem('kuro_local_token', filtered[0].token);
+          } else {
+            localStorage.removeItem('kuro_local_token');
+          }
+        } else {
+          localStorage.removeItem('kuro_local_user');
+          localStorage.removeItem('kuro_local_token');
+        }
+      } else {
+        nextActive = activeUser;
+      }
+    } catch {}
+  }
+
+  return { remainingAccounts: filtered, nextActiveUser: nextActive };
+}
+
+export interface PresetDemoAccount {
+  user: AuthUser;
+  description: string;
+  avatarPreset: string;
+  bannerPreset: string;
+  tagline: string;
+}
+
+export const PRESET_ACCOUNTS: PresetDemoAccount[] = [
+  {
+    user: {
+      id: 'acc_ren_mangasavant',
+      email: 'ren.manga@kuroshelf.local',
+      username: 'mangasavant',
+      display_name: 'Ren • Manga Savant',
+      profile_setup_complete: true,
+      role: 'user',
+      created_at: '2026-01-15T00:00:00Z',
+    },
+    description: 'Seinen collector & psychological manga reader. Tracks Berserk, Monster & Vinland Saga.',
+    avatarPreset: 'silly_smug_hamster',
+    bannerPreset: 'tokyo_rain',
+    tagline: 'Manga Critic & Collector',
+  },
+  {
+    user: {
+      id: 'acc_sakura_animereviewer',
+      email: 'sakura.reviewer@kuroshelf.local',
+      username: 'sakuradreamer',
+      display_name: 'Sakura • Anime Reviewer',
+      profile_setup_complete: true,
+      role: 'user',
+      created_at: '2026-02-10T00:00:00Z',
+    },
+    description: 'Seasonal anime enthusiast, soundtrack connoisseur, and slice-of-life reviewer.',
+    avatarPreset: 'silly_boba_ghost',
+    bannerPreset: 'amethyst_dusk',
+    tagline: 'Seasonal Anime Reviewer',
+  },
+  {
+    user: {
+      id: 'kuro_admin_master',
+      email: 'kuro@kuroshelf.com',
+      username: 'Kuro',
+      display_name: 'Kuro',
+      profile_setup_complete: true,
+      role: 'admin',
+      created_at: '2026-01-01T00:00:00Z',
+    },
+    description: 'Platform creator & Sovereign Admin with limitless dragon perks and admin authority.',
+    avatarPreset: 'kuro_dragon_emperor',
+    bannerPreset: 'kuro_imperial_dragon',
+    tagline: 'Sovereign Administrator',
+  },
+];
+
+export async function quickLogInPresetAccount(accountId: string): Promise<AuthUser> {
+  const preset = PRESET_ACCOUNTS.find((p) => p.user.id === accountId) || PRESET_ACCOUNTS[0];
+  const user = preset.user;
+
+  // Initialize their custom profile presets if not exists
+  const existingCustom = getStoredProfileCustomization(user.id);
+  if (!existingCustom.bio) {
+    saveStoredProfileCustomization(
+      {
+        ...existingCustom,
+        avatar_preset: preset.avatarPreset,
+        banner_preset: preset.bannerPreset,
+        bio: preset.description,
+        status_message: preset.tagline,
+      },
+      user.id
+    );
+  }
+
+  // Set active user
+  localStorage.setItem('kuro_local_user', JSON.stringify(user));
+  localStorage.removeItem('kuro_local_token');
+
+  // Save to multi-accounts
+  saveAccount(user);
+
+  return user;
+}
 
 export async function getStoredAuthToken(): Promise<string | null> {
   if (!isSupabaseConfigured) {
@@ -182,6 +371,7 @@ export async function registerUser(
           created_at: data.user.created_at || new Date().toISOString(),
         };
         localStorage.setItem('kuro_local_user', JSON.stringify(authUser));
+        saveAccount(authUser);
         return { success: true, user: authUser };
       }
     } catch (e: any) {
@@ -200,6 +390,7 @@ export async function registerUser(
     created_at: new Date().toISOString(),
   };
   localStorage.setItem('kuro_local_user', JSON.stringify(localUser));
+  saveAccount(localUser);
   return { success: true, user: localUser };
 }
 
@@ -272,6 +463,7 @@ export async function updateProfileSetup(
       ...parsed,
       username: cleanUsername,
       display_name: displayName.trim(),
+      avatar_url: avatarUrl !== undefined ? avatarUrl : (parsed.avatar_url || null),
       profile_setup_complete: true,
       role: isAdmin ? 'admin' : (parsed.role || 'user')
     };
@@ -281,12 +473,14 @@ export async function updateProfileSetup(
       email: `${cleanUsername}@kuroshelf.local`,
       username: cleanUsername,
       display_name: displayName.trim(),
+      avatar_url: avatarUrl || null,
       profile_setup_complete: true,
       role: isAdmin ? 'admin' : 'user',
       created_at: new Date().toISOString()
     };
   }
   localStorage.setItem('kuro_local_user', JSON.stringify(updatedUser));
+  saveAccount(updatedUser);
 
   return { success: true, user: updatedUser };
 }
@@ -314,8 +508,25 @@ export async function loginUser(identifier: string, password: string): Promise<{
         created_at: data.user.created_at || new Date().toISOString(),
       };
       localStorage.setItem('kuro_local_user', JSON.stringify(authUser));
+      saveAccount(authUser, data.session?.access_token);
       return { success: true, user: authUser };
     }
+  }
+
+  // Check already saved accounts list
+  const savedList = getSavedAccounts();
+  const matchedSaved = savedList.find(
+    (a) =>
+      a.user.email.toLowerCase() === clean ||
+      a.user.username.toLowerCase() === clean
+  );
+  if (matchedSaved) {
+    localStorage.setItem('kuro_local_user', JSON.stringify(matchedSaved.user));
+    if (matchedSaved.token) {
+      localStorage.setItem('kuro_local_token', matchedSaved.token);
+    }
+    saveAccount(matchedSaved.user, matchedSaved.token);
+    return { success: true, user: matchedSaved.user };
   }
 
   // Local/Offline account check
@@ -327,9 +538,21 @@ export async function loginUser(identifier: string, password: string): Promise<{
         parsed.email.toLowerCase() === clean ||
         parsed.username.toLowerCase() === clean
       ) {
+        saveAccount(parsed);
         return { success: true, user: parsed };
       }
     } catch (e) {}
+  }
+
+  // Check preset accounts (e.g. MangaSavant, SakuraDreamer)
+  const matchedPreset = PRESET_ACCOUNTS.find(
+    (p) =>
+      p.user.username.toLowerCase() === clean ||
+      p.user.email.toLowerCase() === clean
+  );
+  if (matchedPreset) {
+    const user = await quickLogInPresetAccount(matchedPreset.user.id);
+    return { success: true, user };
   }
 
   // If user enters Kuro as identifier in demo/offline mode
@@ -344,6 +567,7 @@ export async function loginUser(identifier: string, password: string): Promise<{
       created_at: new Date().toISOString(),
     };
     localStorage.setItem('kuro_local_user', JSON.stringify(kuroAdmin));
+    saveAccount(kuroAdmin);
     return { success: true, user: kuroAdmin };
   }
 

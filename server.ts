@@ -28,6 +28,7 @@ import {
   serverGetPersonDetails,
   isNsfwOrAdult,
 } from './server/jikanService';
+import { moderateAvatarImage } from './server/avatarModerationService';
 
 // Extend Express Request type with authenticated user
 export interface AuthenticatedRequest extends Request {
@@ -41,7 +42,8 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ limit: '10mb', extended: true }));
   app.use(cookieParser());
   app.get('/api/ping', (req, res) => res.send('pong'));
 
@@ -79,6 +81,28 @@ async function startServer() {
       service: 'kuroshelf-api',
       timestamp: new Date().toISOString(),
     });
+  });
+
+  // ---------------- Avatar Safety Moderation ----------------
+  app.post('/api/moderate-avatar', async (req: Request, res: Response) => {
+    try {
+      const { imageBase64, mimeType } = req.body;
+      if (!imageBase64 || typeof imageBase64 !== 'string') {
+        res.status(400).json({ success: false, safe: false, error: 'No image data provided.' });
+        return;
+      }
+
+      const result = await moderateAvatarImage(imageBase64, mimeType || 'image/jpeg');
+      res.json({
+        success: true,
+        safe: result.safe,
+        reason: result.reason,
+        flaggedCategories: result.flaggedCategories || [],
+      });
+    } catch (err: any) {
+      console.error('Error in /api/moderate-avatar:', err);
+      res.status(500).json({ success: false, safe: false, error: 'Failed to process image safety check.' });
+    }
   });
 
   // ---------------- Admin / Synchronization ----------------

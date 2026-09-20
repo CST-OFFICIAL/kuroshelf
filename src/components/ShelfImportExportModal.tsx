@@ -1,6 +1,30 @@
-import React, { useState } from 'react';
-import { X, Download, Upload, Check, AlertCircle, Copy, FileSpreadsheet, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+  X,
+  Download,
+  Upload,
+  Check,
+  AlertCircle,
+  Copy,
+  FileSpreadsheet,
+  RefreshCw,
+  Cloud,
+  HardDrive,
+  Trash2,
+  ExternalLink,
+  ShieldCheck
+} from 'lucide-react';
 import { ShelfEntry, ShelfStatus } from '../types';
+import {
+  DriveBackupFile,
+  isGoogleDriveConnected,
+  requestGoogleDriveAuth,
+  disconnectGoogleDrive,
+  uploadBackupToDrive,
+  listDriveBackups,
+  downloadBackupFromDrive,
+  deleteBackupFromDrive
+} from '../services/googleDriveService';
 
 interface ShelfImportExportModalProps {
   shelf: ShelfEntry[];
@@ -13,7 +37,7 @@ export const ShelfImportExportModal: React.FC<ShelfImportExportModalProps> = ({
   onClose,
   onImport,
 }) => {
-  const [activeTab, setActiveTab] = useState<'export' | 'import'>('export');
+  const [activeTab, setActiveTab] = useState<'export' | 'import' | 'drive'>('export');
   const [copied, setCopied] = useState(false);
   const [importText, setImportText] = useState('');
   const [importMode, setImportMode] = useState<'merge' | 'replace'>('merge');
@@ -22,6 +46,114 @@ export const ShelfImportExportModal: React.FC<ShelfImportExportModalProps> = ({
     message?: string;
     itemCount?: number;
   }>({ type: 'idle' });
+
+  // Google Drive state
+  const [driveConnected, setDriveConnected] = useState(() => isGoogleDriveConnected());
+  const [driveLoading, setDriveLoading] = useState(false);
+  const [driveBackups, setDriveBackups] = useState<DriveBackupFile[]>([]);
+  const [driveNotice, setDriveNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [restoringFileId, setRestoringFileId] = useState<string | null>(null);
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+
+  // Load Drive backups whenever user opens the drive tab if connected
+  useEffect(() => {
+    if (activeTab === 'drive' && isGoogleDriveConnected()) {
+      loadDriveBackupsList();
+    }
+  }, [activeTab]);
+
+  const loadDriveBackupsList = async () => {
+    try {
+      setDriveLoading(true);
+      const list = await listDriveBackups();
+      setDriveBackups(list);
+      setDriveConnected(true);
+    } catch (err: any) {
+      setDriveNotice({ type: 'error', message: err.message || 'Failed to list Google Drive backups.' });
+      setDriveConnected(isGoogleDriveConnected());
+    } finally {
+      setDriveLoading(false);
+    }
+  };
+
+  const handleConnectDrive = async () => {
+    try {
+      setDriveLoading(true);
+      setDriveNotice(null);
+      await requestGoogleDriveAuth();
+      setDriveConnected(true);
+      await loadDriveBackupsList();
+      setDriveNotice({ type: 'success', message: 'Google Drive connected successfully!' });
+    } catch (err: any) {
+      setDriveNotice({ type: 'error', message: err.message || 'Failed to authorize Google Drive.' });
+    } finally {
+      setDriveLoading(false);
+    }
+  };
+
+  const handleDisconnectDrive = () => {
+    disconnectGoogleDrive();
+    setDriveConnected(false);
+    setDriveBackups([]);
+    setDriveNotice({ type: 'success', message: 'Disconnected from Google Drive.' });
+  };
+
+  const handleSaveToDrive = async () => {
+    if (shelf.length === 0) {
+      setDriveNotice({ type: 'error', message: 'Your shelf is empty. Add titles before creating a backup.' });
+      return;
+    }
+
+    try {
+      setDriveLoading(true);
+      setDriveNotice(null);
+      const file = await uploadBackupToDrive(shelf);
+      setDriveNotice({
+        type: 'success',
+        message: `Backup "${file.name}" saved to Google Drive with ${shelf.length} titles!`
+      });
+      await loadDriveBackupsList();
+    } catch (err: any) {
+      setDriveNotice({ type: 'error', message: err.message || 'Failed to save backup to Google Drive.' });
+    } finally {
+      setDriveLoading(false);
+    }
+  };
+
+  const handleRestoreFromDrive = async (file: DriveBackupFile) => {
+    try {
+      setRestoringFileId(file.id);
+      setDriveNotice(null);
+      const backup = await downloadBackupFromDrive(file.id);
+
+      if (!backup.items || backup.items.length === 0) {
+        throw new Error('Backup contains no items.');
+      }
+
+      onImport(backup.items, importMode);
+      setDriveNotice({
+        type: 'success',
+        message: `Successfully restored ${backup.items.length} titles from "${file.name}" (${importMode === 'replace' ? 'replaced' : 'merged'})!`
+      });
+    } catch (err: any) {
+      setDriveNotice({ type: 'error', message: err.message || 'Failed to restore backup from Drive.' });
+    } finally {
+      setRestoringFileId(null);
+    }
+  };
+
+  const handleDeleteDriveFile = async (fileId: string) => {
+    try {
+      setDeletingFileId(fileId);
+      await deleteBackupFromDrive(fileId);
+      setDriveBackups((prev) => prev.filter((f) => f.id !== fileId));
+      setDriveNotice({ type: 'success', message: 'Backup file deleted from Google Drive.' });
+    } catch (err: any) {
+      setDriveNotice({ type: 'error', message: err.message || 'Failed to delete backup from Drive.' });
+    } finally {
+      setDeletingFileId(null);
+    }
+  };
 
   // Format JSON payload for Kuro Shelf
   const kuroJson = JSON.stringify(
@@ -252,6 +384,23 @@ export const ShelfImportExportModal: React.FC<ShelfImportExportModalProps> = ({
             <Upload className="w-4 h-4" />
             <span>Import / Restore</span>
           </button>
+          <button
+            id="tab-drive"
+            onClick={() => setActiveTab('drive')}
+            className={`flex-1 py-3 px-4 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 border-b-2 transition-colors ${
+              activeTab === 'drive'
+                ? 'border-rose-500 text-rose-400 bg-neutral-900/50'
+                : 'border-transparent text-neutral-400 hover:text-white'
+            }`}
+          >
+            <Cloud className="w-4 h-4 text-blue-400" />
+            <span className="flex items-center gap-1.5">
+              <span>Google Drive</span>
+              {driveConnected && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+              )}
+            </span>
+          </button>
         </div>
 
         {/* Tab Body */}
@@ -388,6 +537,237 @@ export const ShelfImportExportModal: React.FC<ShelfImportExportModalProps> = ({
                   <span>{importStatus.message}</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'drive' && (
+            <div className="space-y-5">
+              {/* Drive Connection Status Header */}
+              <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-xl border ${
+                    driveConnected
+                      ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                      : 'bg-neutral-900 border-neutral-800 text-neutral-400'
+                  }`}>
+                    <Cloud className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-bold text-white">Google Drive Cloud Sync</h4>
+                      {driveConnected && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Connected
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">
+                      {driveConnected
+                        ? 'Back up and restore your collection directly to your Google Drive account.'
+                        : 'Connect your Google account to back up and restore your shelf seamlessly.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  {!driveConnected ? (
+                    <button
+                      id="connect-google-drive-btn"
+                      type="button"
+                      onClick={handleConnectDrive}
+                      disabled={driveLoading}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md shadow-blue-900/30 cursor-pointer"
+                    >
+                      <Cloud className="w-3.5 h-3.5" />
+                      <span>{driveLoading ? 'Connecting...' : 'Connect Drive'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      id="disconnect-google-drive-btn"
+                      type="button"
+                      onClick={handleDisconnectDrive}
+                      className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-400 hover:text-rose-400 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Notice if any */}
+              {driveNotice && (
+                <div
+                  className={`p-3.5 rounded-xl border flex items-center justify-between gap-2.5 text-xs ${
+                    driveNotice.type === 'success'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                      : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {driveNotice.type === 'success' ? (
+                      <Check className="w-4 h-4 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                    )}
+                    <span>{driveNotice.message}</span>
+                  </div>
+                  <button
+                    onClick={() => setDriveNotice(null)}
+                    className="text-neutral-500 hover:text-neutral-300 text-xs px-1"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
+              {/* Action: Create Backup Now */}
+              {driveConnected && (
+                <div className="p-4 rounded-xl bg-neutral-950/60 border border-neutral-800/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h5 className="text-xs font-bold text-white">Save Current Shelf to Drive</h5>
+                      <p className="text-[11px] text-neutral-400">
+                        Uploads a timestamped snapshot of your {shelf.length} titles.
+                      </p>
+                    </div>
+                    <button
+                      id="backup-to-drive-btn"
+                      type="button"
+                      onClick={handleSaveToDrive}
+                      disabled={driveLoading || shelf.length === 0}
+                      className="px-4 py-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md shadow-rose-900/30 cursor-pointer"
+                    >
+                      {driveLoading ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Backup Now ({shelf.length})</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Drive Backups List */}
+              {driveConnected && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <HardDrive className="w-4 h-4 text-neutral-400" />
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-neutral-300">
+                        Saved Backups in Google Drive
+                      </h5>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="text-neutral-500 text-[11px]">Restore Mode:</span>
+                        <select
+                          value={importMode}
+                          onChange={(e) => setImportMode(e.target.value as 'merge' | 'replace')}
+                          className="bg-neutral-950 border border-neutral-800 text-[11px] text-white rounded px-2 py-0.5"
+                        >
+                          <option value="merge">Merge</option>
+                          <option value="replace">Replace</option>
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={loadDriveBackupsList}
+                        disabled={driveLoading}
+                        className="p-1 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+                        title="Refresh Drive backups list"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${driveLoading ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {driveBackups.length === 0 ? (
+                    <div className="p-8 text-center rounded-xl bg-neutral-950/40 border border-neutral-800/60 text-neutral-500 text-xs">
+                      <Cloud className="w-8 h-8 mx-auto text-neutral-600 mb-2" />
+                      <p>No Kuro Shelf backups found in your Google Drive.</p>
+                      <p className="text-[11px] text-neutral-600 mt-1">
+                        Click "Backup Now" above to create your first cloud snapshot.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-neutral-800/80 rounded-xl bg-neutral-950 border border-neutral-800 overflow-hidden">
+                      {driveBackups.map((file) => (
+                        <div
+                          key={file.id}
+                          className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-neutral-900/50 transition-colors"
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-white font-mono">{file.name}</span>
+                              {file.webViewLink && (
+                                <a
+                                  href={file.webViewLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-neutral-500 hover:text-blue-400"
+                                  title="View file in Google Drive"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-[11px] text-neutral-400">
+                              <span>Modified: {new Date(file.modifiedTime).toLocaleString()}</span>
+                              {file.size && (
+                                <span>{Math.round(parseInt(file.size, 10) / 1024)} KB</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRestoreFromDrive(file)}
+                              disabled={restoringFileId === file.id}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-800/60 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              {restoringFileId === file.id ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Download className="w-3 h-3" />
+                              )}
+                              <span>Restore</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDriveFile(file.id)}
+                              disabled={deletingFileId === file.id}
+                              className="p-1.5 rounded-lg bg-neutral-900 hover:bg-red-950/40 border border-neutral-800 hover:border-red-900/60 text-neutral-400 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-50"
+                              title="Delete this backup from Drive"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Informational security note */}
+              <div className="p-3.5 rounded-xl bg-blue-950/20 border border-blue-900/30 flex items-start gap-2.5 text-xs text-blue-200/80">
+                <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-semibold text-blue-300">Privacy & Access Guarantee</span>
+                  <p className="text-[11px] text-blue-200/70 leading-relaxed">
+                    Kuro Shelf only accesses files created specifically by this app (<code className="font-mono text-blue-300">drive.file</code> scope). Your other Google Drive personal documents remain completely private and inaccessible.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
         </div>

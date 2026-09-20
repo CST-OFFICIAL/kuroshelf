@@ -109,7 +109,26 @@ export interface AuthUser {
 export interface UserProfileCustomization {
   avatar_url?: string;
   avatar_preset?: string;
-  avatar_frame_color?: 'rose' | 'cyan' | 'amber' | 'violet' | 'emerald' | 'dragon_gold' | 'astral_sovereign' | 'void_singularity';
+  avatar_frame_color?:
+    | 'none'
+    | 'simple_blurple'
+    | 'simple_emerald'
+    | 'simple_ruby'
+    | 'simple_amber'
+    | 'simple_fuchsia'
+    | 'simple_cyan'
+    | 'dragon_gold'
+    | 'shadow_arise'
+    | 'infinity_void'
+    | 'sun_god_flame'
+    | 'susanoo_chakra'
+    | 'rose'
+    | 'cyan'
+    | 'amber'
+    | 'violet'
+    | 'emerald'
+    | 'astral_sovereign'
+    | 'void_singularity';
   banner_preset?: string;
   banner_custom_url?: string;
   status_message?: string;
@@ -305,4 +324,33 @@ export interface ShelfExportData {
     mangaCount: number;
   };
 }
+
+export interface DailyStreakInfo {
+  currentStreak: number;
+  longestStreak: number;
+  lastActiveDate: string; // YYYY-MM-DD
+  checkedInToday: boolean;
+  streakHistory: string[]; // Recent check-in dates (YYYY-MM-DD)
+  freezeAvailable: boolean; // 1 free freeze shield
+  totalCheckIns: number;
+}
+
+export interface StreakMilestone {
+  days: number;
+  title: string;
+  badge: string;
+  description: string;
+  unlocked: boolean;
+}
+
+export interface SavedAccount {
+  user: AuthUser;
+  token?: string | null;
+  lastActiveAt: number;
+  customization?: UserProfileCustomization;
+}
+
+export type ThemeMode = 'dark' | 'light' | 'system';
+export type ViewDistance = '100%' | '90%' | '85%' | '75%' | '67%' | 'far' | 'standard';
+
 

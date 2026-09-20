@@ -7,6 +7,7 @@ export interface AvatarPreset {
   badge: string;
   bgColor: string;
   svgIcon: string;
+  isAdminOnly?: boolean;
 }
 
 export interface BannerTheme {
@@ -21,184 +22,271 @@ export interface BannerTheme {
 }
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
+  // 1. Silly & Fun Community Avatars (User Requested)
   {
-    id: 'ronin',
-    name: 'Shadow Ronin',
-    category: 'Action',
-    badge: 'Swordmaster',
-    bgColor: 'from-rose-600 to-neutral-950',
-    svgIcon: '🗡️'
+    id: 'silly_derp_cat',
+    name: 'Derp Neko',
+    category: 'Silly & Fun',
+    badge: 'Blep',
+    bgColor: 'from-amber-400 to-rose-400',
+    svgIcon: '🐱'
   },
   {
-    id: 'netrunner',
-    name: 'Neo Netrunner',
+    id: 'silly_confused_duck',
+    name: 'Confused Duck',
+    category: 'Silly & Fun',
+    badge: 'Quack?',
+    bgColor: 'from-yellow-400 to-amber-500',
+    svgIcon: '🦆'
+  },
+  {
+    id: 'silly_toast_runner',
+    name: 'Late For School',
+    category: 'Silly & Fun',
+    badge: 'Panic!',
+    bgColor: 'from-sky-400 to-indigo-500',
+    svgIcon: '🍞'
+  },
+  {
+    id: 'silly_smug_hamster',
+    name: 'Smug Hamster',
+    category: 'Silly & Fun',
+    badge: 'Smug',
+    bgColor: 'from-orange-400 to-amber-600',
+    svgIcon: '🐹'
+  },
+  {
+    id: 'silly_blob_shrug',
+    name: 'Shrugging Blob',
+    category: 'Silly & Fun',
+    badge: '¯\\_(ツ)_/¯',
+    bgColor: 'from-teal-400 to-emerald-600',
+    svgIcon: '🫧'
+  },
+  {
+    id: 'silly_popcat',
+    name: 'Pop Cat',
+    category: 'Silly & Fun',
+    badge: 'Pop!',
+    bgColor: 'from-rose-400 to-red-500',
+    svgIcon: '😺'
+  },
+  {
+    id: 'silly_capybara',
+    name: 'Zen Capybara',
+    category: 'Silly & Fun',
+    badge: 'Unbothered',
+    bgColor: 'from-amber-500 to-stone-700',
+    svgIcon: '🍊'
+  },
+  {
+    id: 'silly_boba_ghost',
+    name: 'Boba Ghost',
+    category: 'Silly & Fun',
+    badge: 'Nom',
+    bgColor: 'from-purple-400 to-indigo-600',
+    svgIcon: '👻'
+  },
+
+  // 2. Clean Aesthetic & Minimalist Avatars (100% Original, Zero Copyright Risk)
+  {
+    id: 'noir_samurai',
+    name: 'Noir Ronin',
+    category: 'Aesthetic Noir',
+    badge: 'Blade',
+    bgColor: 'from-neutral-800 to-black',
+    svgIcon: '⚔️'
+  },
+  {
+    id: 'cyber_agent',
+    name: 'Cyber Visor',
     category: 'Cyberpunk',
-    badge: 'Hacker',
-    bgColor: 'from-cyan-500 to-blue-950',
-    svgIcon: '⚡'
+    badge: 'Visor',
+    bgColor: 'from-cyan-500 to-slate-900',
+    svgIcon: '🕶️'
   },
   {
-    id: 'sorcerer',
-    name: 'Void Sorcerer',
-    category: 'Fantasy',
-    badge: 'Arcane',
-    bgColor: 'from-purple-600 to-indigo-950',
-    svgIcon: '🔮'
+    id: 'kitsune_mask',
+    name: 'Spirit Kitsune',
+    category: 'Traditional',
+    badge: 'Mask',
+    bgColor: 'from-rose-500 to-neutral-900',
+    svgIcon: '🎭'
   },
   {
-    id: 'shonen_flame',
-    name: 'Solar Shonen',
-    category: 'Adventure',
-    badge: 'Hero',
-    bgColor: 'from-amber-500 to-red-950',
-    svgIcon: '🔥'
-  },
-  {
-    id: 'mecha_pilot',
-    name: 'Mecha Pilot',
-    category: 'Sci-Fi',
-    badge: 'Ace Pilot',
+    id: 'minimal_lunar',
+    name: 'Eclipse Crescent',
+    category: 'Atmospheric',
+    badge: 'Lunar',
     bgColor: 'from-blue-600 to-slate-950',
-    svgIcon: '🤖'
+    svgIcon: '🌙'
+  },
+
+  // 3. Exactly 5 Sovereign Avatars (Admin Exclusive - Mature & High-End)
+  {
+    id: 'kuro_dragon_emperor',
+    name: 'Kuro-Ryu Sovereign',
+    category: 'Sovereign (Exclusive)',
+    badge: 'Dragon Crown',
+    bgColor: 'from-amber-500 via-rose-950 to-black',
+    svgIcon: '🐉',
+    isAdminOnly: true
   },
   {
-    id: 'sakura_blade',
-    name: 'Sakura Blossom',
-    category: 'Romance & Drama',
-    badge: 'Grace',
-    bgColor: 'from-pink-500 to-rose-950',
-    svgIcon: '🌸'
+    id: 'shadow_monarch',
+    name: 'Shadow Monarch (Arise)',
+    category: 'Sovereign (Exclusive)',
+    badge: 'Necrotic King',
+    bgColor: 'from-violet-600 via-purple-950 to-black',
+    svgIcon: '👑',
+    isAdminOnly: true
   },
   {
-    id: 'alchemist',
-    name: 'Runic Alchemist',
-    category: 'Mystery',
-    badge: 'Philosopher',
-    bgColor: 'from-emerald-500 to-teal-950',
-    svgIcon: '✨'
+    id: 'six_eyes',
+    name: 'Limitless Awakened (Gojo)',
+    category: 'Sovereign (Exclusive)',
+    badge: 'Infinity',
+    bgColor: 'from-sky-400 via-blue-950 to-slate-950',
+    svgIcon: '👁️',
+    isAdminOnly: true
   },
   {
-    id: 'retro_otaku',
-    name: 'Retro 90s',
-    category: 'Classic',
-    badge: 'Cassette',
-    bgColor: 'from-violet-500 to-fuchsia-950',
-    svgIcon: '📼'
+    id: 'sun_god_liberation',
+    name: 'Blood Moon Ronin',
+    category: 'Sovereign (Exclusive)',
+    badge: 'Crimson Edge',
+    bgColor: 'from-red-600 via-rose-950 to-black',
+    svgIcon: '⚔️',
+    isAdminOnly: true
   },
   {
-    id: 'esper',
-    name: 'Silver Esper',
-    category: 'Psychological',
-    badge: 'Mind',
-    bgColor: 'from-sky-400 to-indigo-950',
-    svgIcon: '👁️'
-  },
-  {
-    id: 'manga_inker',
-    name: 'Manga Sensei',
-    category: 'Slice of Life',
-    badge: 'Artisan',
-    bgColor: 'from-neutral-400 to-neutral-900',
-    svgIcon: '✒️'
-  },
-  {
-    id: 'abyssal_lord',
-    name: 'Abyssal Monarch',
-    category: 'Dark Fantasy',
-    badge: 'Apex',
-    bgColor: 'from-red-600 to-black',
-    svgIcon: '👑'
-  },
-  {
-    id: 'starlight_idol',
-    name: 'Starlight Idol',
-    category: 'Music',
-    badge: 'Performer',
-    bgColor: 'from-yellow-400 to-rose-950',
-    svgIcon: '⭐'
+    id: 'susanoo_god',
+    name: 'Celestial Susanoo Tengu',
+    category: 'Sovereign (Exclusive)',
+    badge: 'Chakra Armor',
+    bgColor: 'from-fuchsia-600 via-indigo-950 to-black',
+    svgIcon: '🛡️',
+    isAdminOnly: true
   }
 ];
 
 export const BANNER_THEMES: BannerTheme[] = [
-  // Community Banners (Available to all users)
+  // Mature, Sleek Atmospheric Banners (Available to all users)
   {
-    id: 'cyberpunk',
-    name: 'Neo-Tokyo Midnight',
-    tagline: 'Cybernetic rain & neon pulse',
-    gradient: 'from-slate-950 via-indigo-950 to-rose-950',
-    accentColor: '#f43f5e',
+    id: 'midnight_obsidian',
+    name: 'Midnight Obsidian',
+    tagline: 'Matte obsidian & dark charcoal with subtle luxury micro-grid',
+    gradient: 'from-[#0a0a0c] via-[#131418] to-[#1c1d22]',
+    accentColor: '#94a3b8',
     pattern: 'grid'
   },
   {
-    id: 'sakura_dusk',
-    name: 'Sakura Dusk',
-    tagline: 'Cherry blossom twilight horizon',
-    gradient: 'from-neutral-950 via-purple-950 to-pink-950',
-    accentColor: '#ec4899',
+    id: 'tokyo_rain',
+    name: 'Tokyo Rain: Neon Noir',
+    tagline: 'Cinematic wet asphalt with moody teal and violet city light reflections',
+    gradient: 'from-[#050b14] via-[#0d1b2a] to-[#1b263b]',
+    accentColor: '#38bdf8',
+    pattern: 'waves'
+  },
+  {
+    id: 'abyssal_navy',
+    name: 'Abyssal Navy',
+    tagline: 'Deep oceanic indigo with starry horizon stardust',
+    gradient: 'from-[#030712] via-[#0f172a] to-[#1e1b4b]',
+    accentColor: '#6366f1',
     pattern: 'radial'
   },
   {
-    id: 'shonen_ember',
-    name: 'Blazing Embers',
-    tagline: 'High-octane fiery determination',
-    gradient: 'from-neutral-950 via-stone-900 to-amber-950',
-    accentColor: '#f59e0b',
-    pattern: 'dots'
-  },
-  {
-    id: 'manga_screentone',
-    name: 'Monochrome Manga',
-    tagline: 'Crisp screentones & action speedlines',
-    gradient: 'from-neutral-950 via-neutral-900 to-neutral-950',
-    accentColor: '#e5e5e5',
+    id: 'velvet_burgundy',
+    name: 'Velvet Burgundy',
+    tagline: 'Rich smoked wine & garnet shadows for a refined dark aesthetic',
+    gradient: 'from-[#1a050d] via-[#2a0815] to-[#16040b]',
+    accentColor: '#f43f5e',
     pattern: 'lines'
   },
   {
-    id: 'ghibli_emerald',
-    name: 'Emerald Forest',
-    tagline: 'Serene nature & wandering spirits',
-    gradient: 'from-neutral-950 via-teal-950 to-emerald-950',
+    id: 'smoked_sage',
+    name: 'Smoked Sage & Emerald',
+    tagline: 'Subtle dark forest moss and misty bamboo mountain ridge',
+    gradient: 'from-[#05130e] via-[#0c241b] to-[#040e0a]',
     accentColor: '#10b981',
     pattern: 'waves'
   },
   {
-    id: 'synthwave',
-    name: 'Synthwave Skyline',
-    tagline: 'Retro futuristic grid and violet skies',
-    gradient: 'from-neutral-950 via-violet-950 to-fuchsia-950',
-    accentColor: '#a855f7',
-    pattern: 'grid'
+    id: 'solar_eclipse',
+    name: 'Solar Umbra',
+    tagline: 'Dark lunar eclipse with a radiant amber corona on the horizon',
+    gradient: 'from-[#140b02] via-[#241505] to-[#0d0701]',
+    accentColor: '#f59e0b',
+    pattern: 'radial'
   },
-  // Exclusive Admin Banners (Hidden from normal users)
+  {
+    id: 'vapor_charcoal',
+    name: 'Brushed Titanium',
+    tagline: 'Minimalist industrial graphite & satin steel sheen',
+    gradient: 'from-[#111315] via-[#1c2024] to-[#121416]',
+    accentColor: '#cbd5e1',
+    pattern: 'dots'
+  },
+  {
+    id: 'amethyst_dusk',
+    name: 'Amethyst Dusk',
+    tagline: 'Moody deep plum and dusky violet twilight gradient',
+    gradient: 'from-[#12051e] via-[#230b3a] to-[#0f0419]',
+    accentColor: '#a855f7',
+    pattern: 'waves'
+  },
+
+  // Exactly 5 Exclusive Admin Banners (Mature, Dark Aesthetic with Frame Breakout)
   {
     id: 'kuro_sovereign',
-    name: 'Kuro-Ryu Sovereign Void',
-    tagline: 'Imperial Black Dragon erupting through the void frame with crimson astral flames',
-    gradient: 'from-black via-[#18020a] to-[#2c0310]',
+    name: 'Kuro-Ryu: Sumi-e Sovereign Dragon',
+    tagline: 'Sacred ink-wash cosmic dragon horns and whiskers breaking out of the banner frame (黒竜皇室)',
+    gradient: 'from-[#050103] via-[#1a040b] to-[#0a0104]',
     accentColor: '#f43f5e',
     pattern: 'singularity',
     isAdminOnly: true,
     visualEffect: 'singularity'
   },
   {
-    id: 'celestial_shogun',
-    name: 'Solar Shenron Ascension',
-    tagline: 'Golden Dragon of the Heavens with radiant sun rays and imperial dragon pearl',
-    gradient: 'from-[#03030c] via-[#0d0728] to-[#1c0836]',
-    accentColor: '#fbbf24',
+    id: 'shadow_monarch',
+    name: 'Shadow Monarch: Abyssal Arise',
+    tagline: 'Obsidian throne spires, scarlet knight plume, and necrotic shadow wisps surging out of frame (影の君主)',
+    gradient: 'from-[#05000f] via-[#120326] to-[#060012]',
+    accentColor: '#a855f7',
     pattern: 'aurora',
     isAdminOnly: true,
     visualEffect: 'aurora'
   },
   {
-    id: 'abyssal_eclipse',
-    name: 'Abyssal Leviathan',
-    tagline: 'Deep Void Dragon with bioluminescent thunder and cosmic singularity scales',
-    gradient: 'from-black via-[#1f0902] to-[#0d0103]',
-    accentColor: '#fb923c',
+    id: 'domain_expansion',
+    name: 'Domain Expansion: Limitless Void',
+    tagline: 'Dimensional fracture glass and sacred hand mudra seal piercing past the frame borders (無量空処)',
+    gradient: 'from-[#01040f] via-[#071329] to-[#01030a]',
+    accentColor: '#38bdf8',
+    pattern: 'singularity',
+    isAdminOnly: true,
+    visualEffect: 'singularity'
+  },
+  {
+    id: 'bankai_flame',
+    name: 'Blood Moon: Zanka no Tachi',
+    tagline: 'Colossal scorched katana blade and incandescent solar embers slicing over the top banner edge (残火の太刀)',
+    gradient: 'from-[#120202] via-[#260505] to-[#0a0000]',
+    accentColor: '#f97316',
     pattern: 'corona',
     isAdminOnly: true,
     visualEffect: 'corona'
+  },
+  {
+    id: 'susanoo_citadel',
+    name: 'Perfect Susanoo: Celestial Tengu',
+    tagline: 'Ethereal winged chakra armor and horned Tengu helmet crest towering over the banner frame (須佐能乎)',
+    gradient: 'from-[#0a0217] via-[#190633] to-[#080112]',
+    accentColor: '#c084fc',
+    pattern: 'aurora',
+    isAdminOnly: true,
+    visualEffect: 'aurora'
   }
 ];
 
@@ -439,9 +527,9 @@ export function getStoredProfileCustomization(userId?: string): UserProfileCusto
 
   // Sensible empty default - no boxes pre-filled as requested
   return {
-    avatar_preset: 'ronin',
-    avatar_frame_color: 'rose',
-    banner_preset: 'cyberpunk',
+    avatar_preset: 'silly_derp_cat',
+    avatar_frame_color: 'none',
+    banner_preset: 'midnight_obsidian',
     status_message: '',
     bio: '',
     favorite_quote: '',

@@ -6,146 +6,152 @@ interface NormalBannerArtProps {
 
 export const NormalBannerArt: React.FC<NormalBannerArtProps> = ({ themeId }) => {
   switch (themeId) {
-    case 'cyberpunk':
+    case 'midnight_obsidian':
+    case 'midnight_slate':
       return (
         <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-          {/* Cyberpunk Neon Skyline & Grid */}
-          <svg viewBox="0 0 1000 300" className="w-full h-full object-cover opacity-60" fill="none">
-            {/* Tower silhouettes */}
-            <rect x="60" y="80" width="70" height="220" fill="#090d16" />
-            <rect x="150" y="50" width="90" height="250" fill="#050811" />
-            <rect x="260" y="110" width="60" height="190" fill="#0f172a" />
-            <rect x="650" y="70" width="80" height="230" fill="#050811" />
-            <rect x="750" y="40" width="110" height="260" fill="#090d16" />
-            <rect x="880" y="90" width="70" height="210" fill="#050811" />
-            {/* Windows / Cyber Neon Lines */}
-            <line x1="160" y1="60" x2="160" y2="280" stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="3 6" opacity="0.7" />
-            <line x1="220" y1="80" x2="220" y2="270" stroke="#06b6d4" strokeWidth="1.5" strokeDasharray="4 8" opacity="0.8" />
-            <line x1="770" y1="50" x2="770" y2="280" stroke="#a855f7" strokeWidth="1.5" strokeDasharray="3 5" opacity="0.7" />
-            <line x1="840" y1="70" x2="840" y2="290" stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="5 9" opacity="0.8" />
-            {/* Holo Kanji Billboard */}
-            <text x="180" y="140" fill="#06b6d4" fontSize="24" fontWeight="bold" opacity="0.7" fontFamily="sans-serif">
-              未来
-            </text>
-            <text x="800" y="120" fill="#f43f5e" fontSize="28" fontWeight="bold" opacity="0.6" fontFamily="sans-serif">
-              電脳
-            </text>
-            {/* Perspective grid floor */}
-            <line x1="0" y1="280" x2="1000" y2="280" stroke="#06b6d4" strokeWidth="1" opacity="0.5" />
-            <line x1="0" y1="295" x2="1000" y2="295" stroke="#f43f5e" strokeWidth="1.5" opacity="0.6" />
-          </svg>
-        </div>
-      );
-
-    case 'sakura_dusk':
-      return (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-          {/* Giant Full Moon & Torii Gate Silhouette */}
-          <svg viewBox="0 0 1000 300" className="w-full h-full object-cover" fill="none">
-            {/* Radiant Moon */}
-            <circle cx="820" cy="110" r="85" fill="#fce7f3" fillOpacity="0.15" />
-            <circle cx="820" cy="110" r="65" fill="#fdf2f8" fillOpacity="0.3" />
-            <circle cx="820" cy="110" r="50" fill="#ffffff" fillOpacity="0.7" />
-            {/* Torii Gate Silhouette */}
-            <g transform="translate(680, 120) scale(0.65)">
-              <rect x="40" y="30" width="160" height="14" rx="2" fill="#180410" />
-              <rect x="25" y="10" width="190" height="16" rx="4" fill="#0f020a" />
-              <rect x="65" y="44" width="14" height="160" fill="#180410" />
-              <rect x="160" y="44" width="14" height="160" fill="#180410" />
-              <rect x="50" y="70" width="140" height="12" fill="#0f020a" />
-            </g>
-            {/* Mountain Range */}
-            <path d="M0,280 Q250,190 500,270 Q750,180 1000,280 L1000,300 L0,300 Z" fill="#0d010c" opacity="0.8" />
-            {/* Drifting Sakura Petals */}
-            <g fill="#f472b6" opacity="0.75">
-              <ellipse cx="320" cy="80" rx="6" ry="3" transform="rotate(35 320 80)" />
-              <ellipse cx="450" cy="130" rx="5" ry="2.5" transform="rotate(-20 450 130)" />
-              <ellipse cx="600" cy="65" rx="7" ry="3.5" transform="rotate(45 600 65)" />
-              <ellipse cx="780" cy="190" rx="6" ry="3" transform="rotate(15 780 190)" />
-              <ellipse cx="200" cy="160" rx="5" ry="2.5" transform="rotate(-40 200 160)" />
-            </g>
-          </svg>
-        </div>
-      );
-
-    case 'shonen_ember':
-      return (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-          {/* Dynamic Anime Impact Speedlines & Embers */}
-          <svg viewBox="0 0 1000 300" className="w-full h-full object-cover" fill="none">
-            {/* Speedline Rays converging from left */}
-            <line x1="0" y1="150" x2="1000" y2="20" stroke="#f59e0b" strokeWidth="1" opacity="0.2" />
-            <line x1="0" y1="150" x2="1000" y2="80" stroke="#ef4444" strokeWidth="1.5" opacity="0.25" />
-            <line x1="0" y1="150" x2="1000" y2="220" stroke="#f59e0b" strokeWidth="1.5" opacity="0.2" />
-            <line x1="0" y1="150" x2="1000" y2="290" stroke="#ef4444" strokeWidth="1" opacity="0.3" />
-            {/* Fiery Embers */}
-            <g fill="#fbbf24">
-              <circle cx="250" cy="90" r="3" opacity="0.8" />
-              <circle cx="480" cy="160" r="4" opacity="0.9" />
-              <circle cx="680" cy="70" r="2.5" opacity="0.7" />
-              <circle cx="820" cy="190" r="3.5" opacity="0.8" />
-              <circle cx="390" cy="240" r="2" opacity="0.6" />
-            </g>
-          </svg>
-        </div>
-      );
-
-    case 'manga_screentone':
-      return (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-          {/* Screentone Halftone Pattern & Action Speedlines */}
           <svg viewBox="0 0 1000 300" className="w-full h-full object-cover opacity-35" fill="none">
+            {/* Subtle Luxury Micro Grid */}
             <defs>
-              <pattern id="manga_dots" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse">
-                <circle cx="6" cy="6" r="2" fill="#ffffff" />
+              <pattern id="obsidian_grid" width="30" height="30" patternUnits="userSpaceOnUse">
+                <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#475569" strokeWidth="0.6" opacity="0.3" />
+              </pattern>
+              <radialGradient id="obsidian_glow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#334155" stopOpacity="0.4" />
+                <stop offset="100%" stopColor="#090a0f" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            <rect width="1000" height="300" fill="url(#obsidian_grid)" />
+            <circle cx="800" cy="80" r="280" fill="url(#obsidian_glow)" />
+            <circle cx="150" cy="220" r="180" fill="url(#obsidian_glow)" />
+            {/* Fine architectural diagonal accent line */}
+            <line x1="0" y1="280" x2="1000" y2="40" stroke="#64748b" strokeWidth="0.8" opacity="0.25" />
+          </svg>
+        </div>
+      );
+
+    case 'tokyo_rain':
+      return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          <svg viewBox="0 0 1000 300" className="w-full h-full object-cover opacity-45" fill="none">
+            {/* Distant Minimalist City Skyline Silhouettes */}
+            <rect x="120" y="160" width="45" height="140" fill="#0c1527" />
+            <rect x="180" y="130" width="60" height="170" fill="#080f1e" />
+            <rect x="250" y="170" width="35" height="130" fill="#0f1d36" />
+            <rect x="680" y="120" width="70" height="180" fill="#091122" />
+            <rect x="765" y="150" width="50" height="150" fill="#0e1b33" />
+            <rect x="830" y="135" width="40" height="165" fill="#0a1326" />
+            {/* Rain Strands */}
+            <g stroke="#38bdf8" strokeWidth="0.8" opacity="0.25">
+              <line x1="100" y1="0" x2="70" y2="300" />
+              <line x1="250" y1="0" x2="220" y2="300" />
+              <line x1="420" y1="0" x2="390" y2="300" />
+              <line x1="580" y1="0" x2="550" y2="300" />
+              <line x1="740" y1="0" x2="710" y2="300" />
+              <line x1="900" y1="0" x2="870" y2="300" />
+            </g>
+            {/* Moody Neon Teal & Violet Ambient Reflections */}
+            <circle cx="220" cy="220" r="140" fill="#0284c7" opacity="0.25" filter="blur(40px)" />
+            <circle cx="780" cy="180" r="180" fill="#7c3aed" opacity="0.22" filter="blur(50px)" />
+          </svg>
+        </div>
+      );
+
+    case 'abyssal_navy':
+      return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          <svg viewBox="0 0 1000 300" className="w-full h-full object-cover opacity-40" fill="none">
+            {/* Subtle Deep Space Star Clusters */}
+            <circle cx="180" cy="60" r="1.2" fill="#ffffff" opacity="0.8" />
+            <circle cx="320" cy="90" r="0.8" fill="#ffffff" opacity="0.5" />
+            <circle cx="620" cy="40" r="1.5" fill="#ffffff" opacity="0.7" />
+            <circle cx="780" cy="80" r="1" fill="#ffffff" opacity="0.9" />
+            <circle cx="880" cy="110" r="0.8" fill="#ffffff" opacity="0.6" />
+            {/* Oceanic Indigo Horizon Waves */}
+            <path d="M0,190 Q280,120 580,180 T1000,150 L1000,300 L0,300 Z" fill="#1e1b4b" opacity="0.35" />
+            <path d="M0,230 Q350,170 700,230 T1000,200 L1000,300 L0,300 Z" fill="#0f172a" opacity="0.4" />
+            <circle cx="850" cy="70" r="220" fill="#4338ca" opacity="0.2" filter="blur(45px)" />
+          </svg>
+        </div>
+      );
+
+    case 'velvet_burgundy':
+      return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          <svg viewBox="0 0 1000 300" className="w-full h-full object-cover opacity-40" fill="none">
+            <defs>
+              <linearGradient id="burgundy_glow" x1="0" y1="0" x2="1000" y2="300" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#881337" stopOpacity="0.35" />
+                <stop offset="0.7" stopColor="#4c0519" stopOpacity="0.1" />
+                <stop offset="1" stopColor="#000000" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <rect width="1000" height="300" fill="url(#burgundy_glow)" />
+            {/* Minimalist Japanese Curved Seigaiha Waves in dark crimson */}
+            <g stroke="#e11d48" strokeWidth="0.8" opacity="0.25" fill="none">
+              <path d="M-50,220 Q100,160 250,220 T550,220 T850,220 T1150,220" />
+              <path d="M-50,245 Q100,185 250,245 T550,245 T850,245 T1150,245" />
+              <path d="M-50,270 Q100,210 250,270 T550,270 T850,270 T1150,270" />
+            </g>
+            <circle cx="820" cy="90" r="200" fill="#9f1239" opacity="0.25" filter="blur(45px)" />
+          </svg>
+        </div>
+      );
+
+    case 'smoked_sage':
+      return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          <svg viewBox="0 0 1000 300" className="w-full h-full object-cover opacity-40" fill="none">
+            {/* Misty Bamboo Ridge Silhouettes */}
+            <path d="M0,210 Q200,140 450,190 T800,160 Q900,170 1000,150 L1000,300 L0,300 Z" fill="#06281e" opacity="0.4" />
+            <path d="M0,250 Q300,190 600,240 T1000,210 L1000,300 L0,300 Z" fill="#031610" opacity="0.5" />
+            {/* Forest Mist Glow */}
+            <circle cx="750" cy="80" r="220" fill="#059669" opacity="0.18" filter="blur(50px)" />
+            <circle cx="200" cy="180" r="160" fill="#10b981" opacity="0.15" filter="blur(40px)" />
+          </svg>
+        </div>
+      );
+
+    case 'solar_eclipse':
+      return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          <svg viewBox="0 0 1000 300" className="w-full h-full object-cover opacity-45" fill="none">
+            {/* Dark Moon disk with Golden Corona Ring */}
+            <circle cx="820" cy="110" r="110" stroke="#f59e0b" strokeWidth="2.5" opacity="0.6" filter="drop-shadow(0 0 15px #f59e0b)" />
+            <circle cx="820" cy="110" r="108" fill="#0d0701" />
+            {/* Subtle Horizon Amber Flare */}
+            <path d="M0,240 Q400,190 800,210 T1000,190 L1000,300 L0,300 Z" fill="#1c1103" opacity="0.4" />
+            <circle cx="820" cy="110" r="220" fill="#d97706" opacity="0.2" filter="blur(45px)" />
+          </svg>
+        </div>
+      );
+
+    case 'vapor_charcoal':
+      return (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          <svg viewBox="0 0 1000 300" className="w-full h-full object-cover opacity-35" fill="none">
+            {/* Minimalist Industrial Linear Sheen */}
+            <defs>
+              <pattern id="brushed_steel" width="12" height="12" patternUnits="userSpaceOnUse">
+                <line x1="0" y1="12" x2="12" y2="0" stroke="#94a3b8" strokeWidth="0.5" opacity="0.2" />
               </pattern>
             </defs>
-            <rect width="1000" height="300" fill="url(#manga_dots)" />
-            {/* Action Speedlines */}
-            <path d="M700 0 L1000 0 L1000 300 Z" fill="#000000" opacity="0.5" />
-            <line x1="500" y1="0" x2="900" y2="300" stroke="#ffffff" strokeWidth="2" strokeDasharray="15 10" />
-            <line x1="550" y1="0" x2="950" y2="300" stroke="#ffffff" strokeWidth="1" strokeDasharray="20 15" />
+            <rect width="1000" height="300" fill="url(#brushed_steel)" />
+            <circle cx="780" cy="90" r="220" fill="#334155" opacity="0.35" filter="blur(40px)" />
+            <line x1="100" y1="260" x2="900" y2="40" stroke="#cbd5e1" strokeWidth="0.8" opacity="0.25" />
           </svg>
         </div>
       );
 
-    case 'ghibli_emerald':
-      return (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-          {/* Ethereal Forest Canopy & Glowing Spirit Orbs */}
-          <svg viewBox="0 0 1000 300" className="w-full h-full object-cover" fill="none">
-            {/* Trees & Foliage Silhouette */}
-            <path d="M0 300 L0 180 Q100 130 200 190 Q300 100 450 170 Q600 80 800 160 Q900 120 1000 170 L1000 300 Z" fill="#021a12" opacity="0.85" />
-            {/* Glowing Kodama / Forest Spirit Orbs */}
-            <g fill="#34d399">
-              <circle cx="340" cy="130" r="5" fillOpacity="0.8" />
-              <circle cx="340" cy="130" r="10" fillOpacity="0.2" />
-              <circle cx="620" cy="110" r="4" fillOpacity="0.9" />
-              <circle cx="620" cy="110" r="8" fillOpacity="0.3" />
-              <circle cx="790" cy="90" r="6" fillOpacity="0.7" />
-              <circle cx="210" cy="170" r="3.5" fillOpacity="0.8" />
-            </g>
-          </svg>
-        </div>
-      );
-
-    case 'synthwave':
+    case 'amethyst_dusk':
     default:
       return (
         <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-          {/* Synthwave Horizon Wireframe & Neon Sun */}
-          <svg viewBox="0 0 1000 300" className="w-full h-full object-cover opacity-50" fill="none">
-            {/* Neon Wireframe Sun */}
-            <circle cx="500" cy="140" r="65" fill="#f43f5e" />
-            {/* Horizontal Sun Bars */}
-            <rect x="420" y="145" width="160" height="4" fill="#090514" />
-            <rect x="425" y="155" width="150" height="6" fill="#090514" />
-            <rect x="435" y="167" width="130" height="8" fill="#090514" />
-            <rect x="450" y="181" width="100" height="10" fill="#090514" />
-            {/* Horizon Grid */}
-            <line x1="0" y1="200" x2="1000" y2="200" stroke="#a855f7" strokeWidth="2" />
-            <line x1="0" y1="230" x2="1000" y2="230" stroke="#a855f7" strokeWidth="1" />
-            <line x1="0" y1="265" x2="1000" y2="265" stroke="#a855f7" strokeWidth="1" />
+          <svg viewBox="0 0 1000 300" className="w-full h-full object-cover opacity-40" fill="none">
+            <circle cx="800" cy="90" r="240" fill="#7c3aed" opacity="0.22" filter="blur(45px)" />
+            <circle cx="200" cy="200" r="180" fill="#4c1d95" opacity="0.2" filter="blur(40px)" />
+            {/* Elegant Atmospheric Dusk Curves */}
+            <path d="M0,200 Q300,120 620,190 T1000,150 L1000,300 L0,300 Z" fill="#1f0a38" opacity="0.35" />
           </svg>
         </div>
       );
