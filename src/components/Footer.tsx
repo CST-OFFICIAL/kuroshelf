@@ -1,12 +1,13 @@
 import { siteConfig, getActiveSocials } from '../config/site';
-import { Camera, Hash, Video, MessageCircle, ExternalLink } from 'lucide-react';
+import { Camera, Hash, Video, MessageCircle, ExternalLink, Crown, Heart } from 'lucide-react';
 
 interface FooterProps {
   onNavigateTab: (tab: string, subTab?: string) => void;
   onOpenInfoModal: (type: 'about' | 'privacy' | 'terms' | 'contact') => void;
+  onOpenMembershipModal?: (tab?: 'membership' | 'donate') => void;
 }
 
-export function Footer({ onNavigateTab, onOpenInfoModal }: FooterProps) {
+export function Footer({ onNavigateTab, onOpenInfoModal, onOpenMembershipModal }: FooterProps) {
   const activeSocials = getActiveSocials();
 
   const handleNavClick = (tab: string, subTab?: string) => {
@@ -132,6 +133,26 @@ export function Footer({ onNavigateTab, onOpenInfoModal }: FooterProps) {
                 >
                   Prediction Polls
                 </button>
+                {onOpenMembershipModal && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onOpenMembershipModal('membership')}
+                      className="text-amber-400 hover:text-amber-300 transition-colors text-left flex items-center gap-1"
+                    >
+                      <Crown className="w-3 h-3 text-amber-400" />
+                      <span>Kuro VIP Plans</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOpenMembershipModal('donate')}
+                      className="text-rose-400 hover:text-rose-300 transition-colors text-left flex items-center gap-1"
+                    >
+                      <Heart className="w-3 h-3 text-rose-500 fill-current" />
+                      <span>Help KuroShelf Grow</span>
+                    </button>
+                  </>
+                )}
                 {/* Only render Discussions / Comments if an actual Disqus / community URL is configured */}
                 {siteConfig.disqusUrl ? (
                   <a

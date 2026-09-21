@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { AnimeItem, ViewDistance } from '../types';
+import { useState, useEffect, useCallback } from 'react';
+import { AnimeItem } from '../types';
 import { AnimeCard } from './AnimeCard';
 import { Filter, Sparkles, X, ChevronRight } from 'lucide-react';
 
@@ -10,7 +10,6 @@ interface ExploreViewProps {
   onToggleLike: (anime: AnimeItem) => void;
   getIsLiked: (id: number) => boolean;
   initialGenre?: number | string | null;
-  viewDistance?: ViewDistance;
 }
 
 export interface GenreOption {
@@ -59,7 +58,6 @@ export function ExploreView({
   onToggleLike,
   getIsLiked,
   initialGenre = null,
-  viewDistance = '85%',
 }: ExploreViewProps) {
   const [selectedGenre, setSelectedGenre] = useState<number | string | null>(initialGenre);
   const [activeCategory, setActiveCategory] = useState<'all' | 'genre' | 'theme' | 'demographic'>('all');
@@ -130,15 +128,7 @@ export function ExploreView({
     ? filteredGenres.slice(0, 15)
     : filteredGenres;
 
-  const cardGridClass = useMemo(() => {
-    if (viewDistance === '67%' || viewDistance === '75%') {
-      return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5';
-    }
-    if (viewDistance === '85%' || viewDistance === '90%' || viewDistance === 'far') {
-      return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-6';
-    }
-    return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 sm:gap-6';
-  }, [viewDistance]);
+  const cardGridClass = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-6';
 
   return (
     <div className="space-y-6">

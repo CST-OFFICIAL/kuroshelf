@@ -22,107 +22,73 @@ export interface BannerTheme {
 }
 
 export const AVATAR_PRESETS: AvatarPreset[] = [
-  // 1. Silly & Fun Community Avatars (User Requested)
+  // 1. Mature Anime & Manga Aesthetic Avatars
   {
-    id: 'silly_derp_cat',
-    name: 'Derp Neko',
-    category: 'Silly & Fun',
-    badge: 'Blep',
-    bgColor: 'from-amber-400 to-rose-400',
-    svgIcon: '🐱'
-  },
-  {
-    id: 'silly_confused_duck',
-    name: 'Confused Duck',
-    category: 'Silly & Fun',
-    badge: 'Quack?',
-    bgColor: 'from-yellow-400 to-amber-500',
-    svgIcon: '🦆'
-  },
-  {
-    id: 'silly_toast_runner',
-    name: 'Late For School',
-    category: 'Silly & Fun',
-    badge: 'Panic!',
-    bgColor: 'from-sky-400 to-indigo-500',
-    svgIcon: '🍞'
-  },
-  {
-    id: 'silly_smug_hamster',
-    name: 'Smug Hamster',
-    category: 'Silly & Fun',
-    badge: 'Smug',
-    bgColor: 'from-orange-400 to-amber-600',
-    svgIcon: '🐹'
-  },
-  {
-    id: 'silly_blob_shrug',
-    name: 'Shrugging Blob',
-    category: 'Silly & Fun',
-    badge: '¯\\_(ツ)_/¯',
-    bgColor: 'from-teal-400 to-emerald-600',
-    svgIcon: '🫧'
-  },
-  {
-    id: 'silly_popcat',
-    name: 'Pop Cat',
-    category: 'Silly & Fun',
-    badge: 'Pop!',
-    bgColor: 'from-rose-400 to-red-500',
-    svgIcon: '😺'
-  },
-  {
-    id: 'silly_capybara',
-    name: 'Zen Capybara',
-    category: 'Silly & Fun',
-    badge: 'Unbothered',
-    bgColor: 'from-amber-500 to-stone-700',
-    svgIcon: '🍊'
-  },
-  {
-    id: 'silly_boba_ghost',
-    name: 'Boba Ghost',
-    category: 'Silly & Fun',
-    badge: 'Nom',
-    bgColor: 'from-purple-400 to-indigo-600',
-    svgIcon: '👻'
-  },
-
-  // 2. Clean Aesthetic & Minimalist Avatars (100% Original, Zero Copyright Risk)
-  {
-    id: 'noir_samurai',
-    name: 'Noir Ronin',
-    category: 'Aesthetic Noir',
-    badge: 'Blade',
-    bgColor: 'from-neutral-800 to-black',
+    id: 'noir_ronin',
+    name: 'Midnight Ronin',
+    category: 'Noir & Shinobi',
+    badge: 'Katana',
+    bgColor: 'from-neutral-900 to-black',
     svgIcon: '⚔️'
   },
   {
-    id: 'cyber_agent',
-    name: 'Cyber Visor',
+    id: 'cyber_spec_ops',
+    name: 'Neo-Tokyo Operative',
     category: 'Cyberpunk',
     badge: 'Visor',
-    bgColor: 'from-cyan-500 to-slate-900',
+    bgColor: 'from-cyan-950 to-slate-950',
     svgIcon: '🕶️'
   },
   {
-    id: 'kitsune_mask',
+    id: 'porcelain_kitsune',
     name: 'Spirit Kitsune',
     category: 'Traditional',
     badge: 'Mask',
-    bgColor: 'from-rose-500 to-neutral-900',
+    bgColor: 'from-rose-950 to-neutral-950',
     svgIcon: '🎭'
   },
   {
-    id: 'minimal_lunar',
-    name: 'Eclipse Crescent',
+    id: 'monochrome_manga',
+    name: 'Screentone Inker',
+    category: 'Classic Manga',
+    badge: 'Ink',
+    bgColor: 'from-stone-900 to-black',
+    svgIcon: '🖋️'
+  },
+  {
+    id: 'abyssal_archivist',
+    name: 'Abyssal Archivist',
+    category: 'Dark Academic',
+    badge: 'Codex',
+    bgColor: 'from-slate-900 to-indigo-950',
+    svgIcon: '📖'
+  },
+  {
+    id: 'eclipse_zen',
+    name: 'Lunar Solstice',
     category: 'Atmospheric',
     badge: 'Lunar',
-    bgColor: 'from-blue-600 to-slate-950',
+    bgColor: 'from-blue-950 to-slate-950',
     svgIcon: '🌙'
   },
+  {
+    id: 'shadow_shinobi',
+    name: 'Crimson Shinobi',
+    category: 'Noir & Shinobi',
+    badge: 'Shadow',
+    bgColor: 'from-red-950 to-neutral-950',
+    svgIcon: '🗡️'
+  },
+  {
+    id: 'mecha_sentinel',
+    name: 'Orbital Vanguard',
+    category: 'Mecha & Sci-Fi',
+    badge: 'Core',
+    bgColor: 'from-zinc-900 to-amber-950',
+    svgIcon: '🛡️'
+  },
 
-  // 3. Exactly 5 Sovereign Avatars (Admin Exclusive - Mature & High-End)
+  // 2. Exactly 5 Sovereign Avatars (Admin Exclusive - Mature & High-End)
   {
     id: 'kuro_dragon_emperor',
     name: 'Kuro-Ryu Sovereign',
@@ -525,9 +491,9 @@ export function getStoredProfileCustomization(userId?: string): UserProfileCusto
     console.warn('[Profile] Failed to load local profile preferences:', err);
   }
 
-  // Sensible empty default - no boxes pre-filled as requested
+  // Sensible empty default - mature anime/manga aesthetic
   return {
-    avatar_preset: 'silly_derp_cat',
+    avatar_preset: 'noir_ronin',
     avatar_frame_color: 'none',
     banner_preset: 'midnight_obsidian',
     status_message: '',
@@ -571,23 +537,23 @@ export function calculateOtakuRank(shelf: ShelfEntry[], activities: UserActivity
   const currentProgressXp = totalXp - currentLevelBaseXp;
   const progressPercent = Math.min(100, Math.round((currentProgressXp / (nextLevelBaseXp - currentLevelBaseXp)) * 100));
 
-  let title = 'Wandering Watcher';
+  let title = 'Curator';
   let titleBadgeColor = 'text-neutral-400 bg-neutral-800/80 border-neutral-700';
 
   if (level >= 30) {
-    title = 'Grandmaster Curator';
+    title = 'Grandmaster Archivist';
     titleBadgeColor = 'text-amber-300 bg-amber-950/60 border-amber-500/50';
   } else if (level >= 20) {
-    title = 'Otaku Connoisseur';
+    title = 'Senior Critic';
     titleBadgeColor = 'text-purple-300 bg-purple-950/60 border-purple-500/50';
   } else if (level >= 12) {
-    title = 'Seasoned Marathoner';
+    title = 'Seasoned Curator';
     titleBadgeColor = 'text-rose-300 bg-rose-950/60 border-rose-500/50';
   } else if (level >= 6) {
-    title = 'Shelf Collector';
+    title = 'Library Collector';
     titleBadgeColor = 'text-cyan-300 bg-cyan-950/60 border-cyan-500/50';
   } else if (level >= 3) {
-    title = 'Apprentice Otaku';
+    title = 'Active Member';
     titleBadgeColor = 'text-emerald-300 bg-emerald-950/60 border-emerald-500/50';
   }
 

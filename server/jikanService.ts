@@ -1,4 +1,4 @@
-import { VERIFIED_SEED_ANIME } from './verifiedSeed';
+import { VERIFIED_SEED_ANIME, VERIFIED_SEED_MANGA } from './verifiedSeed';
 import { cleanOfficialText } from './officialSynopsisService';
 // Server-side Jikan Service Layer
 // Handles communication with Jikan REST API with throttling, database caching, stale-while-revalidate,
@@ -511,6 +511,8 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
         coverImage { large }
         status
         episodes
+        chapters
+        volumes
         season
         seasonYear
         averageScore
@@ -529,6 +531,7 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
     if (tagStr) variables.tag = tagStr;
     if (formatStr) variables.format = formatStr;
     if (statusApi) variables.status = statusApi;
+    if (typeApi && typeApi !== 'ALL') variables.type = typeApi;
 
     const res = await fetch('https://graphql.anilist.co', {
       method: 'POST',
@@ -538,35 +541,43 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
     });
     const data = (await res.json()) as any;
     
-    console.log("Anilist fallback returned:", data?.data?.Page?.media?.length); if (!data?.data?.Page?.media) return [];
+    if (!data?.data?.Page?.media) return [];
     
+    const isManga = typeApi === 'MANGA';
     return data.data.Page.media
       .filter((m: any) => m.idMal)
       .map((m: any) => {
         let status = 'Finished Airing';
-        if (m.status === 'RELEASING') status = 'Currently Airing';
-        if (m.status === 'NOT_YET_RELEASED') status = 'Not yet aired';
+        if (isManga) {
+          status = m.status === 'RELEASING' ? 'Publishing' : m.status === 'FINISHED' ? 'Finished' : 'On Hiatus';
+        } else {
+          if (m.status === 'RELEASING') status = 'Currently Airing';
+          if (m.status === 'NOT_YET_RELEASED') status = 'Not yet aired';
+        }
 
         return {
           mal_id: m.idMal,
-          url: `https://myanimelist.net/anime/${m.idMal}`,
+          url: `https://myanimelist.net/${isManga ? 'manga' : 'anime'}/${m.idMal}`,
           title: m.title.romaji || m.title.english || '',
           title_english: m.title.english || null,
           title_japanese: m.title.native || null,
           images: {
-            jpg: { image_url: m.coverImage.large },
-            webp: { image_url: m.coverImage.large, large_image_url: m.coverImage.large }
+            jpg: { image_url: m.coverImage.large, large_image_url: m.coverImage.large, small_image_url: m.coverImage.large },
+            webp: { image_url: m.coverImage.large, large_image_url: m.coverImage.large, small_image_url: m.coverImage.large }
           },
           synopsis: cleanOfficialText(m.synopsis) || null,
-          type: formatStr || 'TV',
-          episodes: m.episodes || null,
+          type: isManga ? 'Manga' : (formatStr || 'TV'),
+          episodes: isManga ? undefined : (m.episodes || null),
+          chapters: isManga ? (m.chapters || null) : undefined,
+          volumes: isManga ? (m.volumes || null) : undefined,
           status,
-          airing: m.status === 'RELEASING',
+          airing: !isManga && m.status === 'RELEASING',
+          publishing: isManga && m.status === 'RELEASING',
           score: m.averageScore ? (m.averageScore / 10) : null,
           year: m.seasonYear || null,
           genres: (m.genres || []).map((g: string) => ({
             mal_id: Number(GENRE_NAME_TO_MAL_ID[g.toLowerCase()]) || 0,
-            type: 'anime',
+            type: isManga ? 'manga' : 'anime',
             name: g,
             url: ''
           }))
@@ -741,10 +752,52 @@ export async function serverGetTopManga(page: number = 1, limit: number = 24) {
   const safePage = Math.max(Number(page) || 1, 1);
   const safeLimit = Math.min(Math.max(Number(limit) || 24, 1), 25);
   const endpoint = `/top/manga?page=${safePage}&limit=${safeLimit}`;
-  const res = await fetchFromJikan<unknown[]>(endpoint, CATALOG_CACHE_TTL_MS);
+
+  // 1. Upstream Jikan
+  try {
+    const res = await fetchFromJikan<unknown[]>(endpoint, CATALOG_CACHE_TTL_MS);
+    if (res && Array.isArray(res.data) && res.data.length > 0) {
+      return {
+        data: res.data,
+        pagination: res.pagination,
+      };
+    }
+  } catch (err) {
+    console.warn('[serverGetTopManga] Jikan failed, attempting AniList fallback:', err);
+  }
+
+  // 2. AniList Fallback
+  try {
+    const anilistData = await searchAnilistFallback("", safePage, safeLimit, undefined, "MANGA", undefined, "score", "manga");
+    if (anilistData && anilistData.length > 0) {
+      return {
+        data: anilistData,
+        pagination: {
+          current_page: safePage,
+          has_next_page: anilistData.length === safeLimit,
+          last_visible_page: safePage + (anilistData.length === safeLimit ? 1 : 0),
+          items: { count: anilistData.length, total: 10000, per_page: safeLimit }
+        }
+      };
+    }
+  } catch (err) {
+    console.warn('[serverGetTopManga] AniList fallback failed, using VERIFIED_SEED_MANGA:', err);
+  }
+
+  // 3. Static verified seed fallback - guaranteed instant response
+  const seedList = Array.isArray(VERIFIED_SEED_MANGA) ? VERIFIED_SEED_MANGA : [];
+  const startIdx = (safePage - 1) * safeLimit;
+  const pageSlice = seedList.slice(startIdx, startIdx + safeLimit);
+  const data = pageSlice.length > 0 ? pageSlice : seedList.slice(0, safeLimit);
+
   return {
-    data: Array.isArray(res.data) ? res.data : [],
-    pagination: res.pagination,
+    data,
+    pagination: {
+      current_page: safePage,
+      has_next_page: startIdx + safeLimit < seedList.length,
+      last_visible_page: Math.max(1, Math.ceil(seedList.length / safeLimit)),
+      items: { count: data.length, total: seedList.length, per_page: safeLimit }
+    }
   };
 }
 
@@ -755,6 +808,7 @@ export async function serverSearchManga(query: string, page: number = 1, limit: 
   const safeLimit = Math.min(Math.max(Number(limit) || 24, 1), 25);
   const endpoint = `/manga?q=${encodeURIComponent(clean)}&page=${safePage}&limit=${safeLimit}`;
   
+  // 1. Upstream Jikan
   try {
     const res = await fetchFromJikan<unknown[]>(endpoint, SEARCH_CACHE_TTL_MS);
     if (res && Array.isArray(res.data) && res.data.length > 0) {
@@ -762,21 +816,41 @@ export async function serverSearchManga(query: string, page: number = 1, limit: 
     }
   } catch (err) {}
   
-  // Anilist fallback
-  const anilistData = await searchAnilistFallback(clean, safePage, safeLimit, undefined, "MANGA", undefined, undefined, "manga");
-  if (anilistData && anilistData.length > 0) {
-    return {
-      data: anilistData,
-      pagination: {
-        current_page: safePage,
-        has_next_page: anilistData.length === safeLimit,
-        last_visible_page: safePage + (anilistData.length === safeLimit ? 1 : 0),
-        items: { count: anilistData.length, total: 10000, per_page: safeLimit }
-      }
-    };
-  }
+  // 2. Anilist fallback
+  try {
+    const anilistData = await searchAnilistFallback(clean, safePage, safeLimit, undefined, "MANGA", undefined, undefined, "manga");
+    if (anilistData && anilistData.length > 0) {
+      return {
+        data: anilistData,
+        pagination: {
+          current_page: safePage,
+          has_next_page: anilistData.length === safeLimit,
+          last_visible_page: safePage + (anilistData.length === safeLimit ? 1 : 0),
+          items: { count: anilistData.length, total: 10000, per_page: safeLimit }
+        }
+      };
+    }
+  } catch (err) {}
   
-  return { data: [], pagination: { current_page: safePage, has_next_page: false, last_visible_page: safePage, items: { count: 0, total: 0, per_page: safeLimit } } };
+  // 3. Static seed filter fallback
+  const seedList = Array.isArray(VERIFIED_SEED_MANGA) ? VERIFIED_SEED_MANGA : [];
+  const queryLower = clean.toLowerCase();
+  const matched = seedList.filter(m => 
+    m.title?.toLowerCase().includes(queryLower) ||
+    m.title_english?.toLowerCase().includes(queryLower) ||
+    m.genres?.some(g => g.name.toLowerCase().includes(queryLower)) ||
+    m.authors?.some(a => a.name.toLowerCase().includes(queryLower))
+  );
+
+  return {
+    data: matched.slice(0, safeLimit),
+    pagination: {
+      current_page: safePage,
+      has_next_page: false,
+      last_visible_page: 1,
+      items: { count: matched.length, total: matched.length, per_page: safeLimit }
+    }
+  };
 }
 
 

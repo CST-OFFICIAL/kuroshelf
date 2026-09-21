@@ -89,11 +89,11 @@ export const AdminDragonBanner: React.FC<AdminDragonBannerProps> = ({
   return (
     <div
       onMouseMove={handleMouseMove}
-      className="absolute -top-7 sm:-top-10 -bottom-6 -left-2 -right-2 pointer-events-auto overflow-visible z-10 select-none group"
+      className="absolute -top-10 sm:-top-16 bottom-0 -left-4 -right-4 pointer-events-none overflow-hidden sm:overflow-visible z-10 select-none"
     >
       {/* Interactive Cursor Spotlight Glow */}
       <div
-        className="absolute w-96 h-96 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none transition-opacity duration-300 opacity-35 blur-3xl"
+        className="absolute w-80 h-80 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none transition-opacity duration-300 opacity-30 blur-3xl"
         style={{
           left: `${mousePos.x}%`,
           top: `${mousePos.y}%`,
@@ -106,11 +106,11 @@ export const AdminDragonBanner: React.FC<AdminDragonBannerProps> = ({
         {watermarkText}
       </div>
 
-      {/* Sovereign Seal Stamp in Top Right */}
-      <div className="absolute top-10 right-4 z-20 pointer-events-none flex items-center gap-2">
-        <div className={`px-3 py-1.5 rounded-lg border flex items-center gap-2 backdrop-blur-md shadow-xl transition-all duration-300 ${sealBorderClass}`}>
-          {/* Hanko Square Box */}
-          <div className={`w-6 h-6 rounded border flex items-center justify-center font-serif text-[10px] font-bold shadow-inner ${stampColorClass}`}>
+      {/* Sovereign Seal Stamp in Top Right - Frameless Authentic Floating Seal */}
+      <div className="absolute top-8 sm:top-6 right-6 z-20 pointer-events-none flex items-center gap-2">
+        <div className={`px-3 py-1.5 rounded-xl flex items-center gap-2 backdrop-blur-md shadow-2xl transition-all duration-300 ${sealBorderClass}`}>
+          {/* Hanko Square Stamp */}
+          <div className={`w-6 h-6 rounded flex items-center justify-center font-serif text-[10px] font-bold shadow-inner ${stampColorClass}`}>
             印
           </div>
           <div className="flex flex-col text-left">
@@ -121,12 +121,12 @@ export const AdminDragonBanner: React.FC<AdminDragonBannerProps> = ({
       </div>
 
       {/* Ambient Gradient Shading */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent pointer-events-none" />
 
       {/* 1. DOMAIN EXPANSION: INFINITE VOID */}
       {isDomain && (
         <svg
-          viewBox="0 -50 1000 420"
+          viewBox="0 -80 1000 450"
           className="w-full h-full object-cover overflow-visible drop-shadow-[0_20px_45px_rgba(0,0,0,0.95)] pointer-events-none"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
@@ -199,7 +199,7 @@ export const AdminDragonBanner: React.FC<AdminDragonBannerProps> = ({
       {/* 2. SHADOW MONARCH: ARISE OF THE ABYSSAL ARMY */}
       {isShadow && (
         <svg
-          viewBox="0 -50 1000 420"
+          viewBox="0 -80 1000 450"
           className="w-full h-full object-cover overflow-visible drop-shadow-[0_20px_45px_rgba(0,0,0,0.95)] pointer-events-none"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
@@ -277,7 +277,7 @@ export const AdminDragonBanner: React.FC<AdminDragonBannerProps> = ({
       {/* 3. BANKAI: ZANKA NO TACHI (SCORCHED SUN HELL) */}
       {isBankai && (
         <svg
-          viewBox="0 -50 1000 420"
+          viewBox="0 -80 1000 450"
           className="w-full h-full object-cover overflow-visible drop-shadow-[0_20px_45px_rgba(0,0,0,0.95)] pointer-events-none"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
@@ -339,7 +339,7 @@ export const AdminDragonBanner: React.FC<AdminDragonBannerProps> = ({
       {/* 4. PERFECT SUSANOO: ARMOR OF THE TENGU */}
       {isSusanoo && (
         <svg
-          viewBox="0 -50 1000 420"
+          viewBox="0 -80 1000 450"
           className="w-full h-full object-cover overflow-visible drop-shadow-[0_20px_45px_rgba(0,0,0,0.95)] pointer-events-none"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
@@ -414,7 +414,7 @@ export const AdminDragonBanner: React.FC<AdminDragonBannerProps> = ({
       {/* 5. KURO-RYU IMPERIAL DRAGON SOVEREIGN (DEFAULT / ORIGINAL EXCLUSIVE) */}
       {isDragon && (
         <svg
-          viewBox="0 -50 1000 420"
+          viewBox="0 -80 1000 450"
           className="w-full h-full object-cover overflow-visible drop-shadow-[0_20px_45px_rgba(0,0,0,0.95)] pointer-events-none"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"

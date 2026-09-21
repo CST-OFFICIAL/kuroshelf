@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { MangaItem, ShelfEntry, ShelfStatus, ViewDistance } from '../types';
+import { useState, useEffect, Fragment } from 'react';
+import { MangaItem, ShelfEntry, ShelfStatus } from '../types';
 import { getTopManga, searchManga } from '../services/jikan';
 import {
   BookOpen,
@@ -17,6 +17,7 @@ import {
 import { siteConfig } from '../config/site';
 import { MediaImage } from './MediaImage';
 import { cleanSynopsis } from '../utils/textUtils';
+import { MangaAdBanner } from './MangaAdBanner';
 
 interface MangaSectionProps {
   shelf?: ShelfEntry[];
@@ -24,7 +25,7 @@ interface MangaSectionProps {
   onToggleLike?: (id: number, mediaType: 'anime' | 'manga', title: string, image: string) => void;
   onSelectManga?: (manga: MangaItem) => void;
   initialSearchQuery?: string;
-  viewDistance?: ViewDistance;
+  isPremium?: boolean;
 }
 
 export function MangaSection({
@@ -33,7 +34,7 @@ export function MangaSection({
   onToggleLike,
   onSelectManga,
   initialSearchQuery = '',
-  viewDistance = '85%',
+  isPremium = false,
 }: MangaSectionProps) {
   const [mangaList, setMangaList] = useState<MangaItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,15 +42,7 @@ export function MangaSection({
   const [selectedMangaDetail, setSelectedMangaDetail] = useState<MangaItem | null>(null);
   const [activeStatusMenuId, setActiveStatusMenuId] = useState<number | null>(null);
 
-  const mangaGridClass = useMemo(() => {
-    if (viewDistance === '67%' || viewDistance === '75%') {
-      return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5';
-    }
-    if (viewDistance === '85%' || viewDistance === '90%' || viewDistance === 'far') {
-      return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-6';
-    }
-    return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 sm:gap-6';
-  }, [viewDistance]);
+  const mangaGridClass = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 sm:gap-6';
 
   // Sync if initialSearchQuery updates from another tab/modal
   useEffect(() => {
@@ -142,20 +135,19 @@ export function MangaSection({
         </div>
       </div>
 
-      {/* Affiliate & Support Notice */}
-      <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-3">
-          <ShoppingBag className="w-5 h-5 text-amber-400 shrink-0" />
-          <p className="text-neutral-300">
-            Official localized volumes and tankobon editions can be explored directly on Amazon to support the mangaka and publishers.
-          </p>
-        </div>
-        {siteConfig.affiliate.amazonAssociatesActive && (
-          <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold shrink-0">
-            Amazon Affiliate System
+      {/* Sponsored Partner Banner & Amazon Affiliate Notice (Hidden for VIP members) */}
+      {isPremium ? (
+        <div className="p-3 rounded-xl bg-gradient-to-r from-amber-950/20 via-neutral-900 to-amber-950/20 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between">
+          <span className="font-semibold flex items-center gap-1.5">
+            👑 <strong>Kuro VIP:</strong> Ad-Free Manga Browsing Active
           </span>
-        )}
-      </div>
+          <span className="text-[10px] text-amber-400 font-mono font-bold uppercase tracking-wider">
+            Premium Experience
+          </span>
+        </div>
+      ) : (
+        <MangaAdBanner variant="banner" />
+      )}
 
       {/* Manga Grid */}
       {loading ? (
@@ -177,167 +169,179 @@ export function MangaSection({
             const shelfItem = getShelfItem(manga.mal_id);
             const isLiked = shelfItem?.isLiked || false;
             const currentStatus = shelfItem?.status;
-            const amazonUrl = `https://www.amazon.com/s?k=${encodeURIComponent(`${manga.title} manga volume 1`)}&tag=kuroshelf-20`;
+            const tag = siteConfig.affiliate.amazonTag || 'kuroshelf-20';
+            const amazonUrl = `https://www.amazon.com/s?k=${encodeURIComponent(`${manga.title} manga volume`)}&tag=${tag}`;
+            const shouldShowAd = !isPremium && idx > 0 && idx % 8 === 0;
 
             return (
-              <div
-                key={`manga-${manga.mal_id}-${idx}`}
-                className="group relative flex flex-col rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition-all duration-150 shadow-sm"
-              >
-                {/* Poster */}
-                <div
-                  className="relative aspect-[3/4] w-full overflow-hidden bg-neutral-950 cursor-pointer"
-                  onClick={() => {
-                    setSelectedMangaDetail(manga);
-                    onSelectManga?.(manga);
-                  }}
-                >
-                  <MediaImage
-                    malId={manga.mal_id}
-                    images={manga.images}
-                    alt={manga.title}
-                    title={manga.title}
-                    mediaType="manga"
-                    aspectRatio="aspect-[3/4]"
-                    loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              <Fragment key={`manga-frag-${manga.mal_id}-${idx}`}>
+                {shouldShowAd && (
+                  <MangaAdBanner
+                    variant="card"
+                    titleContext={manga.title}
                   />
-
-                  {/* Score badge */}
-                  {manga.score && (
-                    <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-950/90 border border-amber-500/30 text-amber-300 font-bold text-[11px] shadow">
-                      <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                      <span>{manga.score.toFixed(1)}</span>
-                    </div>
-                  )}
-
-                  {/* Like button overlay */}
-                  {onToggleLike && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleLike(
-                          manga.mal_id,
-                          'manga',
-                          manga.title,
-                          manga.images?.jpg?.large_image_url || manga.images?.jpg?.image_url
-                        );
-                      }}
-                      className={`absolute top-2 right-2 p-1.5 rounded-full backdrop-blur-md transition-colors ${
-                        isLiked
-                          ? 'bg-rose-600 text-white'
-                          : 'bg-neutral-950/70 text-neutral-300 hover:text-rose-400 hover:bg-neutral-900'
-                      }`}
-                      title={isLiked ? 'Remove from favorites' : 'Add to favorites'}
-                    >
-                      <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
-                    </button>
-                  )}
-
-                  {/* Chapters or volumes badge */}
-                  {manga.chapters ? (
-                    <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] bg-neutral-950/85 backdrop-blur-xs text-neutral-300 font-medium">
-                      {manga.chapters} chs
-                    </span>
-                  ) : manga.status ? (
-                    <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] bg-neutral-950/85 backdrop-blur-xs text-neutral-300 font-medium">
-                      {manga.status}
-                    </span>
-                  ) : null}
-                </div>
-
-                {/* Info & Shelf controls */}
-                <div className="p-3 flex flex-col flex-1 justify-between gap-2.5">
-                  <div>
-                    <h3
-                      onClick={() => {
-                        setSelectedMangaDetail(manga);
-                        onSelectManga?.(manga);
-                      }}
-                      className="text-xs font-bold text-white line-clamp-1 hover:text-rose-400 cursor-pointer transition-colors"
+                )}
+                <div
+                  key={`manga-${manga.mal_id}-${idx}`}
+                  className="group relative flex flex-col rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition-all duration-150 shadow-sm"
+                >
+                  {/* Poster */}
+                  <div
+                    className="relative aspect-[3/4] w-full overflow-hidden bg-neutral-950 cursor-pointer"
+                    onClick={() => {
+                      setSelectedMangaDetail(manga);
+                      onSelectManga?.(manga);
+                    }}
+                  >
+                    <MediaImage
+                      malId={manga.mal_id}
+                      images={manga.images}
+                      alt={manga.title}
                       title={manga.title}
-                    >
-                      {manga.title}
-                    </h3>
-                    <p className="text-[10px] text-neutral-400 line-clamp-1 mt-0.5">
-                      {manga.authors?.map((a) => a.name).join(', ') || manga.type || 'Manga'}
-                    </p>
-                  </div>
+                      mediaType="manga"
+                      aspectRatio="aspect-[3/4]"
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
 
-                  <div className="space-y-1.5 pt-1 border-t border-neutral-800/80">
-                    {/* Shelf Status Trigger */}
-                    {onAddToShelf && (
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setActiveStatusMenuId(
-                              activeStatusMenuId === manga.mal_id ? null : manga.mal_id
-                            )
-                          }
-                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                            currentStatus
-                              ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/25'
-                              : 'bg-neutral-800/80 hover:bg-neutral-800 text-neutral-300 border-neutral-700'
-                          }`}
-                        >
-                          <span className="flex items-center gap-1.5 truncate">
-                            <Bookmark className="w-3 h-3 text-rose-400 shrink-0" />
-                            <span className="truncate">
-                              {currentStatus ? getStatusLabel(currentStatus) : 'Add to Shelf'}
-                            </span>
-                          </span>
-                          <span className="text-[9px] text-neutral-400 font-bold">▾</span>
-                        </button>
-
-                        {/* Status dropdown */}
-                        {activeStatusMenuId === manga.mal_id && (
-                          <div className="absolute left-0 bottom-full mb-1 w-full z-30 bg-neutral-950 border border-neutral-800 rounded-xl shadow-xl overflow-hidden py-1 text-xs">
-                            {(
-                              [
-                                { id: 'watching', label: 'Reading' },
-                                { id: 'plan_to_watch', label: 'Plan to Read' },
-                                { id: 'completed', label: 'Completed' },
-                                { id: 'on_hold', label: 'On Hold' },
-                                { id: 'dropped', label: 'Dropped' },
-                              ] as { id: ShelfStatus; label: string }[]
-                            ).map((st) => (
-                              <button
-                                key={st.id}
-                                type="button"
-                                onClick={() => {
-                                  onAddToShelf(manga, st.id);
-                                  setActiveStatusMenuId(null);
-                                }}
-                                className={`w-full text-left px-3 py-1.5 flex items-center justify-between hover:bg-neutral-800 transition-colors ${
-                                  currentStatus === st.id
-                                    ? 'text-rose-400 font-bold bg-rose-500/10'
-                                    : 'text-neutral-300'
-                                }`}
-                              >
-                                <span>{st.label}</span>
-                                {currentStatus === st.id && <Check className="w-3 h-3 text-rose-400" />}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                    {/* Score badge */}
+                    {manga.score && (
+                      <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-950/90 border border-amber-500/30 text-amber-300 font-bold text-[11px] shadow">
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        <span>{manga.score.toFixed(1)}</span>
                       </div>
                     )}
 
-                    {/* Amazon link button */}
-                    <a
-                      href={amazonUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center justify-center gap-1.5 w-full py-1 rounded-lg bg-neutral-950 hover:bg-neutral-800 text-amber-400 hover:text-amber-300 font-semibold text-[11px] transition-colors border border-neutral-800"
-                    >
-                      <span>Amazon Volume</span>
-                      <ExternalLink className="w-2.5 h-2.5" />
-                    </a>
+                    {/* Like button overlay */}
+                    {onToggleLike && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleLike(
+                            manga.mal_id,
+                            'manga',
+                            manga.title,
+                            manga.images?.jpg?.large_image_url || manga.images?.jpg?.image_url
+                          );
+                        }}
+                        className={`absolute top-2 right-2 p-1.5 rounded-full backdrop-blur-md transition-colors ${
+                          isLiked
+                            ? 'bg-rose-600 text-white'
+                            : 'bg-neutral-950/70 text-neutral-300 hover:text-rose-400 hover:bg-neutral-900'
+                        }`}
+                        title={isLiked ? 'Remove from favorites' : 'Add to favorites'}
+                      >
+                        <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
+                      </button>
+                    )}
+
+                    {/* Chapters or volumes badge */}
+                    {manga.chapters ? (
+                      <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] bg-neutral-950/85 backdrop-blur-xs text-neutral-300 font-medium">
+                        {manga.chapters} chs
+                      </span>
+                    ) : manga.status ? (
+                      <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded text-[10px] bg-neutral-950/85 backdrop-blur-xs text-neutral-300 font-medium">
+                        {manga.status}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Info & Shelf controls */}
+                  <div className="p-3 flex flex-col flex-1 justify-between gap-2.5">
+                    <div>
+                      <h3
+                        onClick={() => {
+                          setSelectedMangaDetail(manga);
+                          onSelectManga?.(manga);
+                        }}
+                        className="text-xs font-bold text-white line-clamp-1 hover:text-rose-400 cursor-pointer transition-colors"
+                        title={manga.title}
+                      >
+                        {manga.title}
+                      </h3>
+                      <p className="text-[10px] text-neutral-400 line-clamp-1 mt-0.5">
+                        {manga.authors?.map((a) => a.name).join(', ') || manga.type || 'Manga'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5 pt-1 border-t border-neutral-800/80">
+                      {/* Shelf Status Trigger */}
+                      {onAddToShelf && (
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveStatusMenuId(
+                                activeStatusMenuId === manga.mal_id ? null : manga.mal_id
+                              )
+                            }
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                              currentStatus
+                                ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 hover:bg-rose-500/25'
+                                : 'bg-neutral-800/80 hover:bg-neutral-800 text-neutral-300 border-neutral-700'
+                            }`}
+                          >
+                            <span className="flex items-center gap-1.5 truncate">
+                              <Bookmark className="w-3 h-3 text-rose-400 shrink-0" />
+                              <span className="truncate">
+                                {currentStatus ? getStatusLabel(currentStatus) : 'Add to Shelf'}
+                              </span>
+                            </span>
+                            <span className="text-[9px] text-neutral-400 font-bold">▾</span>
+                          </button>
+
+                          {/* Status dropdown */}
+                          {activeStatusMenuId === manga.mal_id && (
+                            <div className="absolute left-0 bottom-full mb-1 w-full z-30 bg-neutral-950 border border-neutral-800 rounded-xl shadow-xl overflow-hidden py-1 text-xs">
+                              {(
+                                [
+                                  { id: 'watching', label: 'Reading' },
+                                  { id: 'plan_to_watch', label: 'Plan to Read' },
+                                  { id: 'completed', label: 'Completed' },
+                                  { id: 'on_hold', label: 'On Hold' },
+                                  { id: 'dropped', label: 'Dropped' },
+                                ] as { id: ShelfStatus; label: string }[]
+                              ).map((st) => (
+                                <button
+                                  key={st.id}
+                                  type="button"
+                                  onClick={() => {
+                                    onAddToShelf(manga, st.id);
+                                    setActiveStatusMenuId(null);
+                                  }}
+                                  className={`w-full text-left px-3 py-1.5 flex items-center justify-between hover:bg-neutral-800 transition-colors ${
+                                    currentStatus === st.id
+                                      ? 'text-rose-400 font-bold bg-rose-500/10'
+                                      : 'text-neutral-300'
+                                  }`}
+                                >
+                                  <span>{st.label}</span>
+                                  {currentStatus === st.id && <Check className="w-3 h-3 text-rose-400" />}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Amazon affiliate button */}
+                      <a
+                        href={amazonUrl}
+                        target="_blank"
+                        rel="sponsored noopener noreferrer"
+                        className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500 text-amber-400 hover:text-neutral-950 font-bold text-[11px] transition-all border border-amber-500/30 hover:border-amber-400 shadow-xs"
+                        title={`Buy ${manga.title} on Amazon`}
+                      >
+                        <ShoppingBag className="w-3 h-3" />
+                        <span>Buy on Amazon</span>
+                        <ExternalLink className="w-2.5 h-2.5 opacity-80" />
+                      </a>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Fragment>
             );
           })}
         </div>
@@ -422,7 +426,7 @@ export function MangaSection({
                   <p>{cleanSynopsis(selectedMangaDetail.synopsis) || 'No synopsis provided for this title.'}</p>
                 </div>
 
-                {/* Actions */}
+                {/* Actions & Shelf */}
                 <div className="pt-2 flex flex-wrap items-center gap-2.5">
                   {onAddToShelf && (
                     <button
@@ -442,17 +446,61 @@ export function MangaSection({
                       </span>
                     </button>
                   )}
-
-                  <a
-                    href={`https://www.amazon.com/s?k=${encodeURIComponent(`${selectedMangaDetail.title} manga volume 1`)}&tag=kuroshelf-20`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs transition-colors"
-                  >
-                    <span>Check on Amazon</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
                 </div>
+
+                {/* Amazon Affiliate Hub */}
+                <div className="p-3.5 rounded-xl bg-neutral-950/70 border border-amber-500/30 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs">
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <span>Official Amazon Manga Store</span>
+                    </div>
+                    <span className="text-[10px] text-amber-300/80 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-mono">
+                      Affiliate
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <a
+                      href={`https://www.amazon.com/s?k=${encodeURIComponent(`${selectedMangaDetail.title} manga volume 1`)}&tag=${siteConfig.affiliate.amazonTag || 'kuroshelf-20'}`}
+                      target="_blank"
+                      rel="sponsored noopener noreferrer"
+                      className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-[11px] transition-colors text-center"
+                    >
+                      <span>Vol. 1 Paperback</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+
+                    <a
+                      href={`https://www.amazon.com/s?k=${encodeURIComponent(`${selectedMangaDetail.title} manga box set`)}&tag=${siteConfig.affiliate.amazonTag || 'kuroshelf-20'}`}
+                      target="_blank"
+                      rel="sponsored noopener noreferrer"
+                      className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-amber-300 font-semibold text-[11px] transition-colors border border-neutral-700 text-center"
+                    >
+                      <span>Box Sets & Bundles</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+
+                    <a
+                      href={`https://www.amazon.com/s?k=${encodeURIComponent(`${selectedMangaDetail.title} kindle comixology manga`)}&tag=${siteConfig.affiliate.amazonTag || 'kuroshelf-20'}`}
+                      target="_blank"
+                      rel="sponsored noopener noreferrer"
+                      className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-amber-300 font-semibold text-[11px] transition-colors border border-neutral-700 text-center"
+                    >
+                      <span>Kindle / Digital</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+
+                  <p className="text-[10px] text-neutral-400 leading-tight">
+                    {siteConfig.affiliate.disclosureText}
+                  </p>
+                </div>
+
+                {/* Compact Sponsor Ad (Free tier only) */}
+                {!isPremium && (
+                  <MangaAdBanner variant="compact" titleContext={selectedMangaDetail.title} />
+                )}
               </div>
             </div>
           </div>

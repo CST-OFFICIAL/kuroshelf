@@ -17,6 +17,11 @@
   --color-text-main: #0f172a;
   --color-text-muted: #64748b;
   --color-text-subtle: #94a3b8;
+  --app-scale: 0.82;
+}
+
+html {
+  zoom: 82%;
 }
 
 html.dark {
@@ -124,6 +129,27 @@ h1, h2, h3, h4, .font-display {
     transform: none;
     will-change: auto;
   }
+}
+
+/* Horizontal scrolling notice board marquee */
+@keyframes noticeMarqueeLeft {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.notice-marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: noticeMarqueeLeft 40s linear infinite;
+  will-change: transform;
+}
+
+.notice-marquee-track:hover {
+  animation-play-state: paused;
 }
 
 

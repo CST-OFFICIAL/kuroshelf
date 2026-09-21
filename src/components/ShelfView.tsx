@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { ShelfEntry, ShelfStatus, UserActivity, ViewDistance } from '../types';
+import { useState, useEffect } from 'react';
+import { ShelfEntry, ShelfStatus, UserActivity } from '../types';
 import { 
   Bookmark, 
   Heart, 
@@ -31,7 +31,6 @@ interface ShelfViewProps {
   onTabChange?: (tab: ShelfViewFilterTab) => void;
   onOpenStats?: () => void;
   onOpenImportExport?: () => void;
-  viewDistance?: ViewDistance;
 }
 
 export function ShelfView({
@@ -46,20 +45,11 @@ export function ShelfView({
   onTabChange,
   onOpenStats,
   onOpenImportExport,
-  viewDistance = '75%',
 }: ShelfViewProps) {
   const [filterTab, setFilterTab] = useState<ShelfViewFilterTab>(activeSubTab || 'all');
   const [mediaFilter, setMediaFilter] = useState<'all' | 'anime' | 'manga'>('all');
 
-  const shelfGridClass = useMemo(() => {
-    if (viewDistance === '67%') {
-      return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
-    }
-    if (viewDistance === '75%' || viewDistance === 'far') {
-      return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4';
-    }
-    return 'grid grid-cols-1 sm:grid-cols-2 gap-4';
-  }, [viewDistance]);
+  const shelfGridClass = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4';
 
   useEffect(() => {
     if (activeSubTab) {

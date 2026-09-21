@@ -104,6 +104,10 @@ export interface AuthUser {
   avatar_url?: string | null;
   role?: 'admin' | 'user';
   created_at: string;
+  is_premium?: boolean;
+  premium_tier?: 'vip' | 'patron';
+  premium_since?: string;
+  is_donor?: boolean;
 }
 
 export interface UserProfileCustomization {
@@ -234,6 +238,20 @@ export interface PredictionPoll {
   totalVotes: number;
   status: 'active' | 'closed';
   endsAt: string; // ISO date string
+  creatorId?: string;
+  creatorName?: string;
+  isVipPoll?: boolean;
+  createdAt?: string;
+}
+
+export interface DonationEntry {
+  id: string;
+  supporterName: string;
+  amount: number;
+  message?: string;
+  isAnonymous?: boolean;
+  createdAt: string;
+  tierTitle?: string;
 }
 
 export interface WatchPlatform {
@@ -351,6 +369,5 @@ export interface SavedAccount {
 }
 
 export type ThemeMode = 'dark' | 'light' | 'system';
-export type ViewDistance = '100%' | '90%' | '85%' | '75%' | '67%' | 'far' | 'standard';
 
 

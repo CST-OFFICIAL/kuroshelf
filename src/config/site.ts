@@ -13,8 +13,8 @@ export const siteConfig = {
 
   // Configurable affiliate settings
   affiliate: {
-    amazonAssociatesActive: import.meta.env.VITE_AMAZON_AFFILIATE_ACTIVE === 'true',
-    amazonTag: import.meta.env.VITE_AMAZON_AFFILIATE_TAG || '',
+    amazonAssociatesActive: import.meta.env.VITE_AMAZON_AFFILIATE_ACTIVE !== 'false',
+    amazonTag: import.meta.env.VITE_AMAZON_AFFILIATE_TAG || 'kuroshelf-20',
     disclosureText:
       'As an Amazon Associate, Kuro Shelf earns from qualifying purchases made through book and manga affiliate links.',
   },

@@ -429,6 +429,45 @@ export function castPollVote(pollId: string, optionId: string): { polls: Predict
   return { polls, votes };
 }
 
+export function createStoredPoll(newPollData: {
+  animeTitle?: string;
+  animeId?: number;
+  question: string;
+  options: { id: string; text: string; votes: number }[];
+  endsAt: string;
+  creatorId?: string;
+  creatorName?: string;
+  isVipPoll?: boolean;
+}): PredictionPoll[] {
+  const polls = getStoredPolls();
+  const poll: PredictionPoll = {
+    id: `poll-${Date.now()}`,
+    animeTitle: newPollData.animeTitle?.trim() || undefined,
+    animeId: newPollData.animeId,
+    question: newPollData.question.trim(),
+    options: newPollData.options.map((opt, i) => ({
+      id: opt.id || `opt-${i + 1}`,
+      text: opt.text.trim(),
+      votes: 0,
+    })),
+    totalVotes: 0,
+    status: 'active',
+    endsAt: newPollData.endsAt,
+    creatorId: newPollData.creatorId,
+    creatorName: newPollData.creatorName || 'Otaku Community Member',
+    isVipPoll: newPollData.isVipPoll,
+    createdAt: new Date().toISOString(),
+  };
+
+  const updatedPolls = [poll, ...polls];
+  try {
+    localStorage.setItem(STORAGE_KEYS.POLLS, JSON.stringify(updatedPolls));
+  } catch (e) {
+    console.warn('[ShelfStorage] Failed to save created poll:', e);
+  }
+  return updatedPolls;
+}
+
 export function formatStatus(status: ShelfStatus): string {
   switch (status) {
     case 'watching':

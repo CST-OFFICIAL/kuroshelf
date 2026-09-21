@@ -33,10 +33,14 @@ import {
   Image as ImageIcon,
   ShieldAlert,
   Trash2,
-  Loader2
+  Loader2,
+  Play,
+  Search,
+  Heart
 } from 'lucide-react';
-import { AuthUser, ShelfEntry, UserActivity, UserProfileCustomization, DailyStreakInfo } from '../types';
+import { AuthUser, ShelfEntry, ShelfStatus, UserActivity, UserProfileCustomization, DailyStreakInfo } from '../types';
 import { updateProfileSetup, logoutUser } from '../services/authService';
+import { isUserDonor } from '../services/membershipService';
 import {
   isGoogleDriveConnected,
   requestGoogleDriveAuth,
@@ -102,6 +106,9 @@ export function ProfileView({
 }: ProfileViewProps) {
   // Active inner profile tab
   const [activeProfileTab, setActiveProfileTab] = useState<'showcase' | 'edit' | 'preferences' | 'admin_console'>('showcase');
+  const [showcaseSubTab, setShowcaseSubTab] = useState<'overview' | 'animelist' | 'mangalist' | 'spotlight' | 'milestones'>('overview');
+  const [listStatusFilter, setListStatusFilter] = useState<'all' | ShelfStatus>('all');
+  const [listSearch, setListSearch] = useState('');
 
   // Stored custom preferences
   const [customization, setCustomization] = useState(() =>
@@ -110,6 +117,21 @@ export function ProfileView({
 
   // Admin status check
   const isAdmin = useMemo(() => isAdminUser(currentUser), [currentUser]);
+
+  // Donor status check (distinct from membership!)
+  const [isDonor, setIsDonor] = useState(() => currentUser?.is_donor || isUserDonor(currentUser?.id));
+
+  useEffect(() => {
+    const handleDonorUpdate = () => {
+      setIsDonor(currentUser?.is_donor || isUserDonor(currentUser?.id));
+    };
+    window.addEventListener('kuroshelf_donor_status_changed', handleDonorUpdate);
+    window.addEventListener('kuroshelf_donation_made', handleDonorUpdate);
+    return () => {
+      window.removeEventListener('kuroshelf_donor_status_changed', handleDonorUpdate);
+      window.removeEventListener('kuroshelf_donation_made', handleDonorUpdate);
+    };
+  }, [currentUser]);
 
   // Admin Console States
   const [adminRoster, setAdminRoster] = useState<string[]>(() => getAdminList());
@@ -143,6 +165,19 @@ export function ProfileView({
   // Social states (Following & Followers)
   const [followData, setFollowData] = useState(() => getStoredFollowData(currentUser?.id));
   const [socialModalOpen, setSocialModalOpen] = useState<'followers' | 'following' | null>(null);
+  const [socialSearch, setSocialSearch] = useState('');
+
+  // Quick unpin handler directly from spotlight card
+  const handleUnpinSpotlight = (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    const nextPinned = pinnedShelfIds.filter((pId) => pId !== id);
+    setPinnedShelfIds(nextPinned);
+    const updatedCustom = { ...customization, pinned_shelf_ids: nextPinned };
+    setCustomization(updatedCustom);
+    if (currentUser) {
+      saveStoredProfileCustomization(updatedCustom, currentUser.id);
+    }
+  };
 
   // Pin selector modal
   const [pinSelectorOpen, setPinSelectorOpen] = useState(false);
@@ -322,6 +357,103 @@ export function ProfileView({
   const rank = useMemo(() => calculateOtakuRank(shelf, activities), [shelf, activities]);
   const badges = useMemo(() => computeUserBadges(shelf, customization), [shelf, customization]);
 
+  // Authentic MAL Anime Statistics calculation (~23.5 min/episode)
+  const animeStats = useMemo(() => {
+    const animeItems = shelf.filter((s) => s.mediaType === 'anime' || !s.mediaType);
+    const total = animeItems.length;
+    const watching = animeItems.filter((s) => s.status === 'watching').length;
+    const completed = animeItems.filter((s) => s.status === 'completed').length;
+    const onHold = animeItems.filter((s) => s.status === 'on_hold').length;
+    const dropped = animeItems.filter((s) => s.status === 'dropped').length;
+    const plan = animeItems.filter((s) => s.status === 'plan_to_watch').length;
+
+    const totalEpisodes = animeItems.reduce((acc, curr) => acc + (curr.progress || 0), 0);
+    const daysWatched = ((totalEpisodes * 23.5) / 1440).toFixed(1);
+
+    const ratedAnime = animeItems.filter((s) => typeof s.userRating === 'number' && s.userRating > 0);
+    const meanScore = ratedAnime.length > 0
+      ? (ratedAnime.reduce((acc, curr) => acc + (curr.userRating || 0), 0) / ratedAnime.length).toFixed(2)
+      : '0.00';
+
+    return {
+      total,
+      watching,
+      completed,
+      onHold,
+      dropped,
+      plan,
+      totalEpisodes,
+      daysWatched,
+      meanScore,
+      ratedCount: ratedAnime.length
+    };
+  }, [shelf]);
+
+  // Authentic MAL Manga Statistics calculation (~6.0 min/chapter)
+  const mangaStats = useMemo(() => {
+    const mangaItems = shelf.filter((s) => s.mediaType === 'manga');
+    const total = mangaItems.length;
+    const reading = mangaItems.filter((s) => s.status === 'watching').length;
+    const completed = mangaItems.filter((s) => s.status === 'completed').length;
+    const onHold = mangaItems.filter((s) => s.status === 'on_hold').length;
+    const dropped = mangaItems.filter((s) => s.status === 'dropped').length;
+    const plan = mangaItems.filter((s) => s.status === 'plan_to_watch').length;
+
+    const totalChapters = mangaItems.reduce((acc, curr) => acc + (curr.progress || 0), 0);
+    const daysRead = ((totalChapters * 6.0) / 1440).toFixed(1);
+
+    const ratedManga = mangaItems.filter((s) => typeof s.userRating === 'number' && s.userRating > 0);
+    const meanScore = ratedManga.length > 0
+      ? (ratedManga.reduce((acc, curr) => acc + (curr.userRating || 0), 0) / ratedManga.length).toFixed(2)
+      : '0.00';
+
+    return {
+      total,
+      reading,
+      completed,
+      onHold,
+      dropped,
+      plan,
+      totalChapters,
+      daysRead,
+      meanScore,
+      ratedCount: ratedManga.length
+    };
+  }, [shelf]);
+
+  // Authentic MAL Score Distribution Curve (10 down to 1)
+  const scoreDistribution = useMemo(() => {
+    const distribution: { score: number; label: string; count: number; percent: number }[] = [
+      { score: 10, label: 'Masterpiece', count: 0, percent: 0 },
+      { score: 9, label: 'Great', count: 0, percent: 0 },
+      { score: 8, label: 'Very Good', count: 0, percent: 0 },
+      { score: 7, label: 'Good', count: 0, percent: 0 },
+      { score: 6, label: 'Fine', count: 0, percent: 0 },
+      { score: 5, label: 'Average', count: 0, percent: 0 },
+      { score: 4, label: 'Bad', count: 0, percent: 0 },
+      { score: 3, label: 'Very Bad', count: 0, percent: 0 },
+      { score: 2, label: 'Horrible', count: 0, percent: 0 },
+      { score: 1, label: 'Appalling', count: 0, percent: 0 },
+    ];
+
+    const ratedItems = shelf.filter((s) => typeof s.userRating === 'number' && s.userRating > 0);
+    const totalRated = ratedItems.length;
+
+    ratedItems.forEach((item) => {
+      const rounded = Math.min(10, Math.max(1, Math.round(item.userRating!)));
+      const entry = distribution.find((d) => d.score === rounded);
+      if (entry) entry.count += 1;
+    });
+
+    if (totalRated > 0) {
+      distribution.forEach((d) => {
+        d.percent = Math.round((d.count / totalRated) * 100);
+      });
+    }
+
+    return { distribution, totalRated };
+  }, [shelf]);
+
   // Shelf quick breakdown
   const shelfStats = useMemo(() => {
     const total = shelf.length;
@@ -330,7 +462,7 @@ export function ProfileView({
     const plan = shelf.filter((s) => s.status === 'plan_to_watch').length;
     const onHold = shelf.filter((s) => s.status === 'on_hold').length;
     const dropped = shelf.filter((s) => s.status === 'dropped').length;
-    const animeCount = shelf.filter((s) => s.mediaType === 'anime').length;
+    const animeCount = shelf.filter((s) => s.mediaType === 'anime' || !s.mediaType).length;
     const mangaCount = shelf.filter((s) => s.mediaType === 'manga').length;
 
     const ratedItems = shelf.filter((s) => (s.userRating || 0) > 0);
@@ -341,6 +473,27 @@ export function ProfileView({
     return { total, watching, completed, plan, onHold, dropped, animeCount, mangaCount, meanRating };
   }, [shelf]);
 
+  // Filtered lists for MAL interactive tables
+  const filteredAnimeList = useMemo(() => {
+    return shelf.filter((s) => {
+      const isAnime = s.mediaType === 'anime' || !s.mediaType;
+      if (!isAnime) return false;
+      if (listStatusFilter !== 'all' && s.status !== listStatusFilter) return false;
+      if (listSearch.trim() && !s.title.toLowerCase().includes(listSearch.toLowerCase())) return false;
+      return true;
+    });
+  }, [shelf, listStatusFilter, listSearch]);
+
+  const filteredMangaList = useMemo(() => {
+    return shelf.filter((s) => {
+      const isManga = s.mediaType === 'manga';
+      if (!isManga) return false;
+      if (listStatusFilter !== 'all' && s.status !== listStatusFilter) return false;
+      if (listSearch.trim() && !s.title.toLowerCase().includes(listSearch.toLowerCase())) return false;
+      return true;
+    });
+  }, [shelf, listStatusFilter, listSearch]);
+
   // Filtered available banners (admins see exclusive ones; normal users do not)
   const availableBanners = useMemo(() => {
     return BANNER_THEMES.filter((theme) => !theme.isAdminOnly || isAdmin);
@@ -350,6 +503,17 @@ export function ProfileView({
   const activeBannerTheme = useMemo(
     () => availableBanners.find((b) => b.id === selectedBannerId) || availableBanners[0] || BANNER_THEMES[0],
     [availableBanners, selectedBannerId]
+  );
+
+  // Filtered available avatars (admins see exclusive ones; normal users do not)
+  const availableAvatars = useMemo(() => {
+    return AVATAR_PRESETS.filter((preset) => !preset.isAdminOnly || isAdmin);
+  }, [isAdmin]);
+
+  // Selected avatar preset (strictly filtered so normal users cannot render admin avatars)
+  const activeAvatarPreset = useMemo(
+    () => availableAvatars.find((p) => p.id === selectedPresetId) || availableAvatars[0] || AVATAR_PRESETS[0],
+    [availableAvatars, selectedPresetId]
   );
 
   // Pinned items from actual shelf
@@ -434,12 +598,25 @@ export function ProfileView({
         }
       }
 
+      // Ensure non-admins cannot save admin-only presets or themes
+      let sanitizedPresetId = selectedPresetId;
+      if (!isAdmin) {
+        const isPresetAdmin = AVATAR_PRESETS.find((p) => p.id === selectedPresetId)?.isAdminOnly;
+        if (isPresetAdmin) sanitizedPresetId = 'curator_cyber_dark';
+      }
+
+      let sanitizedBannerId = selectedBannerId;
+      if (!isAdmin) {
+        const isBannerAdmin = BANNER_THEMES.find((t) => t.id === selectedBannerId)?.isAdminOnly;
+        if (isBannerAdmin) sanitizedBannerId = 'tokyo_twilight';
+      }
+
       // Save local aesthetic customization
       const updatedCustom: UserProfileCustomization = {
         avatar_url: customAvatarUrl || undefined,
-        avatar_preset: selectedPresetId,
+        avatar_preset: sanitizedPresetId,
         avatar_frame_color: frameColor,
-        banner_preset: selectedBannerId,
+        banner_preset: sanitizedBannerId,
         status_message: statusMessage.trim(),
         bio: bio.trim(),
         favorite_quote: favoriteQuote.trim(),
@@ -559,48 +736,69 @@ export function ProfileView({
   return (
     <div className="w-full max-w-5xl mx-auto py-6 sm:py-8 px-4 sm:px-6 space-y-6">
       {/* 1. HERO PROFILE CARD */}
-      <div className="relative rounded-3xl overflow-visible bg-neutral-900/90 border border-neutral-800 shadow-2xl">
-        {/* Banner Artwork Backdrop with Popping Dragon & Normal Art */}
-        <div className={`relative h-48 sm:h-64 w-full overflow-visible rounded-t-3xl bg-gradient-to-r ${activeBannerTheme.gradient}`}>
-          {/* If Exclusive Admin Banner: Japanese Dragon bursting out */}
-          {activeBannerTheme.isAdminOnly ? (
-            <AdminDragonBanner themeId={activeBannerTheme.id} />
-          ) : (
-            <NormalBannerArt themeId={activeBannerTheme.id} />
-          )}
+      <div className="relative overflow-visible pt-10 sm:pt-14">
+        {/* Banner Artwork Canvas - Frameless & Popping with zero border cutting through */}
+        <div className="relative overflow-visible z-10">
+          <div
+            className={`relative h-56 sm:h-72 w-full overflow-visible transition-all ${
+              activeBannerTheme.isAdminOnly
+                ? 'rounded-3xl bg-gradient-to-r ' + activeBannerTheme.gradient + ' shadow-[0_10px_40px_rgba(0,0,0,0.7)]'
+                : 'rounded-3xl bg-gradient-to-r ' + activeBannerTheme.gradient + ' shadow-2xl'
+            }`}
+          >
+            {/* If Exclusive Admin Banner: Japanese Dragon / Domain Expansion bursting out */}
+            {activeBannerTheme.isAdminOnly ? (
+              <AdminDragonBanner themeId={activeBannerTheme.id} />
+            ) : (
+              <NormalBannerArt themeId={activeBannerTheme.id} />
+            )}
 
-          {/* Pattern overlay */}
-          <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent pointer-events-none" />
+            {/* Subtle atmospheric ambient glow - frameless */}
+            <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none rounded-3xl" />
+            <div
+              className={`absolute inset-0 pointer-events-none rounded-3xl ${
+                activeBannerTheme.isAdminOnly
+                  ? 'bg-gradient-to-t from-black/60 via-transparent to-transparent'
+                  : 'bg-gradient-to-t from-black/85 via-black/25 to-transparent'
+              }`}
+            />
 
-          {/* Quick Banner Switcher button */}
-          <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveProfileTab('edit')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/10 text-white text-xs font-semibold shadow-lg transition-all cursor-pointer"
-              title="Customize banner & theme"
-            >
-              <Palette className="w-3.5 h-3.5 text-rose-400" />
-              <span className="hidden sm:inline">Theme:</span>
-              <span className="text-rose-300">{activeBannerTheme.name}</span>
-            </button>
+            {/* Quick Banner Switcher button */}
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveProfileTab('edit')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white text-xs font-semibold shadow-lg transition-all cursor-pointer"
+                title="Customize banner & theme"
+              >
+                <Palette className="w-3.5 h-3.5 text-rose-400" />
+                <span className="hidden sm:inline">Theme:</span>
+                <span className="text-rose-300">{activeBannerTheme.name}</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Profile Details Header */}
-        <div className="relative px-6 sm:px-8 pb-6 sm:pb-8 -mt-16 sm:-mt-20 z-20">
+        {/* Profile Details Header Card - Seamless blend with zero cut-off, always on top */}
+        <div
+          className={`relative rounded-3xl px-6 sm:px-8 pb-6 sm:pb-8 pt-6 sm:pt-8 -mt-12 sm:-mt-16 z-30 backdrop-blur-md shadow-2xl transition-colors ${
+            activeBannerTheme.isAdminOnly
+              ? 'bg-white/95 dark:bg-[#0e111a]/95 border-x border-b border-t-0 border-slate-200/60 dark:border-[#1e2333]/70'
+              : 'bg-white/95 dark:bg-[#10131d]/95 border border-slate-200/90 dark:border-[#222838]'
+          }`}
+        >
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             {/* Avatar & Identifiers */}
             <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
               {/* Anime Avatar with Exclusive Frame & Edit overlay */}
               <div className="relative group">
                 <AnimeAvatar
-                  presetId={selectedPresetId}
+                  presetId={activeAvatarPreset.id}
                   customAvatarUrl={customAvatarUrl || currentUser.avatar_url || undefined}
                   frameColor={frameColor}
                   size="2xl"
                   isAdmin={isAdmin}
+                  isDonor={isDonor}
                 />
 
                 {/* Edit overlay on avatar */}
@@ -615,7 +813,7 @@ export function ProfileView({
 
                 {/* Online indicator */}
                 <span
-                  className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-neutral-900 z-20 shadow-md"
+                  className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white dark:border-neutral-900 z-20 shadow-md"
                   title="Active"
                 />
               </div>
@@ -626,31 +824,40 @@ export function ProfileView({
                   <h1
                     className={`text-2xl sm:text-3xl font-display font-black tracking-tight ${
                       isAdmin
-                        ? 'bg-gradient-to-r from-amber-100 via-yellow-300 via-amber-400 to-amber-200 bg-clip-text text-transparent drop-shadow-[0_2px_14px_rgba(245,158,11,0.6)]'
-                        : 'text-white'
+                        ? 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 dark:from-amber-100 dark:via-yellow-300 dark:to-amber-200 bg-clip-text text-transparent drop-shadow-sm dark:drop-shadow-[0_2px_14px_rgba(245,158,11,0.6)]'
+                        : 'text-slate-900 dark:text-white'
                     }`}
                   >
                     {displayName || currentUser.username}
                   </h1>
                   {isAdmin ? (
-                    <span className="px-2.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 text-amber-200 border border-amber-400/60 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-[0_0_15px_rgba(245,158,11,0.3)]">
-                      <Crown className="w-3.5 h-3.5 text-amber-300 fill-amber-400/40" />
+                    <span className="px-2.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 text-amber-700 dark:text-amber-200 border border-amber-400/60 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+                      <Crown className="w-3.5 h-3.5 text-amber-500 dark:text-amber-300 fill-amber-400/40" />
                       Sovereign Admin
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-300 border border-rose-500/30 text-[10px] font-bold uppercase tracking-wider">
                       Member
+                    </span>
+                  )}
+                  {isDonor && (
+                    <span
+                      className="px-2.5 py-0.5 rounded-md bg-gradient-to-r from-rose-500/20 via-pink-500/25 to-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-400/50 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-[0_0_12px_rgba(244,63,94,0.3)] cursor-default"
+                      title="KuroShelf Generous Donator ❤️ Thank you so much for your donation!"
+                    >
+                      <Heart className="w-3 h-3 text-rose-500 fill-rose-500 animate-pulse" />
+                      Donator
                     </span>
                   )}
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs">
-                  <span className="text-neutral-400 font-medium">@{username || currentUser.username}</span>
-                  <span className="text-neutral-600">•</span>
+                  <span className="text-slate-500 dark:text-neutral-400 font-medium">@{username || currentUser.username}</span>
+                  <span className="text-slate-300 dark:text-neutral-600">•</span>
                   <span className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold flex items-center gap-1 ${rank.titleBadgeColor}`}>
                     <Trophy className="w-3 h-3" />
                     <span>Level {rank.level}</span>
-                    <span className="text-white/60">({rank.title})</span>
+                    <span className="opacity-80">({rank.title})</span>
                   </span>
                 </div>
 
@@ -659,31 +866,31 @@ export function ProfileView({
                   <button
                     type="button"
                     onClick={() => setSocialModalOpen('following')}
-                    className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white transition-colors cursor-pointer group"
+                    className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-neutral-300 hover:text-rose-600 dark:hover:text-white transition-colors cursor-pointer group"
                   >
-                    <span className="font-extrabold text-white group-hover:text-rose-400 font-mono text-xs">
+                    <span className="font-extrabold text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 font-mono text-xs">
                       {followData.following.length}
                     </span>
-                    <span className="text-neutral-400 text-xs">Following</span>
+                    <span className="text-slate-500 dark:text-neutral-400 text-xs">Following</span>
                   </button>
 
-                  <span className="text-neutral-700">•</span>
+                  <span className="text-slate-300 dark:text-neutral-700">•</span>
 
                   <button
                     type="button"
                     onClick={() => setSocialModalOpen('followers')}
-                    className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white transition-colors cursor-pointer group"
+                    className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-neutral-300 hover:text-rose-600 dark:hover:text-white transition-colors cursor-pointer group"
                   >
-                    <span className="font-extrabold text-white group-hover:text-rose-400 font-mono text-xs">
+                    <span className="font-extrabold text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 font-mono text-xs">
                       {followData.followers.length}
                     </span>
-                    <span className="text-neutral-400 text-xs">Followers</span>
+                    <span className="text-slate-500 dark:text-neutral-400 text-xs">Followers</span>
                   </button>
 
                   {gender && (
                     <>
-                      <span className="text-neutral-700">•</span>
-                      <span className="px-2 py-0.5 rounded-md bg-neutral-800/80 border border-neutral-700/60 text-[11px] font-medium text-neutral-300">
+                      <span className="text-slate-300 dark:text-neutral-700">•</span>
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-neutral-800/80 border border-slate-200 dark:border-neutral-700/60 text-[11px] font-medium text-slate-600 dark:text-neutral-300">
                         {gender}
                       </span>
                     </>
@@ -692,7 +899,7 @@ export function ProfileView({
 
                 {/* Status message */}
                 {statusMessage && (
-                  <p className="text-xs sm:text-sm text-neutral-300 italic max-w-md pt-0.5">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-neutral-300 italic max-w-md pt-0.5">
                     "{statusMessage}"
                   </p>
                 )}
@@ -704,17 +911,17 @@ export function ProfileView({
               <button
                 type="button"
                 onClick={handleCopyProfileCard}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-neutral-800/90 hover:bg-neutral-800 border border-neutral-700/80 text-xs font-semibold text-neutral-200 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800/90 dark:hover:bg-neutral-800 border border-slate-200 dark:border-neutral-700/80 text-xs font-semibold text-slate-700 dark:text-neutral-200 transition-all cursor-pointer shadow-xs"
                 title="Copy profile card text"
               >
                 {copiedLink ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-emerald-300">Copied!</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-emerald-600 dark:text-emerald-300 font-bold">Copied!</span>
                   </>
                 ) : (
                   <>
-                    <Share2 className="w-3.5 h-3.5 text-neutral-400" />
+                    <Share2 className="w-3.5 h-3.5 text-slate-500 dark:text-neutral-400" />
                     <span>Share Card</span>
                   </>
                 )}
@@ -725,13 +932,13 @@ export function ProfileView({
                   type="button"
                   id="profile-switch-account-button"
                   onClick={onOpenAccountSwitcher}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-neutral-800/90 hover:bg-neutral-800 border border-neutral-700/80 text-xs font-semibold text-neutral-200 transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-neutral-800/90 dark:hover:bg-neutral-800 border border-slate-200 dark:border-neutral-700/80 text-xs font-semibold text-slate-700 dark:text-neutral-200 transition-all cursor-pointer shadow-xs"
                   title={`Switch Account (${savedAccountsCount} logged in)`}
                 >
-                  <Users className="w-3.5 h-3.5 text-rose-400" />
+                  <Users className="w-3.5 h-3.5 text-rose-500" />
                   <span>Switch Account</span>
                   {savedAccountsCount > 1 && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 text-[10px] font-bold">
+                    <span className="px-1.5 py-0.2 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-300 text-[10px] font-bold">
                       {savedAccountsCount}
                     </span>
                   )}
@@ -741,7 +948,7 @@ export function ProfileView({
               <button
                 type="button"
                 onClick={() => setActiveProfileTab('edit')}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-900/20 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-900/20 transition-all cursor-pointer"
               >
                 <Sliders className="w-3.5 h-3.5" />
                 <span>Customize</span>
@@ -753,7 +960,7 @@ export function ProfileView({
                   await logoutUser();
                   window.location.reload();
                 }}
-                className="p-2 rounded-xl bg-neutral-800/90 hover:bg-red-950/60 hover:text-red-400 border border-neutral-700/80 text-neutral-400 transition-all cursor-pointer"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-600 dark:bg-neutral-800/90 dark:hover:bg-red-950/60 dark:hover:text-red-400 border border-slate-200 dark:border-neutral-700/80 text-slate-500 dark:text-neutral-400 transition-all cursor-pointer"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />
@@ -761,18 +968,18 @@ export function ProfileView({
             </div>
           </div>
 
-          {/* XP Progress Bar */}
-          <div className="mt-6 pt-5 border-t border-neutral-800/80">
+          {/* Library Milestones & Watch Activity */}
+          <div className="mt-6 pt-5 border-t border-slate-200 dark:border-neutral-800/80">
             <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="text-neutral-400 font-medium flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>Otaku XP Progress</span>
+              <span className="text-slate-500 dark:text-neutral-400 font-medium flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Library Milestones & Watch Activity</span>
               </span>
-              <span className="text-neutral-300 font-mono text-[11px]">
-                {rank.currentProgressXp} / 100 XP to <strong className="text-white">Level {rank.level + 1}</strong>
+              <span className="text-slate-600 dark:text-neutral-300 font-mono text-[11px]">
+                {rank.currentProgressXp} / 100 XP to <strong className="text-slate-900 dark:text-white">Level {rank.level + 1}</strong>
               </span>
             </div>
-            <div className="w-full h-2 rounded-full bg-neutral-950 overflow-hidden border border-neutral-800">
+            <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-neutral-950 overflow-hidden border border-slate-200 dark:border-neutral-800">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-rose-500 via-amber-400 to-cyan-400 transition-all duration-500"
                 style={{ width: `${rank.progressPercent}%` }}
@@ -879,293 +1086,983 @@ export function ProfileView({
             />
           )}
 
-          {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-            <div className="p-4 rounded-2xl bg-neutral-900/90 border border-neutral-800 flex flex-col">
-              <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Total Shelf</span>
-              <span className="text-2xl font-extrabold text-white font-mono mt-1">{shelfStats.total}</span>
-              <span className="text-[10px] text-neutral-500 mt-0.5">Anime & Manga</span>
+          {/* Sub-Navigation Bar for Otaku Profile (MAL-style tabs) */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-neutral-800 pb-3">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => setShowcaseSubTab('overview')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  showcaseSubTab === 'overview'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-neutral-800/80 text-slate-700 dark:text-neutral-300 hover:bg-slate-200 dark:hover:bg-neutral-700'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span>Shelf Statistics</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowcaseSubTab('animelist');
+                  setListStatusFilter('all');
+                }}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  showcaseSubTab === 'animelist'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-neutral-800/80 text-slate-700 dark:text-neutral-300 hover:bg-slate-200 dark:hover:bg-neutral-700'
+                }`}
+              >
+                <Play className="w-3.5 h-3.5" />
+                <span>Anime List</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                  showcaseSubTab === 'animelist' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-neutral-700 text-slate-600 dark:text-neutral-300'
+                }`}>
+                  {animeStats.total}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowcaseSubTab('mangalist');
+                  setListStatusFilter('all');
+                }}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  showcaseSubTab === 'mangalist'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-neutral-800/80 text-slate-700 dark:text-neutral-300 hover:bg-slate-200 dark:hover:bg-neutral-700'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Manga List</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                  showcaseSubTab === 'mangalist' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-neutral-700 text-slate-600 dark:text-neutral-300'
+                }`}>
+                  {mangaStats.total}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowcaseSubTab('spotlight')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  showcaseSubTab === 'spotlight'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-neutral-800/80 text-slate-700 dark:text-neutral-300 hover:bg-slate-200 dark:hover:bg-neutral-700'
+                }`}
+              >
+                <Pin className="w-3.5 h-3.5" />
+                <span>Spotlight ({pinnedItems.length}/4)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowcaseSubTab('milestones')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  showcaseSubTab === 'milestones'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-neutral-800/80 text-slate-700 dark:text-neutral-300 hover:bg-slate-200 dark:hover:bg-neutral-700'
+                }`}
+              >
+                <Trophy className="w-3.5 h-3.5" />
+                <span>Milestones ({badges.filter(b => b.unlocked).length})</span>
+              </button>
             </div>
 
-            <div className="p-4 rounded-2xl bg-neutral-900/90 border border-neutral-800 flex flex-col">
-              <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">Watching</span>
-              <span className="text-2xl font-extrabold text-emerald-300 font-mono mt-1">{shelfStats.watching}</span>
-              <span className="text-[10px] text-neutral-500 mt-0.5">Active Series</span>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-neutral-900/90 border border-neutral-800 flex flex-col">
-              <span className="text-[11px] font-semibold text-sky-400 uppercase tracking-wider">Completed</span>
-              <span className="text-2xl font-extrabold text-sky-300 font-mono mt-1">{shelfStats.completed}</span>
-              <span className="text-[10px] text-neutral-500 mt-0.5">Finished Runs</span>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-neutral-900/90 border border-neutral-800 flex flex-col">
-              <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">Plan to Watch</span>
-              <span className="text-2xl font-extrabold text-amber-300 font-mono mt-1">{shelfStats.plan}</span>
-              <span className="text-[10px] text-neutral-500 mt-0.5">Backlog Queue</span>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-neutral-900/90 border border-neutral-800 flex flex-col">
-              <span className="text-[11px] font-semibold text-purple-400 uppercase tracking-wider">Mean Score</span>
-              <span className="text-2xl font-extrabold text-purple-300 font-mono mt-1">{shelfStats.meanRating}</span>
-              <span className="text-[10px] text-neutral-500 mt-0.5">Rated Titles</span>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-neutral-900/90 border border-neutral-800 flex flex-col">
-              <span className="text-[11px] font-semibold text-rose-400 uppercase tracking-wider">Manga Read</span>
-              <span className="text-2xl font-extrabold text-rose-300 font-mono mt-1">{shelfStats.mangaCount}</span>
-              <span className="text-[10px] text-neutral-500 mt-0.5">Volumes/Series</span>
-            </div>
+            {onNavigateTab && (
+              <button
+                type="button"
+                onClick={() => onNavigateTab('shelf')}
+                className="text-xs text-rose-600 dark:text-rose-400 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>Full Shelf Manager</span>
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            )}
           </div>
 
-          {/* Shelf Status Distribution Bar */}
-          {shelfStats.total > 0 && (
-            <div className="p-4 rounded-2xl bg-neutral-900/70 border border-neutral-800/80 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-neutral-300 font-semibold">Shelf Distribution</span>
-                <span className="text-neutral-400 text-[11px] font-mono">{shelfStats.total} total items</span>
+          {/* SUB-VIEW 1: OVERVIEW & MAL STATISTICS */}
+          {showcaseSubTab === 'overview' && (
+            <div className="space-y-6">
+              {/* Dual-Column MAL Anime Stats & Manga Stats Cards */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* 1. ANIME STATS (MAL Style) */}
+                <div className="p-6 rounded-2xl bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#1e263d] shadow-sm space-y-5">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#1e263d] pb-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/20">
+                        <Play className="w-4 h-4 fill-blue-500/20" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black tracking-wider uppercase text-slate-900 dark:text-white font-mono">
+                          Anime Stats
+                        </h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Watch time & catalog completion
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block">Days Watched</span>
+                        <span className="text-base font-black text-slate-900 dark:text-white font-mono">
+                          {animeStats.daysWatched} <span className="text-xs text-slate-400 font-normal">days</span>
+                        </span>
+                      </div>
+                      <div className="w-px h-8 bg-slate-200 dark:bg-[#1e263d]" />
+                      <div className="text-right">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block">Mean Score</span>
+                        <span className="text-base font-black text-amber-500 dark:text-amber-400 font-mono flex items-center gap-1 justify-end">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          {animeStats.meanScore}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* MAL Segmented Color Bar */}
+                  <div className="space-y-2">
+                    <div className="w-full h-3.5 rounded-md bg-slate-100 dark:bg-[#090c14] overflow-hidden flex gap-0.5 p-0.5 border border-slate-200 dark:border-[#1e263d]">
+                      {animeStats.total > 0 ? (
+                        <>
+                          {animeStats.watching > 0 && (
+                            <div
+                              className="h-full bg-[#2db039] rounded-xs transition-all"
+                              style={{ width: `${(animeStats.watching / animeStats.total) * 100}%` }}
+                              title={`Watching: ${animeStats.watching}`}
+                            />
+                          )}
+                          {animeStats.completed > 0 && (
+                            <div
+                              className="h-full bg-[#26448f] dark:bg-[#3b82f6] rounded-xs transition-all"
+                              style={{ width: `${(animeStats.completed / animeStats.total) * 100}%` }}
+                              title={`Completed: ${animeStats.completed}`}
+                            />
+                          )}
+                          {animeStats.onHold > 0 && (
+                            <div
+                              className="h-full bg-[#f1a80a] rounded-xs transition-all"
+                              style={{ width: `${(animeStats.onHold / animeStats.total) * 100}%` }}
+                              title={`On-Hold: ${animeStats.onHold}`}
+                            />
+                          )}
+                          {animeStats.dropped > 0 && (
+                            <div
+                              className="h-full bg-[#a12f31] dark:bg-[#e11d48] rounded-xs transition-all"
+                              style={{ width: `${(animeStats.dropped / animeStats.total) * 100}%` }}
+                              title={`Dropped: ${animeStats.dropped}`}
+                            />
+                          )}
+                          {animeStats.plan > 0 && (
+                            <div
+                              className="h-full bg-[#64748b] rounded-xs transition-all"
+                              style={{ width: `${(animeStats.plan / animeStats.total) * 100}%` }}
+                              title={`Plan to Watch: ${animeStats.plan}`}
+                            />
+                          )}
+                        </>
+                      ) : (
+                        <div className="h-full w-full bg-slate-200 dark:bg-[#1a2030] rounded-xs" />
+                      )}
+                    </div>
+
+                    {/* Legend with exact MAL status tags */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-4 pt-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#2db039]" />
+                          <span>Watching</span>
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{animeStats.watching}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#26448f] dark:bg-[#3b82f6]" />
+                          <span>Completed</span>
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{animeStats.completed}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#f1a80a]" />
+                          <span>On-Hold</span>
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{animeStats.onHold}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#a12f31] dark:bg-[#e11d48]" />
+                          <span>Dropped</span>
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{animeStats.dropped}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#64748b]" />
+                          <span>Plan to Watch</span>
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{animeStats.plan}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 dark:text-slate-400">Total Entries</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{animeStats.total}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sub-metrics */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-[#1e263d] flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span>Episodes Watched: <strong className="text-slate-800 dark:text-slate-200 font-mono">{animeStats.totalEpisodes}</strong></span>
+                    <span>Scored Titles: <strong className="text-slate-800 dark:text-slate-200 font-mono">{animeStats.ratedCount}</strong></span>
+                  </div>
+                </div>
+
+                {/* 2. MANGA STATS (MAL Style) */}
+                <div className="p-6 rounded-2xl bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#1e263d] shadow-sm space-y-5">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#1e263d] pb-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500 dark:text-purple-400 border border-purple-500/20">
+                        <BookOpen className="w-4 h-4 fill-purple-500/20" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black tracking-wider uppercase text-slate-900 dark:text-white font-mono">
+                          Manga Stats
+                        </h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Reading progression & volumes
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block">Days Read</span>
+                        <span className="text-base font-black text-slate-900 dark:text-white font-mono">
+                          {mangaStats.daysRead} <span className="text-xs text-slate-400 font-normal">days</span>
+                        </span>
+                      </div>
+                      <div className="w-px h-8 bg-slate-200 dark:bg-[#1e263d]" />
+                      <div className="text-right">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block">Mean Score</span>
+                        <span className="text-base font-black text-amber-500 dark:text-amber-400 font-mono flex items-center gap-1 justify-end">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          {mangaStats.meanScore}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* MAL Segmented Color Bar for Manga */}
+                  <div className="space-y-2">
+                    <div className="w-full h-3.5 rounded-md bg-slate-100 dark:bg-[#090c14] overflow-hidden flex gap-0.5 p-0.5 border border-slate-200 dark:border-[#1e263d]">
+                      {mangaStats.total > 0 ? (
+                        <>
+                          {mangaStats.reading > 0 && (
+                            <div
+                              className="h-full bg-[#2db039] rounded-xs transition-all"
+                              style={{ width: `${(mangaStats.reading / mangaStats.total) * 100}%` }}
+                              title={`Reading: ${mangaStats.reading}`}
+                            />
+                          )}
+                          {mangaStats.completed > 0 && (
+                            <div
+                              className="h-full bg-[#26448f] dark:bg-[#3b82f6] rounded-xs transition-all"
+                              style={{ width: `${(mangaStats.completed / mangaStats.total) * 100}%` }}
+                              title={`Completed: ${mangaStats.completed}`}
+                            />
+                          )}
+                          {mangaStats.onHold > 0 && (
+                            <div
+                              className="h-full bg-[#f1a80a] rounded-xs transition-all"
+                              style={{ width: `${(mangaStats.onHold / mangaStats.total) * 100}%` }}
+                              title={`On-Hold: ${mangaStats.onHold}`}
+                            />
+                          )}
+                          {mangaStats.dropped > 0 && (
+                            <div
+                              className="h-full bg-[#a12f31] dark:bg-[#e11d48] rounded-xs transition-all"
+                              style={{ width: `${(mangaStats.dropped / mangaStats.total) * 100}%` }}
+                              title={`Dropped: ${mangaStats.dropped}`}
+                            />
+                          )}
+                          {mangaStats.plan > 0 && (
+                            <div
+                              className="h-full bg-[#64748b] rounded-xs transition-all"
+                              style={{ width: `${(mangaStats.plan / mangaStats.total) * 100}%` }}
+                              title={`Plan to Read: ${mangaStats.plan}`}
+                            />
+                          )}
+                        </>
+                      ) : (
+                        <div className="h-full w-full bg-slate-200 dark:bg-[#1a2030] rounded-xs" />
+                      )}
+                    </div>
+
+                    {/* Legend with exact MAL status tags */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-4 pt-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#2db039]" />
+                          <span>Reading</span>
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{mangaStats.reading}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#26448f] dark:bg-[#3b82f6]" />
+                          <span>Completed</span>
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{mangaStats.completed}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#f1a80a]" />
+                          <span>On-Hold</span>
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{mangaStats.onHold}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#a12f31] dark:bg-[#e11d48]" />
+                          <span>Dropped</span>
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{mangaStats.dropped}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#64748b]" />
+                          <span>Plan to Read</span>
+                        </span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{mangaStats.plan}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 dark:text-slate-400">Total Entries</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{mangaStats.total}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sub-metrics */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-[#1e263d] flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span>Chapters Read: <strong className="text-slate-800 dark:text-slate-200 font-mono">{mangaStats.totalChapters}</strong></span>
+                    <span>Scored Titles: <strong className="text-slate-800 dark:text-slate-200 font-mono">{mangaStats.ratedCount}</strong></span>
+                  </div>
+                </div>
               </div>
-              <div className="w-full h-3 rounded-full bg-neutral-950 overflow-hidden flex gap-0.5 p-0.5 border border-neutral-800">
-                {shelfStats.watching > 0 && (
-                  <div
-                    className="h-full bg-emerald-500 rounded-xs transition-all"
-                    style={{ width: `${(shelfStats.watching / shelfStats.total) * 100}%` }}
-                    title={`Watching: ${shelfStats.watching}`}
-                  />
-                )}
-                {shelfStats.completed > 0 && (
-                  <div
-                    className="h-full bg-sky-500 rounded-xs transition-all"
-                    style={{ width: `${(shelfStats.completed / shelfStats.total) * 100}%` }}
-                    title={`Completed: ${shelfStats.completed}`}
-                  />
-                )}
-                {shelfStats.plan > 0 && (
-                  <div
-                    className="h-full bg-amber-500 rounded-xs transition-all"
-                    style={{ width: `${(shelfStats.plan / shelfStats.total) * 100}%` }}
-                    title={`Plan to Watch: ${shelfStats.plan}`}
-                  />
-                )}
-                {shelfStats.onHold > 0 && (
-                  <div
-                    className="h-full bg-purple-500 rounded-xs transition-all"
-                    style={{ width: `${(shelfStats.onHold / shelfStats.total) * 100}%` }}
-                    title={`On Hold: ${shelfStats.onHold}`}
-                  />
-                )}
-                {shelfStats.dropped > 0 && (
-                  <div
-                    className="h-full bg-red-500 rounded-xs transition-all"
-                    style={{ width: `${(shelfStats.dropped / shelfStats.total) * 100}%` }}
-                    title={`Dropped: ${shelfStats.dropped}`}
-                  />
+
+              {/* Authentic MAL Score Distribution Histogram (10 to 1) */}
+              <div className="p-6 rounded-2xl bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#1e263d] shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#1e263d] pb-3">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-amber-500" />
+                    <h3 className="text-sm font-black tracking-wider uppercase text-slate-900 dark:text-white font-mono">
+                      Score Distribution
+                    </h3>
+                  </div>
+                  <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                    {scoreDistribution.totalRated} Scored Titles
+                  </span>
+                </div>
+
+                {scoreDistribution.totalRated > 0 ? (
+                  <div className="space-y-1.5 pt-1">
+                    {scoreDistribution.distribution.map((item) => (
+                      <div key={item.score} className="flex items-center gap-3 text-xs">
+                        <div className="w-28 sm:w-36 flex items-center justify-between shrink-0 font-mono">
+                          <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                            <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                            {item.score}
+                          </span>
+                          <span className="text-[11px] text-slate-400 dark:text-slate-500 font-sans truncate mr-2">
+                            {item.label}
+                          </span>
+                        </div>
+                        <div className="flex-1 h-3 rounded-sm bg-slate-100 dark:bg-[#090c14] overflow-hidden border border-slate-200 dark:border-[#1e263d]">
+                          <div
+                            className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xs transition-all duration-500"
+                            style={{ width: `${item.percent}%` }}
+                          />
+                        </div>
+                        <div className="w-16 text-right font-mono text-[11px] text-slate-600 dark:text-slate-400 shrink-0">
+                          <span className="font-bold text-slate-900 dark:text-white">{item.count}</span>
+                          <span className="text-[10px] text-slate-400 ml-1">({item.percent}%)</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400 italic">
+                    Rate anime or manga on your shelf to populate your authentic score distribution curve!
+                  </div>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-neutral-400">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Watching ({shelfStats.watching})</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-sky-500" /> Completed ({shelfStats.completed})</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500" /> Plan to Watch ({shelfStats.plan})</span>
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-500" /> On Hold ({shelfStats.onHold})</span>
+
+              {/* Spotlight Highlights (Top 4 Favorites) */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Pin className="w-4 h-4 text-rose-500" />
+                    <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white font-mono">
+                      Spotlight Highlights ({pinnedItems.length}/4)
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPinSelectorOpen(true)}
+                    className="text-xs text-rose-600 dark:text-rose-400 hover:underline font-semibold cursor-pointer"
+                  >
+                    Change Spotlight
+                  </button>
+                </div>
+
+                {pinnedItems.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {pinnedItems.map((item, idx) => (
+                      <div
+                        key={`pinned-${item.id}`}
+                        onClick={() => {
+                          if (item.mediaType === 'manga' && onSelectManga) {
+                            onSelectManga(item.title);
+                          } else if (onSelectAnime) {
+                            onSelectAnime({ mal_id: item.id, title: item.title, images: { jpg: { large_image_url: item.image } } });
+                          }
+                        }}
+                        className="group relative rounded-2xl overflow-hidden bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#1e263d] hover:border-rose-500/60 dark:hover:border-rose-500/60 transition-all cursor-pointer shadow-sm hover:shadow-md"
+                      >
+                        <div className="aspect-[3/4] w-full overflow-hidden relative">
+                          <img
+                            src={item.image}
+                            alt={item.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+
+                          {/* Ranking Badge */}
+                          <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-rose-600/90 text-white font-mono text-[10px] font-black tracking-wider">
+                            #{idx + 1}
+                          </div>
+
+                          {/* Direct Unpin action button */}
+                          <button
+                            type="button"
+                            onClick={(e) => handleUnpinSpotlight(e, item.id)}
+                            title="Unpin from spotlight"
+                            className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/70 hover:bg-rose-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-md cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+
+                          {item.userRating && (
+                            <div className="absolute bottom-10 left-2 px-2 py-0.5 rounded-lg bg-black/80 border border-amber-500/40 text-amber-300 font-mono text-[10px] font-bold flex items-center gap-1">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                              <span>{item.userRating}/10</span>
+                            </div>
+                          )}
+
+                          <div className="absolute bottom-2 left-2 right-2">
+                            <span className="px-1.5 py-0.5 rounded-sm bg-slate-800/90 text-slate-200 text-[9px] font-bold uppercase tracking-wider">
+                              {item.mediaType === 'manga' ? 'Manga' : 'Anime'} • {item.status.replace('_', ' ')}
+                            </span>
+                            <h4 className="text-xs font-bold text-white truncate mt-1 group-hover:text-rose-400 transition-colors">
+                              {item.title}
+                            </h4>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 rounded-2xl bg-slate-50 dark:bg-[#0f1422] border border-dashed border-slate-300 dark:border-[#1e263d] text-center space-y-2">
+                    <Bookmark className="w-8 h-8 text-slate-400 dark:text-slate-600 mx-auto" />
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                      Your spotlight is currently empty.
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Add titles to your shelf, then pin your top 4 all-time favorites!
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* About Me & Quote Card */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2 p-6 rounded-2xl bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#1e263d] shadow-sm space-y-4">
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5 font-mono">
+                      About Me
+                    </h3>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                      {bio || 'No biography written yet. Click "Customize Identity" above to introduce yourself to fellow fans!'}
+                    </p>
+                  </div>
+
+                  {favoriteQuote && (
+                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#090c14] border border-slate-200 dark:border-[#1e263d] flex items-start gap-3">
+                      <span className="text-rose-500 dark:text-rose-400 text-xl font-serif leading-none">“</span>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 italic font-medium leading-relaxed">
+                        {favoriteQuote}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Favorite Genres Chips */}
+                  {favoriteGenres.length > 0 && (
+                    <div className="pt-2">
+                      <h4 className="text-xs font-semibold text-slate-500 dark:text-neutral-400 mb-2">Favorite Genres</h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {favoriteGenres.map((genre) => (
+                          <span
+                            key={genre}
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-[#090c14] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-[#1e263d] text-xs font-medium"
+                          >
+                            {genre}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Social & Identity Meta */}
+                <div className="p-6 rounded-2xl bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#1e263d] shadow-sm space-y-4">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">
+                    Connected Handles
+                  </h3>
+
+                  <div className="space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#090c14] border border-slate-200 dark:border-[#1e263d]">
+                      <span className="text-slate-500 dark:text-slate-400">Discord</span>
+                      <span className="text-slate-800 dark:text-slate-200 font-mono font-medium">
+                        {socialDiscord || 'Not set'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#090c14] border border-slate-200 dark:border-[#1e263d]">
+                      <span className="text-slate-500 dark:text-slate-400">Community Handle</span>
+                      <span className="text-slate-800 dark:text-slate-200 font-mono font-medium">
+                        {socialAnilist || 'Not set'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-[#090c14] border border-slate-200 dark:border-[#1e263d]">
+                      <span className="text-slate-500 dark:text-slate-400">External Profile</span>
+                      <span className="text-slate-800 dark:text-slate-200 font-mono font-medium">
+                        {socialMal || 'Not set'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200 dark:border-[#1e263d]">
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+                      Member since {new Date(currentUser.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
-          {/* About Me & Quote Card */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 p-6 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-4">
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-300 mb-1">
-                  About Me
-                </h3>
-                <p className="text-sm text-neutral-300 leading-relaxed whitespace-pre-line">
-                  {bio || 'No biography written yet. Click "Customize Identity" above to introduce yourself to fellow fans!'}
-                </p>
+          {/* SUB-VIEW 2: ANIME LIST (Authentic MAL Interactive Table) */}
+          {showcaseSubTab === 'animelist' && (
+            <div className="space-y-4">
+              {/* Controls bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#1e263d]">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(['all', 'watching', 'completed', 'on_hold', 'dropped', 'plan_to_watch'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setListStatusFilter(st)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        listStatusFilter === st
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-100 dark:bg-[#090c14] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#1a2030]'
+                      }`}
+                    >
+                      {st === 'all' ? 'All Anime' : st.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={listSearch}
+                    onChange={(e) => setListSearch(e.target.value)}
+                    placeholder="Search in anime list..."
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-[#090c14] border border-slate-200 dark:border-[#1e263d] text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:border-blue-500"
+                  />
+                </div>
               </div>
 
-              {favoriteQuote && (
-                <div className="p-3.5 rounded-xl bg-neutral-950/80 border border-neutral-800/80 flex items-start gap-3">
-                  <span className="text-rose-400 text-xl font-serif leading-none">“</span>
-                  <p className="text-xs text-neutral-300 italic font-medium leading-relaxed">
-                    {favoriteQuote}
+              {/* MAL Anime Table */}
+              <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-[#1e263d] bg-white dark:bg-[#0f1422] shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-[#090c14] border-b border-slate-200 dark:border-[#1e263d] text-[11px] font-mono uppercase text-slate-500 dark:text-slate-400">
+                        <th className="py-3 px-4 w-12 text-center">#</th>
+                        <th className="py-3 px-2 w-16">Cover</th>
+                        <th className="py-3 px-4">Anime Title</th>
+                        <th className="py-3 px-4 w-28 text-center">Score</th>
+                        <th className="py-3 px-4 w-32">Status</th>
+                        <th className="py-3 px-4 w-28 text-center">Progress</th>
+                        <th className="py-3 px-4 w-24 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-[#1e263d]">
+                      {filteredAnimeList.length > 0 ? (
+                        filteredAnimeList.map((entry, idx) => (
+                          <tr
+                            key={entry.id}
+                            className="hover:bg-slate-50 dark:hover:bg-[#131a2d] transition-colors"
+                          >
+                            <td className="py-3 px-4 text-center font-mono text-slate-400">
+                              {idx + 1}
+                            </td>
+                            <td className="py-3 px-2">
+                              <img
+                                src={entry.image}
+                                alt={entry.title}
+                                className="w-10 h-14 object-cover rounded-md border border-slate-200 dark:border-[#1e263d]"
+                                loading="lazy"
+                              />
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (onSelectAnime) {
+                                    onSelectAnime({ mal_id: entry.id, title: entry.title, images: { jpg: { large_image_url: entry.image } } });
+                                  }
+                                }}
+                                className="font-bold text-slate-900 dark:text-white hover:text-blue-500 dark:hover:text-blue-400 text-left transition-colors cursor-pointer"
+                              >
+                                {entry.title}
+                              </button>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono">
+                              {entry.userRating ? (
+                                <span className="inline-flex items-center gap-1 font-bold text-amber-500 dark:text-amber-400">
+                                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                  {entry.userRating}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                                entry.status === 'watching' ? 'bg-[#2db039]/10 text-[#2db039] border border-[#2db039]/30' :
+                                entry.status === 'completed' ? 'bg-[#26448f]/10 text-blue-500 border border-blue-500/30' :
+                                entry.status === 'on_hold' ? 'bg-[#f1a80a]/10 text-amber-500 border border-amber-500/30' :
+                                entry.status === 'dropped' ? 'bg-[#a12f31]/10 text-rose-500 border border-rose-500/30' :
+                                'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                              }`}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                {entry.status.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-medium text-slate-700 dark:text-slate-300">
+                              {entry.progress || 0} / {entry.totalUnits || '?'}
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (onSelectAnime) {
+                                    onSelectAnime({ mal_id: entry.id, title: entry.title, images: { jpg: { large_image_url: entry.image } } });
+                                  }
+                                }}
+                                className="px-2 py-1 rounded-md bg-slate-100 dark:bg-[#090c14] hover:bg-blue-600 hover:text-white text-slate-600 dark:text-slate-300 font-semibold transition-colors cursor-pointer"
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={7} className="py-12 text-center text-slate-400">
+                            No anime matching your filter in this list.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SUB-VIEW 3: MANGA LIST (Authentic MAL Interactive Table) */}
+          {showcaseSubTab === 'mangalist' && (
+            <div className="space-y-4">
+              {/* Controls bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#1e263d]">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(['all', 'watching', 'completed', 'on_hold', 'dropped', 'plan_to_watch'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setListStatusFilter(st)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        listStatusFilter === st
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-slate-100 dark:bg-[#090c14] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#1a2030]'
+                      }`}
+                    >
+                      {st === 'all' ? 'All Manga' : st === 'watching' ? 'Reading' : st.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={listSearch}
+                    onChange={(e) => setListSearch(e.target.value)}
+                    placeholder="Search in manga list..."
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-[#090c14] border border-slate-200 dark:border-[#1e263d] text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* MAL Manga Table */}
+              <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-[#1e263d] bg-white dark:bg-[#0f1422] shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-[#090c14] border-b border-slate-200 dark:border-[#1e263d] text-[11px] font-mono uppercase text-slate-500 dark:text-slate-400">
+                        <th className="py-3 px-4 w-12 text-center">#</th>
+                        <th className="py-3 px-2 w-16">Cover</th>
+                        <th className="py-3 px-4">Manga Title</th>
+                        <th className="py-3 px-4 w-28 text-center">Score</th>
+                        <th className="py-3 px-4 w-32">Status</th>
+                        <th className="py-3 px-4 w-28 text-center">Progress</th>
+                        <th className="py-3 px-4 w-24 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-[#1e263d]">
+                      {filteredMangaList.length > 0 ? (
+                        filteredMangaList.map((entry, idx) => (
+                          <tr
+                            key={entry.id}
+                            className="hover:bg-slate-50 dark:hover:bg-[#131a2d] transition-colors"
+                          >
+                            <td className="py-3 px-4 text-center font-mono text-slate-400">
+                              {idx + 1}
+                            </td>
+                            <td className="py-3 px-2">
+                              <img
+                                src={entry.image}
+                                alt={entry.title}
+                                className="w-10 h-14 object-cover rounded-md border border-slate-200 dark:border-[#1e263d]"
+                                loading="lazy"
+                              />
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (onSelectManga) {
+                                    onSelectManga(entry.title);
+                                  }
+                                }}
+                                className="font-bold text-slate-900 dark:text-white hover:text-purple-500 dark:hover:text-purple-400 text-left transition-colors cursor-pointer"
+                              >
+                                {entry.title}
+                              </button>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono">
+                              {entry.userRating ? (
+                                <span className="inline-flex items-center gap-1 font-bold text-amber-500 dark:text-amber-400">
+                                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                  {entry.userRating}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                                entry.status === 'watching' ? 'bg-[#2db039]/10 text-[#2db039] border border-[#2db039]/30' :
+                                entry.status === 'completed' ? 'bg-[#26448f]/10 text-blue-500 border border-blue-500/30' :
+                                entry.status === 'on_hold' ? 'bg-[#f1a80a]/10 text-amber-500 border border-amber-500/30' :
+                                entry.status === 'dropped' ? 'bg-[#a12f31]/10 text-rose-500 border border-rose-500/30' :
+                                'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                              }`}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                {entry.status === 'watching' ? 'reading' : entry.status.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center font-mono font-medium text-slate-700 dark:text-slate-300">
+                              {entry.progress || 0} / {entry.totalUnits || '?'} ch
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (onSelectManga) {
+                                    onSelectManga(entry.title);
+                                  }
+                                }}
+                                className="px-2 py-1 rounded-md bg-slate-100 dark:bg-[#090c14] hover:bg-purple-600 hover:text-white text-slate-600 dark:text-slate-300 font-semibold transition-colors cursor-pointer"
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={7} className="py-12 text-center text-slate-400">
+                            No manga matching your filter in this list.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SUB-VIEW 4: SPOTLIGHT FAVORITES */}
+          {showcaseSubTab === 'spotlight' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Pin className="w-4 h-4 text-rose-500" />
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Spotlight Highlights ({pinnedItems.length}/4)
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPinSelectorOpen(true)}
+                  className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
+                >
+                  Configure Spotlight
+                </button>
+              </div>
+
+              {pinnedItems.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {pinnedItems.map((item, idx) => (
+                    <div
+                      key={`pinned-sub-${item.id}`}
+                      onClick={() => {
+                        if (item.mediaType === 'manga' && onSelectManga) {
+                          onSelectManga(item.title);
+                        } else if (onSelectAnime) {
+                          onSelectAnime({ mal_id: item.id, title: item.title, images: { jpg: { large_image_url: item.image } } });
+                        }
+                      }}
+                      className="group relative rounded-2xl overflow-hidden bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#1e263d] hover:border-rose-500/60 dark:hover:border-rose-500/60 transition-all cursor-pointer shadow-md"
+                    >
+                      <div className="aspect-[3/4] w-full overflow-hidden relative">
+                        <img
+                          src={item.image}
+                          alt={item.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+
+                        <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-rose-600 text-white font-mono text-[10px] font-black">
+                          #{idx + 1}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleUnpinSpotlight(e, item.id)}
+                          title="Unpin from spotlight"
+                          className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/70 hover:bg-rose-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-md cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+
+                        {item.userRating && (
+                          <div className="absolute bottom-10 left-2 px-2 py-0.5 rounded-lg bg-black/80 border border-amber-500/40 text-amber-300 font-mono text-[10px] font-bold flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                            <span>{item.userRating}/10</span>
+                          </div>
+                        )}
+
+                        <div className="absolute bottom-2 left-2 right-2">
+                          <span className="px-1.5 py-0.5 rounded-sm bg-slate-800/90 text-slate-200 text-[9px] font-bold uppercase tracking-wider">
+                            {item.mediaType === 'manga' ? 'Manga' : 'Anime'} • {item.status.replace('_', ' ')}
+                          </span>
+                          <h4 className="text-xs font-bold text-white truncate mt-1 group-hover:text-rose-400 transition-colors">
+                            {item.title}
+                          </h4>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 rounded-2xl bg-neutral-900/60 border border-dashed border-neutral-800 text-center space-y-2">
+                  <Bookmark className="w-8 h-8 text-neutral-600 mx-auto" />
+                  <p className="text-sm text-neutral-400 font-medium">
+                    Your spotlight is currently empty.
+                  </p>
+                  <p className="text-xs text-neutral-500">
+                    Add anime or manga to your shelf, then pin your favorite masterpieces here!
                   </p>
                 </div>
               )}
-
-              {/* Favorite Genres Chips */}
-              {favoriteGenres.length > 0 && (
-                <div className="pt-2">
-                  <h4 className="text-xs font-semibold text-neutral-400 mb-2">Favorite Genres</h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {favoriteGenres.map((genre) => (
-                      <span
-                        key={genre}
-                        className="px-2.5 py-1 rounded-lg bg-neutral-950 text-neutral-300 border border-neutral-800 text-xs font-medium"
-                      >
-                        {genre}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
+          )}
 
-            {/* Social & Identity Meta */}
-            <div className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800 space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-300">
-                Connected Handles
-              </h3>
-
-              <div className="space-y-2.5 text-xs">
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-neutral-950 border border-neutral-800">
-                  <span className="text-neutral-400">Discord</span>
-                  <span className="text-neutral-200 font-mono font-medium">
-                    {socialDiscord || 'Not set'}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-neutral-950 border border-neutral-800">
-                  <span className="text-neutral-400">AniList</span>
-                  <span className="text-neutral-200 font-mono font-medium">
-                    {socialAnilist || 'Not set'}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-neutral-950 border border-neutral-800">
-                  <span className="text-neutral-400">MyAnimeList</span>
-                  <span className="text-neutral-200 font-mono font-medium">
-                    {socialMal || 'Not set'}
-                  </span>
+          {/* SUB-VIEW 5: CURATOR MILESTONES */}
+          {showcaseSubTab === 'milestones' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Curator Milestones & Achievements ({badges.filter((b) => b.unlocked).length}/{badges.length})
+                  </h3>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-neutral-800">
-                <p className="text-[11px] text-neutral-500">
-                  Member since {new Date(currentUser.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short' })}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Pinned Showcase Titles (Top 4 Favorites) */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Pin className="w-4 h-4 text-rose-400" />
-                <h3 className="text-base font-bold text-white">
-                  Spotlight Highlights ({pinnedItems.length}/4)
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPinSelectorOpen(true)}
-                className="text-xs text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
-              >
-                Change Spotlight
-              </button>
-            </div>
-
-            {pinnedItems.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {pinnedItems.map((item) => (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {badges.map((badge) => (
                   <div
-                    key={`pinned-${item.id}`}
-                    onClick={() => {
-                      if (item.mediaType === 'manga' && onSelectManga) {
-                        onSelectManga(item.title);
-                      } else if (onSelectAnime) {
-                        onSelectAnime({ mal_id: item.id, title: item.title, images: { jpg: { large_image_url: item.image } } });
-                      }
-                    }}
-                    className="group relative rounded-2xl overflow-hidden bg-neutral-900 border border-neutral-800 hover:border-rose-500/60 transition-all cursor-pointer shadow-lg hover:shadow-rose-950/20"
+                    key={badge.id}
+                    className={`p-3.5 rounded-xl border flex items-start gap-3 transition-all ${
+                      badge.unlocked
+                        ? 'bg-neutral-900 border-neutral-800 hover:border-neutral-700'
+                        : 'bg-neutral-950/60 border-neutral-900 opacity-50'
+                    }`}
                   >
-                    <div className="aspect-[3/4] w-full overflow-hidden relative">
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-transparent to-transparent" />
-                      {item.userRating && (
-                        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-lg bg-black/70 backdrop-blur-xs border border-amber-500/40 text-amber-300 font-mono text-[11px] font-bold flex items-center gap-1">
-                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                          <span>{item.userRating}/10</span>
-                        </div>
-                      )}
-                      <div className="absolute bottom-2 left-2 right-2">
-                        <span className="px-1.5 py-0.5 rounded-md bg-rose-600/90 text-white text-[10px] font-bold uppercase tracking-wider">
-                          {item.status.replace('_', ' ')}
-                        </span>
-                        <h4 className="text-xs font-bold text-white truncate mt-1 group-hover:text-rose-400 transition-colors">
-                          {item.title}
-                        </h4>
+                    <div className="text-2xl shrink-0 p-1 rounded-lg bg-neutral-950 border border-neutral-800">
+                      {badge.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="text-xs font-bold text-white truncate">{badge.title}</h4>
+                        {badge.unlocked && (
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                        )}
                       </div>
+                      <p className="text-[11px] text-neutral-400 mt-0.5 leading-snug">
+                        {badge.description}
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="p-8 rounded-2xl bg-neutral-900/60 border border-dashed border-neutral-800 text-center space-y-2">
-                <Bookmark className="w-8 h-8 text-neutral-600 mx-auto" />
-                <p className="text-sm text-neutral-400 font-medium">
-                  Your spotlight is currently empty.
-                </p>
-                <p className="text-xs text-neutral-500">
-                  Add anime or manga to your shelf, then pin your favorite masterpieces here!
-                </p>
-                {onNavigateTab && (
-                  <button
-                    type="button"
-                    onClick={() => onNavigateTab('home')}
-                    className="mt-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    Browse Catalog
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Badges & Achievements Showcase */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-amber-400" />
-                <h3 className="text-base font-bold text-white">
-                  Otaku Milestones & Badges ({badges.filter((b) => b.unlocked).length}/{badges.length})
-                </h3>
-              </div>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {badges.map((badge) => (
-                <div
-                  key={badge.id}
-                  className={`p-3.5 rounded-xl border flex items-start gap-3 transition-all ${
-                    badge.unlocked
-                      ? 'bg-neutral-900 border-neutral-800 hover:border-neutral-700'
-                      : 'bg-neutral-950/60 border-neutral-900 opacity-50'
-                  }`}
-                >
-                  <div className="text-2xl shrink-0 p-1 rounded-lg bg-neutral-950 border border-neutral-800">
-                    {badge.icon}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h4 className="text-xs font-bold text-white truncate">{badge.title}</h4>
-                      {badge.unlocked && (
-                        <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
-                      )}
-                    </div>
-                    <p className="text-[11px] text-neutral-400 mt-0.5 leading-snug">
-                      {badge.description}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -1372,7 +2269,7 @@ export function ProfileView({
                 )}
               </div>
 
-              {/* Custom Photo Upload with AI Content Safety Moderation */}
+              {/* Custom Photo Upload with Automated Content Safety Guard */}
               <div className="p-4 sm:p-5 rounded-2xl bg-neutral-950/90 border border-neutral-800 space-y-4 shadow-inner">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div className="space-y-1">
@@ -1380,11 +2277,11 @@ export function ProfileView({
                       <ImageIcon className="w-4 h-4 text-rose-400" />
                       <span>Custom Profile Photo (Gallery / Device Upload)</span>
                       <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
-                        AI Moderated
+                        Automated Guard
                       </span>
                     </h4>
                     <p className="text-[11px] text-neutral-400 leading-relaxed max-w-xl">
-                      Upload your desired photo directly from your gallery or computer. Every upload is automatically scanned by our AI Safety Guard to ensure an explicit-free, family-friendly anime community.
+                      Upload your desired photo directly from your gallery or computer. Every upload is automatically scanned by our local safety guard to ensure an explicit-free anime community.
                     </p>
                   </div>
 
@@ -1453,7 +2350,7 @@ export function ProfileView({
                           <Loader2 className="w-6 h-6 text-rose-400 animate-spin" />
                           <div className="space-y-0.5">
                             <span className="font-bold text-white text-xs block">
-                              AI Content Safety Guard is scanning your image...
+                              Automated Safety Guard is scanning your image...
                             </span>
                             <span className="text-[11px] text-neutral-400 block">
                               Checking against nudity, explicit, or violent material
@@ -1561,21 +2458,24 @@ export function ProfileView({
                 </div>
               )}
 
-              {/* Silly & Fun Avatars */}
-              <div className="space-y-2">
+              {/* Curated Mature Anime & Manga Presets */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-neutral-300 flex items-center gap-1.5">
-                    <span>Silly & Fun Avatars</span>
-                    <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px] border border-amber-500/20">Community Favorites</span>
-                  </label>
+                  <div>
+                    <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>Curated Anime & Manga Vector Presets</span>
+                      <span className="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 text-[10px] font-semibold border border-rose-500/20">Kuro Shelf Original</span>
+                    </label>
+                    <p className="text-[11px] text-neutral-400 mt-0.5">High-contrast, mature vector illustrations crafted for manga & anime curators.</p>
+                  </div>
                   {customAvatarUrl && (
-                    <span className="text-[11px] text-neutral-400">
+                    <span className="text-[11px] text-neutral-400 hidden sm:inline">
                       Selecting a preset will switch from your custom photo.
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-                  {AVATAR_PRESETS.filter((p) => !p.isAdminOnly && p.category === 'Silly & Fun').map((preset) => {
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-3 pt-1">
+                  {AVATAR_PRESETS.filter((p) => !p.isAdminOnly).map((preset) => {
                     const isSelected = selectedPresetId === preset.id && !customAvatarUrl;
                     return (
                       <button
@@ -1588,55 +2488,16 @@ export function ProfileView({
                         }}
                         className={`p-3 rounded-2xl border flex flex-col items-center gap-2.5 transition-all cursor-pointer ${
                           isSelected
-                            ? 'bg-neutral-800 border-amber-500 shadow-lg shadow-amber-950/40 ring-2 ring-amber-500/50 scale-[1.03]'
+                            ? 'bg-neutral-800 border-rose-500 shadow-lg shadow-rose-950/40 ring-2 ring-rose-500/50 scale-[1.02]'
                             : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700'
                         }`}
                       >
-                        <div className="w-14 h-14 rounded-full overflow-hidden shadow-md flex items-center justify-center">
-                          <AnimeAvatar presetId={preset.id} frameColor="none" size="md" />
+                        <div className="w-16 h-16 rounded-full overflow-hidden shadow-md flex items-center justify-center">
+                          <AnimeAvatar presetId={preset.id} frameColor="none" size="lg" />
                         </div>
                         <div className="text-center w-full">
                           <h5 className="text-xs font-bold text-white truncate">{preset.name}</h5>
-                          <span className="text-[10px] text-neutral-500">{preset.badge}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Aesthetic Noir & Minimalist Avatars */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-neutral-300 flex items-center gap-1.5">
-                    <span>Aesthetic & Minimalist Avatars</span>
-                    <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400 text-[10px] border border-neutral-700">Clean Vector Art</span>
-                  </label>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {AVATAR_PRESETS.filter((p) => !p.isAdminOnly && p.category !== 'Silly & Fun').map((preset) => {
-                    const isSelected = selectedPresetId === preset.id && !customAvatarUrl;
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedPresetId(preset.id);
-                          setCustomAvatarUrl(null);
-                          setAvatarScanResult(null);
-                        }}
-                        className={`p-3 rounded-2xl border flex flex-col items-center gap-2.5 transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-neutral-800 border-indigo-500 shadow-lg shadow-indigo-950/40 ring-2 ring-indigo-500/50 scale-[1.03]'
-                            : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700'
-                        }`}
-                      >
-                        <div className="w-14 h-14 rounded-full overflow-hidden shadow-md flex items-center justify-center">
-                          <AnimeAvatar presetId={preset.id} frameColor="none" size="md" />
-                        </div>
-                        <div className="text-center w-full">
-                          <h5 className="text-xs font-bold text-white truncate">{preset.name}</h5>
-                          <span className="text-[10px] text-neutral-500">{preset.category}</span>
+                          <span className="text-[10px] text-rose-300/80 font-medium">{preset.category}</span>
                         </div>
                       </button>
                     );
@@ -1835,24 +2696,24 @@ export function ProfileView({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-400">AniList Username</label>
+                  <label className="text-xs font-medium text-neutral-400">Community Social Handle</label>
                   <input
                     type="text"
                     value={socialAnilist}
                     onChange={(e) => setSocialAnilist(e.target.value)}
-                    placeholder="my_anilist_name"
+                    placeholder="e.g. otaku_samurai"
                     maxLength={40}
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-rose-500"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-neutral-400">MyAnimeList Username</label>
+                  <label className="text-xs font-medium text-neutral-400">External Profile Link / Username</label>
                   <input
                     type="text"
                     value={socialMal}
                     onChange={(e) => setSocialMal(e.target.value)}
-                    placeholder="my_mal_handle"
+                    placeholder="e.g. your_profile_tag"
                     maxLength={40}
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-rose-500"
                   />
@@ -2475,28 +3336,34 @@ export function ProfileView({
       {/* 7. MODAL: FOLLOWING & FOLLOWERS */}
       {socialModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-3xl bg-neutral-900 border border-neutral-800 p-6 space-y-5 shadow-2xl">
+          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 p-6 space-y-4 shadow-2xl">
             {/* Header & Tabs */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setSocialModalOpen('following')}
+                  onClick={() => {
+                    setSocialModalOpen('following');
+                    setSocialSearch('');
+                  }}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     socialModalOpen === 'following'
                       ? 'bg-rose-600 text-white shadow-md shadow-rose-950/40'
-                      : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
+                      : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800'
                   }`}
                 >
                   Following ({followData.following.length})
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSocialModalOpen('followers')}
+                  onClick={() => {
+                    setSocialModalOpen('followers');
+                    setSocialSearch('');
+                  }}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     socialModalOpen === 'followers'
                       ? 'bg-rose-600 text-white shadow-md shadow-rose-950/40'
-                      : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
+                      : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800'
                   }`}
                 >
                   Followers ({followData.followers.length})
@@ -2505,24 +3372,47 @@ export function ProfileView({
 
               <button
                 type="button"
-                onClick={() => setSocialModalOpen(null)}
-                className="p-1.5 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+                onClick={() => {
+                  setSocialModalOpen(null);
+                  setSocialSearch('');
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                 title="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
+            {/* Quick Search bar */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-neutral-500" />
+              <input
+                type="text"
+                value={socialSearch}
+                onChange={(e) => setSocialSearch(e.target.value)}
+                placeholder="Search by name or @username..."
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-neutral-800 text-xs text-slate-800 dark:text-neutral-100 placeholder-slate-400 dark:placeholder-neutral-500 focus:outline-hidden focus:border-rose-500 transition-colors"
+              />
+            </div>
+
             {/* List of Users */}
-            <div className="max-h-80 overflow-y-auto space-y-2.5 pr-1">
+            <div className="max-h-72 overflow-y-auto space-y-2.5 pr-1">
               {socialModalOpen === 'following' ? (
                 followData.following.length > 0 ? (
-                  INITIAL_COMMUNITY_USERS.filter((u) => followData.following.includes(u.id)).map((u) => {
+                  INITIAL_COMMUNITY_USERS.filter((u) => {
+                    if (!followData.following.includes(u.id)) return false;
+                    const q = socialSearch.toLowerCase().trim();
+                    if (!q) return true;
+                    return (
+                      u.display_name.toLowerCase().includes(q) ||
+                      u.username.toLowerCase().includes(q)
+                    );
+                  }).map((u) => {
                     const userIsAdmin = isAdminUser(u);
                     return (
                       <div
                         key={`following-${u.id}`}
-                        className="p-3 rounded-2xl bg-neutral-950 border border-neutral-800/80 flex items-center justify-between gap-3 hover:border-neutral-700 transition-all"
+                        className="p-3 rounded-2xl bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-neutral-800/80 flex items-center justify-between gap-3 hover:border-slate-300 dark:hover:border-neutral-700 transition-all"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <AnimeAvatar
@@ -2536,24 +3426,24 @@ export function ProfileView({
                               <h4
                                 className={`text-xs font-bold truncate ${
                                   userIsAdmin
-                                    ? 'bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 bg-clip-text text-transparent font-black drop-shadow-[0_1px_6px_rgba(245,158,11,0.4)]'
-                                    : 'text-white'
+                                    ? 'bg-gradient-to-r from-amber-500 to-yellow-600 dark:from-amber-200 dark:via-yellow-300 dark:to-amber-400 bg-clip-text text-transparent font-black drop-shadow-xs'
+                                    : 'text-slate-900 dark:text-white'
                                 }`}
                               >
                                 {u.display_name}
                               </h4>
                               {userIsAdmin && (
-                                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-black uppercase flex items-center gap-0.5 shadow-xs">
-                                  <Crown className="w-2.5 h-2.5 text-amber-400" /> Admin
+                                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[9px] font-black uppercase flex items-center gap-0.5 shadow-xs">
+                                  <Crown className="w-2.5 h-2.5 text-amber-500" /> Admin
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 truncate">
-                              <span className={userIsAdmin ? 'text-amber-300/90 font-mono font-bold' : ''}>
+                            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-neutral-400 truncate">
+                              <span className={userIsAdmin ? 'text-amber-600 dark:text-amber-300/90 font-mono font-bold' : ''}>
                                 @{u.username}
                               </span>
                               <span>•</span>
-                              <span className="text-neutral-500">{u.levelTitle || 'Member'}</span>
+                              <span className="text-slate-400 dark:text-neutral-500">{u.levelTitle || 'Member'}</span>
                             </div>
                           </div>
                         </div>
@@ -2561,28 +3451,36 @@ export function ProfileView({
                         <button
                           type="button"
                           onClick={() => handleToggleFollow(u.id)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-red-950/40 hover:text-red-300 hover:border-red-900/60 border border-neutral-700 text-xs font-semibold text-neutral-200 transition-all cursor-pointer shrink-0"
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-neutral-800 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-300 hover:border-red-300 dark:hover:border-red-900/60 border border-slate-300 dark:border-neutral-700 text-xs font-semibold text-slate-700 dark:text-neutral-200 transition-all cursor-pointer shrink-0"
                         >
-                          <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                          <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
                           <span>Following</span>
                         </button>
                       </div>
                     );
                   })
                 ) : (
-                  <div className="text-center py-8 text-neutral-500 text-xs">
+                  <div className="text-center py-8 text-slate-400 dark:text-neutral-500 text-xs">
                     You are not following any members yet.
                   </div>
                 )
               ) : (
                 followData.followers.length > 0 ? (
-                  INITIAL_COMMUNITY_USERS.filter((u) => followData.followers.includes(u.id)).map((u) => {
+                  INITIAL_COMMUNITY_USERS.filter((u) => {
+                    if (!followData.followers.includes(u.id)) return false;
+                    const q = socialSearch.toLowerCase().trim();
+                    if (!q) return true;
+                    return (
+                      u.display_name.toLowerCase().includes(q) ||
+                      u.username.toLowerCase().includes(q)
+                    );
+                  }).map((u) => {
                     const isFollowingBack = followData.following.includes(u.id);
                     const userIsAdmin = isAdminUser(u);
                     return (
                       <div
                         key={`follower-${u.id}`}
-                        className="p-3 rounded-2xl bg-neutral-950 border border-neutral-800/80 flex items-center justify-between gap-3 hover:border-neutral-700 transition-all"
+                        className="p-3 rounded-2xl bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-neutral-800/80 flex items-center justify-between gap-3 hover:border-slate-300 dark:hover:border-neutral-700 transition-all"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <AnimeAvatar
@@ -2596,24 +3494,24 @@ export function ProfileView({
                               <h4
                                 className={`text-xs font-bold truncate ${
                                   userIsAdmin
-                                    ? 'bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 bg-clip-text text-transparent font-black drop-shadow-[0_1px_6px_rgba(245,158,11,0.4)]'
-                                    : 'text-white'
+                                    ? 'bg-gradient-to-r from-amber-500 to-yellow-600 dark:from-amber-200 dark:via-yellow-300 dark:to-amber-400 bg-clip-text text-transparent font-black drop-shadow-xs'
+                                    : 'text-slate-900 dark:text-white'
                                 }`}
                               >
                                 {u.display_name}
                               </h4>
                               {userIsAdmin && (
-                                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-black uppercase flex items-center gap-0.5 shadow-xs">
-                                  <Crown className="w-2.5 h-2.5 text-amber-400" /> Admin
+                                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30 text-[9px] font-black uppercase flex items-center gap-0.5 shadow-xs">
+                                  <Crown className="w-2.5 h-2.5 text-amber-500" /> Admin
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 truncate">
-                              <span className={userIsAdmin ? 'text-amber-300/90 font-mono font-bold' : ''}>
+                            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-neutral-400 truncate">
+                              <span className={userIsAdmin ? 'text-amber-600 dark:text-amber-300/90 font-mono font-bold' : ''}>
                                 @{u.username}
                               </span>
                               <span>•</span>
-                              <span className="text-neutral-500">{u.levelTitle || 'Member'}</span>
+                              <span className="text-slate-400 dark:text-neutral-500">{u.levelTitle || 'Member'}</span>
                             </div>
                           </div>
                         </div>
@@ -2623,13 +3521,13 @@ export function ProfileView({
                           onClick={() => handleToggleFollow(u.id)}
                           className={`flex items-center gap-1 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shrink-0 ${
                             isFollowingBack
-                              ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border-neutral-700'
+                              ? 'bg-slate-200 dark:bg-neutral-800 hover:bg-slate-300 dark:hover:bg-neutral-700 text-slate-700 dark:text-neutral-300 border-slate-300 dark:border-neutral-700'
                               : 'bg-rose-600 hover:bg-rose-500 text-white border-rose-500 shadow-sm'
                           }`}
                         >
                           {isFollowingBack ? (
                             <>
-                              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                              <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
                               <span>Following</span>
                             </>
                           ) : (
@@ -2643,7 +3541,7 @@ export function ProfileView({
                     );
                   })
                 ) : (
-                  <div className="text-center py-8 text-neutral-500 text-xs">
+                  <div className="text-center py-8 text-slate-400 dark:text-neutral-500 text-xs">
                     No followers yet. Track more anime and share your profile!
                   </div>
                 )

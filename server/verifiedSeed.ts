@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { AnimeItem } from '../src/types';
+import { AnimeItem, MangaItem } from '../src/types';
 
 // This is genuinely static, verified data from Jikan.
 export const VERIFIED_SEED_ANIME: AnimeItem[] = [
@@ -1105,3 +1105,576 @@ export const VERIFIED_SEED_ANIME: AnimeItem[] = [
     ]
   }
 ];
+
+export const VERIFIED_SEED_MANGA: MangaItem[] = [
+  {
+    mal_id: 2,
+    url: "https://myanimelist.net/manga/2/Berserk",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/1/157897.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/1/157897t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/1/157897l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/1/157897.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/1/157897t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/1/157897l.webp"
+      }
+    },
+    title: "Berserk",
+    title_english: "Berserk",
+    title_japanese: "ベルセルク",
+    type: "Manga",
+    chapters: 380,
+    volumes: 42,
+    status: "Publishing",
+    publishing: true,
+    score: 9.47,
+    scored_by: 360000,
+    rank: 1,
+    popularity: 1,
+    synopsis: "Guts, a former mercenary now known as the \"Black Swordsman,\" is out for revenge. After a tumultuous childhood, he finally finds someone he respects and believes he can trust, only for everything to fall apart when this person sacrifices everyone Guts cares about for personal power. Now marked for death and continually pursued by demonic beings, Guts sets out on a grim journey to defy his gruesome fate and slay the man who betrayed him.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 2, type: "manga", name: "Adventure" },
+      { mal_id: 10, type: "manga", name: "Fantasy" },
+      { mal_id: 14, type: "manga", name: "Horror" },
+      { mal_id: 42, type: "manga", name: "Seinen" }
+    ],
+    authors: [{ mal_id: 1868, name: "Miura, Kentarou", type: "People" }]
+  },
+  {
+    mal_id: 13,
+    url: "https://myanimelist.net/manga/13/One_Piece",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/2/253146.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/2/253146t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/2/253146l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/2/253146.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/2/253146t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/2/253146l.webp"
+      }
+    },
+    title: "One Piece",
+    title_english: "One Piece",
+    title_japanese: "ONE PIECE",
+    type: "Manga",
+    chapters: 1120,
+    volumes: 108,
+    status: "Publishing",
+    publishing: true,
+    score: 9.22,
+    scored_by: 380000,
+    rank: 3,
+    popularity: 3,
+    synopsis: "Gol D. Roger, a man referred to as the \"King of the Pirates,\" is destined for execution by the World Government. But just before his death, he reveals that his great treasure, the One Piece, exists and is hidden somewhere along the Grand Line. Inspired by Roger's dying words, Monkey D. Luffy sets out on his quest to find the treasure and become the next Pirate King.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 2, type: "manga", name: "Adventure" },
+      { mal_id: 10, type: "manga", name: "Fantasy" },
+      { mal_id: 27, type: "manga", name: "Shounen" }
+    ],
+    authors: [{ mal_id: 1881, name: "Oda, Eiichiro", type: "People" }]
+  },
+  {
+    mal_id: 656,
+    url: "https://myanimelist.net/manga/656/Vagabond",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/1/259070.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/1/259070t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/1/259070l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/1/259070.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/1/259070t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/1/259070l.webp"
+      }
+    },
+    title: "Vagabond",
+    title_english: "Vagabond",
+    title_japanese: "バガボンド",
+    type: "Manga",
+    chapters: 327,
+    volumes: 37,
+    status: "On Hiatus",
+    publishing: false,
+    score: 9.25,
+    scored_by: 250000,
+    rank: 2,
+    popularity: 15,
+    synopsis: "In 16th-century Japan, Shinmen Takezou is a wild and fierce young warrior feared by all around him. Leaving his village to fight at the Battle of Sekigahara, he survives the slaughter and resolves to become \"Invincible Under the Heavens\" by dedicating himself fully to the blade, taking on the legendary name Miyamoto Musashi.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 2, type: "manga", name: "Adventure" },
+      { mal_id: 13, type: "manga", name: "Historical" },
+      { mal_id: 42, type: "manga", name: "Seinen" }
+    ],
+    authors: [{ mal_id: 1911, name: "Inoue, Takehiko", type: "People" }]
+  },
+  {
+    mal_id: 1,
+    url: "https://myanimelist.net/manga/1/Monster",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/258224.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/258224t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/258224l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/258224.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/258224t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/258224l.webp"
+      }
+    },
+    title: "Monster",
+    title_english: "Monster",
+    title_japanese: "MONSTER",
+    type: "Manga",
+    chapters: 162,
+    volumes: 18,
+    status: "Finished",
+    publishing: false,
+    score: 9.15,
+    scored_by: 230000,
+    rank: 5,
+    popularity: 29,
+    synopsis: "Kenzou Tenma, an elite neurosurgeon in Düsseldorf, chooses to save the life of a young boy over the city's mayor. Nine years later, the boy he saved reappears as a chilling, charismatic serial mastermind known as Johan Liebert.",
+    genres: [
+      { mal_id: 7, type: "manga", name: "Mystery" },
+      { mal_id: 14, type: "manga", name: "Drama" },
+      { mal_id: 41, type: "manga", name: "Suspense" },
+      { mal_id: 42, type: "manga", name: "Seinen" }
+    ],
+    authors: [{ mal_id: 1867, name: "Urasawa, Naoki", type: "People" }]
+  },
+  {
+    mal_id: 116778,
+    url: "https://myanimelist.net/manga/116778/Chainsaw_Man",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/216464.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/216464t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/216464l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/216464.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/216464t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/216464l.webp"
+      }
+    },
+    title: "Chainsaw Man",
+    title_english: "Chainsaw Man",
+    title_japanese: "チェンソーマン",
+    type: "Manga",
+    chapters: 185,
+    volumes: 18,
+    status: "Publishing",
+    publishing: true,
+    score: 8.71,
+    scored_by: 390000,
+    rank: 45,
+    popularity: 2,
+    synopsis: "Denji has a simple dream—to live a happy and peaceful life, spending time with a girl he likes. This is a far cry from reality, however, as Denji is forced by the yakuza into killing devils in order to pay off his deceased father's crushing debts with his chainsaw-dog pet, Pochita.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 14, type: "manga", name: "Supernatural" },
+      { mal_id: 27, type: "manga", name: "Shounen" }
+    ],
+    authors: [{ mal_id: 41120, name: "Fujimoto, Tatsuki", type: "People" }]
+  },
+  {
+    mal_id: 642,
+    url: "https://myanimelist.net/manga/642/Vinland_Saga",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/2/188925.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/2/188925t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/2/188925l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/2/188925.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/2/188925t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/2/188925l.webp"
+      }
+    },
+    title: "Vinland Saga",
+    title_english: "Vinland Saga",
+    title_japanese: "ヴィンランド・サガ",
+    type: "Manga",
+    chapters: 215,
+    volumes: 27,
+    status: "Publishing",
+    publishing: true,
+    score: 9.06,
+    scored_by: 280000,
+    rank: 8,
+    popularity: 18,
+    synopsis: "Thorfinn, son of one of the Vikings' greatest warriors, among the finest fighters in the band of mercenaries led by the cunning Askeladd. However, Thorfinn is not part of the group for the plunder; instead, for vengeance against Askeladd for his father's death.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 2, type: "manga", name: "Adventure" },
+      { mal_id: 13, type: "manga", name: "Historical" },
+      { mal_id: 42, type: "manga", name: "Seinen" }
+    ],
+    authors: [{ mal_id: 2029, name: "Yukimura, Makoto", type: "People" }]
+  },
+  {
+    mal_id: 113138,
+    url: "https://myanimelist.net/manga/113138/Jujutsu_Kaisen",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/210341.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/210341t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/210341l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/210341.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/210341t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/210341l.webp"
+      }
+    },
+    title: "Jujutsu Kaisen",
+    title_english: "Jujutsu Kaisen",
+    title_japanese: "呪術廻戦",
+    type: "Manga",
+    chapters: 271,
+    volumes: 28,
+    status: "Finished",
+    publishing: false,
+    score: 8.42,
+    scored_by: 360000,
+    rank: 120,
+    popularity: 4,
+    synopsis: "Yuuji Itadori is a high school student who joins the Occult Research Club to pass time. When the club unearths a cursed object, Yuuji swallows the finger of the King of Curses, Ryomen Sukuna, dragging him into the lethal world of Jujutsu Sorcery.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 14, type: "manga", name: "Supernatural" },
+      { mal_id: 27, type: "manga", name: "Shounen" }
+    ],
+    authors: [{ mal_id: 47651, name: "Akutami, Gege", type: "People" }]
+  },
+  {
+    mal_id: 126287,
+    url: "https://myanimelist.net/manga/126287/Sousou_no_Frieren",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/234552.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/234552t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/234552l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/234552.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/234552t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/234552l.webp"
+      }
+    },
+    title: "Frieren: Beyond Journey's End",
+    title_english: "Frieren: Beyond Journey's End",
+    title_japanese: "葬送のフリーレン",
+    type: "Manga",
+    chapters: 135,
+    volumes: 13,
+    status: "Publishing",
+    publishing: true,
+    score: 8.95,
+    scored_by: 180000,
+    rank: 16,
+    popularity: 22,
+    synopsis: "The adventure is over, but life goes on for an elf mage just beginning to learn what living is all about. Elf mage Frieren and her courageous fellow adventurers have defeated the Demon King and brought peace to the land. But Frieren will long outlive the rest of her former party.",
+    genres: [
+      { mal_id: 2, type: "manga", name: "Adventure" },
+      { mal_id: 10, type: "manga", name: "Fantasy" },
+      { mal_id: 14, type: "manga", name: "Drama" },
+      { mal_id: 27, type: "manga", name: "Shounen" }
+    ],
+    authors: [{ mal_id: 51631, name: "Yamada, Kanehito", type: "People" }]
+  },
+  {
+    mal_id: 119161,
+    url: "https://myanimelist.net/manga/119161/Spy_x_Family",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/219741.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/219741t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/219741l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/219741.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/219741t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/219741l.webp"
+      }
+    },
+    title: "Spy x Family",
+    title_english: "Spy x Family",
+    title_japanese: "SPY×FAMILY",
+    type: "Manga",
+    chapters: 105,
+    volumes: 13,
+    status: "Publishing",
+    publishing: true,
+    score: 8.52,
+    scored_by: 270000,
+    rank: 82,
+    popularity: 9,
+    synopsis: "For the agent known as \"Twilight,\" no order is too tall if it is for the sake of peace. Operating as the master spy of Westalis, Twilight works tirelessly to prevent extremists from sparking a war. For his latest mission, he must infiltrate Eden Academy by marrying and adopting a child.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 4, type: "manga", name: "Comedy" },
+      { mal_id: 27, type: "manga", name: "Shounen" }
+    ],
+    authors: [{ mal_id: 6149, name: "Endo, Tatsuya", type: "People" }]
+  },
+  {
+    mal_id: 23390,
+    url: "https://myanimelist.net/manga/23390/Shingeki_no_Kyojin",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/2/37846.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/2/37846t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/2/37846l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/2/37846.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/2/37846t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/2/37846l.webp"
+      }
+    },
+    title: "Attack on Titan",
+    title_english: "Attack on Titan",
+    title_japanese: "進撃の巨人",
+    type: "Manga",
+    chapters: 141,
+    volumes: 34,
+    status: "Finished",
+    publishing: false,
+    score: 8.56,
+    scored_by: 580000,
+    rank: 64,
+    popularity: 1,
+    synopsis: "Hundreds of years ago, horrific creatures which resembled humans appeared. These mindless, towering giants, called \"titans,\" proved to be an existential threat, as they preyed on any human they could find in order to satisfy a seemingly never-ending appetite.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 14, type: "manga", name: "Drama" },
+      { mal_id: 7, type: "manga", name: "Mystery" },
+      { mal_id: 27, type: "manga", name: "Shounen" }
+    ],
+    authors: [{ mal_id: 11705, name: "Isayama, Hajime", type: "People" }]
+  },
+  {
+    mal_id: 135496,
+    url: "https://myanimelist.net/manga/135496/Dandadan",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/2/248740.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/2/248740t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/2/248740l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/2/248740.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/2/248740t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/2/248740l.webp"
+      }
+    },
+    title: "Dandadan",
+    title_english: "Dandadan",
+    title_japanese: "ダンダダン",
+    type: "Manga",
+    chapters: 170,
+    volumes: 16,
+    status: "Publishing",
+    publishing: true,
+    score: 8.44,
+    scored_by: 140000,
+    rank: 135,
+    popularity: 35,
+    synopsis: "Momo Ayase strikes up an unusual friendship with her school's UFO fanatic, whom she nicknames \"Okarun.\" While Ayase believes in spirits, she thinks aliens are utter nonsense. Her new friend, meanwhile, thinks the exact opposite. To settle who is right, the two set out to places associated with the occult.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 4, type: "manga", name: "Comedy" },
+      { mal_id: 14, type: "manga", name: "Supernatural" },
+      { mal_id: 27, type: "manga", name: "Shounen" }
+    ],
+    authors: [{ mal_id: 53139, name: "Tatsu, Yukinobu", type: "People" }]
+  },
+  {
+    mal_id: 121496,
+    url: "https://myanimelist.net/manga/121496/Solo_Leveling",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/222295.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/222295t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/222295l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/222295.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/222295t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/222295l.webp"
+      }
+    },
+    title: "Solo Leveling",
+    title_english: "Solo Leveling",
+    title_japanese: "나 혼자만 레벨업",
+    type: "Manhwa",
+    chapters: 200,
+    volumes: 14,
+    status: "Finished",
+    publishing: false,
+    score: 8.65,
+    scored_by: 450000,
+    rank: 52,
+    popularity: 5,
+    synopsis: "Ten years ago, \"the Gate\" appeared and connected the real world with the realm of magic and monsters. To combat these vile beasts, ordinary people were granted superhuman powers and became known as \"Hunters.\" Sung Jin-Woo, the weakest of all, finds a mysterious quest log that only he can see.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 2, type: "manga", name: "Adventure" },
+      { mal_id: 10, type: "manga", name: "Fantasy" }
+    ],
+    authors: [{ mal_id: 48943, name: "Chugong", type: "People" }]
+  },
+  {
+    mal_id: 114745,
+    url: "https://myanimelist.net/manga/114745/Blue_Lock",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/2/220268.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/2/220268t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/2/220268l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/2/220268.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/2/220268t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/2/220268l.webp"
+      }
+    },
+    title: "Blue Lock",
+    title_english: "Blue Lock",
+    title_japanese: "ブルーロック",
+    type: "Manga",
+    chapters: 275,
+    volumes: 30,
+    status: "Publishing",
+    publishing: true,
+    score: 8.35,
+    scored_by: 160000,
+    rank: 180,
+    popularity: 20,
+    synopsis: "After a disastrous elimination at the 2018 World Cup, Japan's team struggles to regroup. The eccentric coach Jinpachi Ego initiates the controversial \"Blue Lock\" project—a prison-like facility where three hundred talented high school strikers compete against each other to produce the single greatest egoist striker.",
+    genres: [
+      { mal_id: 30, type: "manga", name: "Sports" },
+      { mal_id: 27, type: "manga", name: "Shounen" }
+    ],
+    authors: [{ mal_id: 46270, name: "Kaneshiro, Muneyuki", type: "People" }]
+  },
+  {
+    mal_id: 25,
+    url: "https://myanimelist.net/manga/25/Fullmetal_Alchemist",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/243675.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/243675t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/243675l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/243675.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/243675t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/243675l.webp"
+      }
+    },
+    title: "Fullmetal Alchemist",
+    title_english: "Fullmetal Alchemist",
+    title_japanese: "鋼の錬金術師",
+    type: "Manga",
+    chapters: 116,
+    volumes: 27,
+    status: "Finished",
+    publishing: false,
+    score: 9.03,
+    scored_by: 320000,
+    rank: 10,
+    popularity: 8,
+    synopsis: "Alchemists are knowledgeable and gifted individuals who study the art of transmutation. Edward and Alphonse Elric learn that alchemy has its limits when their attempt at human transmutation costs Edward his left leg and right arm, and Alphonse his entire body.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 2, type: "manga", name: "Adventure" },
+      { mal_id: 10, type: "manga", name: "Fantasy" },
+      { mal_id: 27, type: "manga", name: "Shounen" }
+    ],
+    authors: [{ mal_id: 1874, name: "Arakawa, Hiromu", type: "People" }]
+  },
+  {
+    mal_id: 33327,
+    url: "https://myanimelist.net/manga/33327/Tokyo_Ghoul",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/114249.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/114249t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/114249l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/114249.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/114249t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/114249l.webp"
+      }
+    },
+    title: "Tokyo Ghoul",
+    title_english: "Tokyo Ghoul",
+    title_japanese: "東京喰種 トーキョーグール",
+    type: "Manga",
+    chapters: 144,
+    volumes: 14,
+    status: "Finished",
+    publishing: false,
+    score: 8.52,
+    scored_by: 420000,
+    rank: 92,
+    popularity: 6,
+    synopsis: "Lurking within the shadows of Tokyo are frightening beings known as \"ghouls,\" who satisfy their hunger by feeding on human flesh. College student Ken Kaneki barely survives an encounter with one, only to find that he has been transformed into a half-ghoul hybrid.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 14, type: "manga", name: "Horror" },
+      { mal_id: 42, type: "manga", name: "Seinen" }
+    ],
+    authors: [{ mal_id: 19865, name: "Ishida, Sui", type: "People" }]
+  },
+  {
+    mal_id: 96792,
+    url: "https://myanimelist.net/manga/96792/Kimetsu_no_Yaiba",
+    images: {
+      jpg: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/179023.jpg",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/179023t.jpg",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/179023l.jpg"
+      },
+      webp: {
+        image_url: "https://cdn.myanimelist.net/images/manga/3/179023.webp",
+        small_image_url: "https://cdn.myanimelist.net/images/manga/3/179023t.webp",
+        large_image_url: "https://cdn.myanimelist.net/images/manga/3/179023l.webp"
+      }
+    },
+    title: "Demon Slayer: Kimetsu no Yaiba",
+    title_english: "Demon Slayer: Kimetsu no Yaiba",
+    title_japanese: "鬼滅の刃",
+    type: "Manga",
+    chapters: 207,
+    volumes: 23,
+    status: "Finished",
+    publishing: false,
+    score: 8.28,
+    scored_by: 390000,
+    rank: 240,
+    popularity: 7,
+    synopsis: "Tanjiro Kamado lives a modest life in the mountains. Returning from selling charcoal in town, he discovers his entire family slaughtered by demons, and his sister Nezuko turned into a demon who still shows remnants of human thought.",
+    genres: [
+      { mal_id: 1, type: "manga", name: "Action" },
+      { mal_id: 14, type: "manga", name: "Supernatural" },
+      { mal_id: 27, type: "manga", name: "Shounen" }
+    ],
+    authors: [{ mal_id: 39915, name: "Gotouge, Koyoharu", type: "People" }]
+  }
+];
+

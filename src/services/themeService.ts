@@ -1,7 +1,9 @@
-import { ThemeMode, ViewDistance } from '../types';
+import { ThemeMode } from '../types';
 
 const THEME_STORAGE_KEY = 'kuro_theme_mode';
-const VIEW_DISTANCE_STORAGE_KEY = 'kuro_view_distance';
+
+// Permanently locked view scale (80-85% sweet spot)
+export const LOCKED_APP_SCALE = '82%';
 
 export function getStoredThemeMode(): ThemeMode {
   try {
@@ -15,23 +17,6 @@ export function getStoredThemeMode(): ThemeMode {
   return 'dark'; // default theme
 }
 
-export function getStoredViewDistance(): ViewDistance {
-  try {
-    const saved = localStorage.getItem(VIEW_DISTANCE_STORAGE_KEY);
-    if (saved === '85%' || saved === '90%' || saved === '100%') {
-      return saved;
-    }
-    // Upgrade 75%, 67%, or legacy 'far' to 85% (comfortably zoomed in)
-    if (saved === '75%' || saved === '67%' || saved === 'far') {
-      return '85%';
-    }
-    if (saved === 'standard') return '100%';
-  } catch {
-    // ignore
-  }
-  return '85%'; // Default to 85% comfortable zoom
-}
-
 export function setStoredThemeMode(mode: ThemeMode): void {
   try {
     localStorage.setItem(THEME_STORAGE_KEY, mode);
@@ -41,43 +26,18 @@ export function setStoredThemeMode(mode: ThemeMode): void {
   applyTheme(mode);
 }
 
-export function applyViewScale(distance: ViewDistance): void {
+/**
+ * Permanently locks application scale at 82% (80-85% range)
+ */
+export function applyViewScale(): void {
   if (typeof document === 'undefined') return;
-  // Clear any existing zoom on body to prevent accidental browser compounding
   try {
     (document.body.style as unknown as Record<string, string>).zoom = '';
+    (document.documentElement.style as unknown as Record<string, string>).zoom = LOCKED_APP_SCALE;
+    document.documentElement.style.setProperty('--app-scale', '0.82');
   } catch {
     // ignore
   }
-
-  const zoomValue = 
-    distance === '67%' ? '67%' : 
-    distance === '75%' ? '75%' : 
-    distance === '90%' ? '90%' : 
-    distance === '100%' || distance === 'standard' ? '100%' : 
-    '85%';
-
-  try {
-    (document.documentElement.style as unknown as Record<string, string>).zoom = zoomValue;
-    const scaleNum = 
-      zoomValue === '100%' ? '1' : 
-      zoomValue === '90%' ? '0.9' : 
-      zoomValue === '85%' ? '0.85' : 
-      zoomValue === '75%' ? '0.75' : '0.67';
-    document.documentElement.style.setProperty('--app-scale', scaleNum);
-  } catch {
-    // ignore
-  }
-}
-
-export function setStoredViewDistance(distance: ViewDistance): void {
-  const normalized: ViewDistance = distance === 'far' ? '85%' : distance === 'standard' ? '100%' : distance;
-  try {
-    localStorage.setItem(VIEW_DISTANCE_STORAGE_KEY, normalized);
-  } catch {
-    // ignore
-  }
-  applyViewScale(normalized);
 }
 
 /**

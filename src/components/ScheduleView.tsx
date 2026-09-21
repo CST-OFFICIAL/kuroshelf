@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar, Clock, Star, Bookmark, Search, Check, Filter, ChevronRight } from 'lucide-react';
-import { AiringScheduleItem, AnimeItem, ShelfStatus, ViewDistance } from '../types';
+import { AiringScheduleItem, AnimeItem, ShelfStatus } from '../types';
 import { getAiringSchedule } from '../services/jikan';
 
 interface ScheduleViewProps {
@@ -8,7 +8,6 @@ interface ScheduleViewProps {
   onAddToShelf: (item: AnimeItem, status: ShelfStatus) => void;
   isItemInShelf?: (id: number) => boolean;
   onNavigateTab?: (tab: string) => void;
-  viewDistance?: ViewDistance;
 }
 
 const DAYS_OF_WEEK = [
@@ -42,7 +41,6 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   onAddToShelf,
   isItemInShelf,
   onNavigateTab,
-  viewDistance = '85%',
 }) => {
   const todayWeekday = useMemo(() => getTodayWeekday(), []);
   const [selectedDay, setSelectedDay] = useState<string>(todayWeekday);
@@ -52,15 +50,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
   const [addedIds, setAddedIds] = useState<Set<number>>(new Set());
 
-  const scheduleGridClass = useMemo(() => {
-    if (viewDistance === '67%' || viewDistance === '75%') {
-      return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5';
-    }
-    if (viewDistance === '85%' || viewDistance === '90%' || viewDistance === 'far') {
-      return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6';
-    }
-    return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 sm:gap-6';
-  }, [viewDistance]);
+  const scheduleGridClass = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6';
 
   useEffect(() => {
     let isMounted = true;

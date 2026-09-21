@@ -19,15 +19,17 @@ export interface AnimeAvatarProps {
     | string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   isAdmin?: boolean;
+  isDonor?: boolean;
   className?: string;
 }
 
 export const AnimeAvatar: React.FC<AnimeAvatarProps> = ({
-  presetId = 'silly_derp_cat',
+  presetId = 'noir_ronin',
   customAvatarUrl,
   frameColor = 'none',
   size = 'md',
   isAdmin = false,
+  isDonor = false,
   className = ''
 }) => {
   const [imgError, setImgError] = React.useState(false);
@@ -49,315 +51,210 @@ export const AnimeAvatar: React.FC<AnimeAvatarProps> = ({
   const currentSize = sizeMap[size] || sizeMap.md;
   const sizeClasses = currentSize.container;
 
-  // Render Original Vector Avatars (Silly, Minimalist Aesthetic, and Sovereign Admin)
+  // Protect admin-exclusive avatars so normal users can never render them
+  const adminOnlyPresets = new Set([
+    'kuro_ryu_dragon',
+    'shadow_monarch',
+    'limitless_awakened',
+    'blood_moon_ronin',
+    'susanoo_god'
+  ]);
+  const effectivePresetId = !isAdmin && adminOnlyPresets.has(presetId)
+    ? 'curator_cyber_dark'
+    : presetId;
+
+  // Render Original Mature Vector Avatars (Curator & Aesthetic Anime/Manga Styles)
   const renderAvatarIllustration = () => {
-    switch (presetId) {
+    switch (effectivePresetId) {
       // ==========================================
-      // 1. SILLY & FUN COMMUNITY AVATARS
+      // 1. ORIGINAL MATURE COMMUNITY AVATARS (KURO SHELF CURATOR AESTHETIC)
       // ==========================================
-      case 'silly_derp_cat':
-        return (
-          <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="100" fill="#fbbf24" />
-            {/* Cat Ears */}
-            <polygon points="18,40 28,12 44,32" fill="#ea580c" />
-            <polygon points="24,36 30,18 40,30" fill="#fbcfe8" />
-            <polygon points="82,40 72,12 56,32" fill="#ea580c" />
-            <polygon points="76,36 70,18 60,30" fill="#fbcfe8" />
-            {/* Round Chubby Cat Face */}
-            <ellipse cx="50" cy="56" rx="38" ry="34" fill="#f97316" />
-            {/* Goofy Mismatched Derpy Eyes */}
-            <circle cx="36" cy="48" r="10" fill="#ffffff" stroke="#7c2d12" strokeWidth="2" />
-            <circle cx="34" cy="46" r="4.5" fill="#18181b" />
-            <circle cx="64" cy="50" r="12" fill="#ffffff" stroke="#7c2d12" strokeWidth="2" />
-            <circle cx="66" cy="52" r="4" fill="#18181b" />
-            {/* Pink Nose */}
-            <polygon points="50,60 46,56 54,56" fill="#f43f5e" />
-            {/* Whiskers */}
-            <line x1="16" y1="58" x2="30" y2="60" stroke="#7c2d12" strokeWidth="1.8" strokeLinecap="round" />
-            <line x1="14" y1="66" x2="30" y2="65" stroke="#7c2d12" strokeWidth="1.8" strokeLinecap="round" />
-            <line x1="84" y1="58" x2="70" y2="60" stroke="#7c2d12" strokeWidth="1.8" strokeLinecap="round" />
-            <line x1="86" y1="66" x2="70" y2="65" stroke="#7c2d12" strokeWidth="1.8" strokeLinecap="round" />
-            {/* Mouth with Pink Tongue Out (Blep) */}
-            <path d="M42 64 Q50 67 50 64 Q50 67 58 64" stroke="#7c2d12" strokeWidth="2" strokeLinecap="round" fill="none" />
-            <path d="M46 65 C46 76 54 76 54 65 Z" fill="#f43f5e" stroke="#9f1239" strokeWidth="1.2" />
-            <line x1="50" y1="66" x2="50" y2="72" stroke="#be123c" strokeWidth="1" />
-          </svg>
-        );
-
-      case 'silly_confused_duck':
-        return (
-          <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="100" fill="#38bdf8" />
-            {/* Duck Body & Tilted Head */}
-            <g transform="rotate(-8 50 50)">
-              <ellipse cx="50" cy="58" rx="34" ry="32" fill="#fde047" stroke="#ca8a04" strokeWidth="2" />
-              {/* Feathery Tuft on Head */}
-              <path d="M48 26 C46 16 52 14 54 22 C56 14 62 16 58 26" stroke="#ca8a04" strokeWidth="2.5" fill="#fde047" strokeLinecap="round" />
-              {/* Big Goofy Cartoon Eyes */}
-              <ellipse cx="38" cy="46" rx="8" ry="10" fill="#ffffff" stroke="#713f12" strokeWidth="2" />
-              <circle cx="39" cy="46" r="3.5" fill="#09090b" />
-              <ellipse cx="62" cy="46" rx="8" ry="10" fill="#ffffff" stroke="#713f12" strokeWidth="2" />
-              <circle cx="61" cy="48" r="3.5" fill="#09090b" />
-              {/* Giant Clumsy Orange Beak */}
-              <ellipse cx="50" cy="64" rx="22" ry="12" fill="#fb923c" stroke="#c2410c" strokeWidth="2" />
-              <circle cx="45" cy="62" r="1.5" fill="#9a3412" />
-              <circle cx="55" cy="62" r="1.5" fill="#9a3412" />
-              <path d="M34 65 Q50 71 66 65" stroke="#c2410c" strokeWidth="1.8" fill="none" />
-              {/* Rosy Cheeks */}
-              <ellipse cx="24" cy="56" rx="5" ry="3" fill="#f43f5e" opacity="0.6" />
-              <ellipse cx="76" cy="56" rx="5" ry="3" fill="#f43f5e" opacity="0.6" />
-            </g>
-            {/* Floating Confused Question Mark */}
-            <g transform="translate(74, 12)">
-              <text x="0" y="22" fill="#ffffff" fontSize="26" fontWeight="900" fontFamily="sans-serif" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.4))">?</text>
-            </g>
-          </svg>
-        );
-
-      case 'silly_toast_runner':
-        return (
-          <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="100" fill="#818cf8" />
-            {/* Running Wind Action Lines */}
-            <line x1="8" y1="20" x2="28" y2="20" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" opacity="0.7" />
-            <line x1="4" y1="50" x2="20" y2="50" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" opacity="0.7" />
-            <line x1="10" y1="80" x2="26" y2="80" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" opacity="0.7" />
-            {/* Face */}
-            <circle cx="56" cy="50" r="32" fill="#ffedd5" stroke="#ea580c" strokeWidth="1.5" />
-            {/* Messy Running Hair with Ahoge Tuft */}
-            <path d="M26 40 C30 18 68 14 84 36 C80 20 62 16 52 14 C48 4 44 8 46 16 C34 20 28 30 26 40 Z" fill="#475569" />
-            <path d="M50 14 Q52 2 46 4 Q44 10 48 14" stroke="#475569" strokeWidth="3" fill="none" strokeLinecap="round" />
-            {/* Panicked Dizzy Spiral Eyes */}
-            <g transform="translate(42, 42)">
-              <circle cx="0" cy="0" r="7" fill="#ffffff" stroke="#1e293b" strokeWidth="1.5" />
-              <path d="M-3 -1 Q0 -4 3 -1 Q4 3 0 3 Q-2 1 0 0" stroke="#1e293b" strokeWidth="1.2" fill="none" />
-            </g>
-            <g transform="translate(68, 42)">
-              <circle cx="0" cy="0" r="7" fill="#ffffff" stroke="#1e293b" strokeWidth="1.5" />
-              <path d="M-3 -1 Q0 -4 3 -1 Q4 3 0 3 Q-2 1 0 0" stroke="#1e293b" strokeWidth="1.2" fill="none" />
-            </g>
-            {/* Sweat Drop on forehead */}
-            <path d="M78 28 C78 24 82 20 82 20 C82 20 86 24 86 28 C86 31 82 33 78 28 Z" fill="#38bdf8" />
-            {/* Giant Slice of Toast Clamped Sideways in Mouth */}
-            <g transform="translate(35, 54) rotate(-6)">
-              {/* Toast Bread Outline */}
-              <rect x="0" y="0" width="46" height="24" rx="4" fill="#fed7aa" stroke="#b45309" strokeWidth="2" />
-              <path d="M0 4 C10 -4 36 -4 46 4" stroke="#b45309" strokeWidth="2" fill="#fed7aa" />
-              {/* Melting Butter Square */}
-              <rect x="18" y="6" width="10" height="10" rx="1.5" fill="#fde047" stroke="#ca8a04" strokeWidth="1" />
-              {/* Bite Crumb Indent */}
-              <circle cx="23" cy="18" r="3" fill="#ffedd5" />
-            </g>
-          </svg>
-        );
-
-      case 'silly_smug_hamster':
-        return (
-          <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="100" fill="#f97316" />
-            {/* Tiny Round Hamster Ears */}
-            <circle cx="24" cy="28" r="10" fill="#ea580c" />
-            <circle cx="24" cy="28" r="6" fill="#fbcfe8" />
-            <circle cx="76" cy="28" r="10" fill="#ea580c" />
-            <circle cx="76" cy="28" r="6" fill="#fbcfe8" />
-            {/* Hamster Body with Huge Puffed Chubby Cheeks */}
-            <ellipse cx="50" cy="60" rx="40" ry="32" fill="#fed7aa" stroke="#c2410c" strokeWidth="2" />
-            {/* Left Cheek */}
-            <circle cx="25" cy="62" r="15" fill="#ffedd5" />
-            <circle cx="75" cy="62" r="15" fill="#ffedd5" />
-            {/* Smug Half-Closed Squint Eyes */}
-            <path d="M30 46 Q40 40 44 48" stroke="#431407" strokeWidth="3" strokeLinecap="round" fill="none" />
-            <path d="M70 46 Q60 40 56 48" stroke="#431407" strokeWidth="3" strokeLinecap="round" fill="none" />
-            {/* Cute Smug Eyebrows */}
-            <path d="M30 38 L42 42" stroke="#7c2d12" strokeWidth="2" strokeLinecap="round" />
-            <path d="M70 38 L58 42" stroke="#7c2d12" strokeWidth="2" strokeLinecap="round" />
-            {/* Tiny Nose */}
-            <polygon points="50,54 47,51 53,51" fill="#f43f5e" />
-            {/* Cheeky Asymmetric Smug Smile */}
-            <path d="M46 58 Q52 64 64 56" stroke="#431407" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-            {/* Whiskers */}
-            <line x1="12" y1="62" x2="22" y2="62" stroke="#78350f" strokeWidth="1.5" />
-            <line x1="14" y1="68" x2="22" y2="66" stroke="#78350f" strokeWidth="1.5" />
-            <line x1="88" y1="62" x2="78" y2="62" stroke="#78350f" strokeWidth="1.5" />
-            <line x1="86" y1="68" x2="78" y2="66" stroke="#78350f" strokeWidth="1.5" />
-            {/* Holding Sunflower Seed */}
-            <ellipse cx="50" cy="78" rx="8" ry="12" fill="#292524" stroke="#78716c" strokeWidth="1.5" />
-            <line x1="50" y1="68" x2="50" y2="88" stroke="#a8a29e" strokeWidth="1" />
-          </svg>
-        );
-
-      case 'silly_blob_shrug':
-        return (
-          <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="100" fill="#14b8a6" />
-            {/* Marshmallow Jelly Blob Body */}
-            <path
-              d="M24 76 C14 74 16 48 30 40 C40 32 60 32 70 40 C84 48 86 74 76 76 C66 78 34 78 24 76 Z"
-              fill="#ccfbf1"
-              stroke="#0f766e"
-              strokeWidth="2.5"
-            />
-            {/* Shrugging Hands (Up in the Air) */}
-            <path d="M18 52 L8 40 L16 38" stroke="#0f766e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            <path d="M82 52 L92 40 L84 38" stroke="#0f766e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            {/* Cute Dot Eyes */}
-            <circle cx="40" cy="50" r="4" fill="#134e4a" />
-            <circle cx="41" cy="49" r="1.5" fill="#ffffff" />
-            <circle cx="60" cy="50" r="4" fill="#134e4a" />
-            <circle cx="61" cy="49" r="1.5" fill="#ffffff" />
-            {/* Shrug Cat-like Open Mouth */}
-            <path d="M46 58 Q50 62 54 58" stroke="#134e4a" strokeWidth="2.2" strokeLinecap="round" fill="none" />
-            {/* Rosy Blush */}
-            <ellipse cx="32" cy="55" rx="4" ry="2" fill="#f43f5e" opacity="0.5" />
-            <ellipse cx="68" cy="55" rx="4" ry="2" fill="#f43f5e" opacity="0.5" />
-          </svg>
-        );
-
-      case 'silly_popcat':
-        return (
-          <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="100" fill="#f43f5e" />
-            {/* Cat Ears */}
-            <polygon points="18,36 28,10 46,26" fill="#fecdd3" stroke="#881337" strokeWidth="2" />
-            <polygon points="82,36 72,10 54,26" fill="#fecdd3" stroke="#881337" strokeWidth="2" />
-            {/* Cat Head */}
-            <ellipse cx="50" cy="56" rx="38" ry="34" fill="#ffe4e6" stroke="#881337" strokeWidth="2" />
-            {/* Big Black Anime Eyes */}
-            <circle cx="36" cy="42" r="8" fill="#1c1917" />
-            <circle cx="38" cy="40" r="3" fill="#ffffff" />
-            <circle cx="64" cy="42" r="8" fill="#1c1917" />
-            <circle cx="66" cy="40" r="3" fill="#ffffff" />
-            {/* Iconic Giant Open Circular POPCAT Mouth */}
-            <ellipse cx="50" cy="68" rx="18" ry="16" fill="#881337" stroke="#4c0519" strokeWidth="2.5" />
-            <ellipse cx="50" cy="74" rx="12" ry="7" fill="#f43f5e" />
-          </svg>
-        );
-
-      case 'silly_capybara':
-        return (
-          <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="100" fill="#78350f" />
-            {/* Capybara Snout & Square Head */}
-            <path
-              d="M26 78 C24 50 30 38 46 36 L72 36 C84 38 88 56 86 78 Z"
-              fill="#b45309"
-              stroke="#451a03"
-              strokeWidth="2"
-            />
-            {/* Ears */}
-            <ellipse cx="32" cy="38" rx="6" ry="4" fill="#78350f" />
-            {/* Relaxed Zen Half-Closed Slit Eyes */}
-            <line x1="42" y1="48" x2="52" y2="48" stroke="#1c1917" strokeWidth="2.5" strokeLinecap="round" />
-            {/* Flat Nose & Whiskers */}
-            <ellipse cx="78" cy="66" rx="6" ry="4" fill="#451a03" />
-            <line x1="78" y1="70" x2="78" y2="76" stroke="#451a03" strokeWidth="2" />
-            {/* Yuzu / Orange on Head */}
-            <circle cx="58" cy="24" r="12" fill="#facc15" stroke="#ca8a04" strokeWidth="1.5" />
-            <ellipse cx="58" cy="14" rx="2" ry="4" fill="#65a30d" />
-            <circle cx="60" cy="22" r="1.5" fill="#fef08a" />
-            {/* Hot Spring Water Waves */}
-            <path d="M0 86 Q25 80 50 86 T100 86 L100 100 L0 100 Z" fill="#0284c7" opacity="0.8" />
-          </svg>
-        );
-
-      case 'silly_boba_ghost':
-        return (
-          <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="100" fill="#6366f1" />
-            {/* Bedsheet Ghost Body */}
-            <path
-              d="M50 16 C30 16 22 34 22 62 L22 80 Q28 72 34 80 Q42 72 50 80 Q58 72 66 80 Q72 72 78 80 L78 62 C78 34 70 16 50 16 Z"
-              fill="#ffffff"
-              stroke="#4338ca"
-              strokeWidth="2"
-            />
-            {/* Cute Wide Happy Eyes */}
-            <ellipse cx="40" cy="40" rx="4.5" ry="6" fill="#1e1b4b" />
-            <circle cx="41" cy="38" r="2" fill="#ffffff" />
-            <ellipse cx="60" cy="40" rx="4.5" ry="6" fill="#1e1b4b" />
-            <circle cx="61" cy="38" r="2" fill="#ffffff" />
-            {/* Cute Little Boba Milk Tea Cup in Hands */}
-            <g transform="translate(40, 48)">
-              {/* Cup */}
-              <path d="M2 6 L18 6 L15 26 L5 26 Z" fill="#fed7aa" stroke="#78350f" strokeWidth="1.5" />
-              {/* Fat Straw */}
-              <line x1="10" y1="0" x2="10" y2="24" stroke="#a855f7" strokeWidth="3" strokeLinecap="round" />
-              {/* Boba Tapioca Pearls at bottom */}
-              <circle cx="7" cy="22" r="2" fill="#1c1917" />
-              <circle cx="11" cy="23" r="2" fill="#1c1917" />
-              <circle cx="13" cy="21" r="2" fill="#1c1917" />
-            </g>
-          </svg>
-        );
-
-      // ==========================================
-      // 2. CLEAN AESTHETIC & MINIMALIST AVATARS
-      // ==========================================
+      case 'noir_ronin':
       case 'noir_samurai':
+      case 'silly_derp_cat': // legacy fallback
         return (
           <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect width="100" height="100" fill="#09090b" />
             {/* Midnight Rain Strands */}
-            <line x1="20" y1="0" x2="10" y2="100" stroke="#38bdf8" strokeWidth="0.8" opacity="0.3" />
-            <line x1="60" y1="0" x2="50" y2="100" stroke="#38bdf8" strokeWidth="0.8" opacity="0.3" />
-            <line x1="90" y1="0" x2="80" y2="100" stroke="#38bdf8" strokeWidth="0.8" opacity="0.3" />
+            <line x1="22" y1="0" x2="12" y2="100" stroke="#38bdf8" strokeWidth="0.8" opacity="0.25" />
+            <line x1="62" y1="0" x2="52" y2="100" stroke="#38bdf8" strokeWidth="0.8" opacity="0.25" />
+            <line x1="88" y1="0" x2="78" y2="100" stroke="#38bdf8" strokeWidth="0.8" opacity="0.25" />
             {/* Straw Kasa Hat Silhouette */}
-            <polygon points="50,18 12,48 88,48" fill="#18181b" stroke="#3f3f46" strokeWidth="1.5" />
-            <line x1="50" y1="18" x2="50" y2="48" stroke="#27272a" strokeWidth="1" />
-            {/* Masked Face with Piercing Amber Glow Slit */}
-            <path d="M34 48 L66 48 L58 74 L50 82 L42 74 Z" fill="#09090b" stroke="#27272a" strokeWidth="1" />
-            <line x1="38" y1="56" x2="48" y2="56" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" filter="drop-shadow(0 0 6px #f59e0b)" />
-            <line x1="52" y1="56" x2="62" y2="56" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" filter="drop-shadow(0 0 6px #f59e0b)" />
-            {/* Katana Blade Edge across shoulder */}
-            <line x1="16" y1="92" x2="84" y2="70" stroke="#ffffff" strokeWidth="2" filter="drop-shadow(0 0 8px #ffffff)" />
+            <polygon points="50,14 10,46 90,46" fill="#18181b" stroke="#3f3f46" strokeWidth="1.5" />
+            <line x1="50" y1="14" x2="50" y2="46" stroke="#27272a" strokeWidth="1" />
+            <line x1="30" y1="30" x2="36" y2="46" stroke="#27272a" strokeWidth="1" />
+            <line x1="70" y1="30" x2="64" y2="46" stroke="#27272a" strokeWidth="1" />
+            {/* Masked Face Silhouette */}
+            <path d="M32 46 L68 46 L60 76 L50 84 L40 76 Z" fill="#09090b" stroke="#27272a" strokeWidth="1.2" />
+            {/* Piercing Amber Glow Eyes / Katana Glint */}
+            <line x1="36" y1="54" x2="46" y2="54" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" filter="drop-shadow(0 0 6px #f59e0b)" />
+            <line x1="54" y1="54" x2="64" y2="54" stroke="#fbbf24" strokeWidth="2.5" strokeLinecap="round" filter="drop-shadow(0 0 6px #f59e0b)" />
+            {/* High-Contrast Katana Blade Edge across shoulder */}
+            <line x1="14" y1="92" x2="86" y2="68" stroke="#ffffff" strokeWidth="2" filter="drop-shadow(0 0 8px #ffffff)" />
+            <line x1="16" y1="94" x2="84" y2="72" stroke="#38bdf8" strokeWidth="1" opacity="0.6" />
           </svg>
         );
 
+      case 'cyber_spec_ops':
       case 'cyber_agent':
+      case 'silly_confused_duck': // legacy fallback
         return (
           <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100" height="100" fill="#030712" />
-            {/* Futuristic Grid lines */}
-            <circle cx="50" cy="50" r="42" stroke="#0ea5e9" strokeWidth="1" strokeDasharray="4 6" opacity="0.3" />
-            {/* Dark Tactical Helmet/Visor Silhouette */}
-            <path d="M28 32 C28 20 40 16 50 16 C60 16 72 20 72 32 L74 62 L50 86 L26 62 Z" fill="#0f172a" stroke="#1e293b" strokeWidth="2" />
+            <rect width="100" height="100" fill="#020617" />
+            {/* Tactical Grid & Radar Ring */}
+            <circle cx="50" cy="50" r="42" stroke="#0ea5e9" strokeWidth="1" strokeDasharray="3 6" opacity="0.35" />
+            <circle cx="50" cy="50" r="28" stroke="#0284c7" strokeWidth="0.8" opacity="0.2" />
+            {/* Dark Tactical Carbon Composite Helmet */}
+            <path d="M26 34 C26 20 38 14 50 14 C62 14 74 20 74 34 L76 64 L50 88 L24 64 Z" fill="#0f172a" stroke="#1e293b" strokeWidth="2" />
+            {/* Angular Ear Comms Panels */}
+            <polygon points="20,44 26,38 26,60 20,54" fill="#1e293b" stroke="#0284c7" strokeWidth="1" />
+            <polygon points="80,44 74,38 74,60 80,54" fill="#1e293b" stroke="#0284c7" strokeWidth="1" />
             {/* Horizontal Cyan Laser Visor */}
-            <rect x="24" y="44" width="52" height="12" rx="3" fill="#0284c7" stroke="#38bdf8" strokeWidth="1.5" />
-            <line x1="26" y1="50" x2="74" y2="50" stroke="#ffffff" strokeWidth="2.5" filter="drop-shadow(0 0 8px #38bdf8)" />
+            <rect x="22" y="44" width="56" height="13" rx="3" fill="#0369a1" stroke="#38bdf8" strokeWidth="1.5" />
+            <line x1="24" y1="50.5" x2="76" y2="50.5" stroke="#ffffff" strokeWidth="2.5" filter="drop-shadow(0 0 8px #38bdf8)" />
+            {/* Small Status Optic LED */}
+            <circle cx="30" cy="68" r="1.5" fill="#38bdf8" />
+            <line x1="36" y1="68" x2="64" y2="68" stroke="#334155" strokeWidth="1" />
           </svg>
         );
 
+      case 'porcelain_kitsune':
       case 'kitsune_mask':
+      case 'silly_toast_runner': // legacy fallback
         return (
           <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect width="100" height="100" fill="#18181b" />
             {/* Fox Ears */}
-            <polygon points="26,38 20,12 42,28" fill="#ffffff" stroke="#e11d48" strokeWidth="1.5" />
-            <polygon points="74,38 80,12 58,28" fill="#ffffff" stroke="#e11d48" strokeWidth="1.5" />
+            <polygon points="24,36 18,10 42,26" fill="#ffffff" stroke="#e11d48" strokeWidth="1.8" />
+            <polygon points="24,32 20,16 36,26" fill="#fecdd3" />
+            <polygon points="76,36 82,10 58,26" fill="#ffffff" stroke="#e11d48" strokeWidth="1.8" />
+            <polygon points="76,32 80,16 64,26" fill="#fecdd3" />
             {/* White Porcelain Mask Face */}
-            <path d="M30 36 C30 20 70 20 70 36 C74 54 66 78 50 86 C34 78 26 54 30 36 Z" fill="#ffffff" stroke="#e2e8f0" strokeWidth="2" />
-            {/* Crimson Eye Markings */}
-            <path d="M34 46 Q42 42 46 48" stroke="#e11d48" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-            <path d="M66 46 Q58 42 54 48" stroke="#e11d48" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-            {/* Whisker Paint Curves */}
-            <path d="M32 58 Q40 60 42 66" stroke="#e11d48" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-            <path d="M68 58 Q60 60 58 66" stroke="#e11d48" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+            <path d="M28 36 C28 18 72 18 72 36 C76 56 68 80 50 88 C32 80 24 56 28 36 Z" fill="#ffffff" stroke="#e2e8f0" strokeWidth="2" />
+            {/* Crimson Calligraphic Eye Slits */}
+            <path d="M32 46 Q42 40 46 48" stroke="#be123c" strokeWidth="2.8" strokeLinecap="round" fill="none" />
+            <circle cx="39" cy="46" r="1.5" fill="#e11d48" />
+            <path d="M68 46 Q58 40 54 48" stroke="#be123c" strokeWidth="2.8" strokeLinecap="round" fill="none" />
+            <circle cx="61" cy="46" r="1.5" fill="#e11d48" />
+            {/* Red Whisker Paint Curves */}
+            <path d="M30 58 Q38 60 40 68" stroke="#e11d48" strokeWidth="2" strokeLinecap="round" fill="none" />
+            <path d="M70 58 Q62 60 60 68" stroke="#e11d48" strokeWidth="2" strokeLinecap="round" fill="none" />
+            {/* Nose & Mouth Markings */}
             <circle cx="50" cy="68" r="2.5" fill="#1e293b" />
+            <line x1="50" y1="71" x2="50" y2="76" stroke="#1e293b" strokeWidth="1.5" />
+            {/* Gold Tassel Accent on Left */}
+            <circle cx="22" cy="46" r="3" fill="#f59e0b" />
+            <line x1="22" y1="49" x2="20" y2="66" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         );
 
+      case 'monochrome_manga':
+      case 'silly_smug_hamster': // legacy fallback
+        return (
+          <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" fill="#0f172a" />
+            {/* Screentone Dot Matrix Pattern */}
+            <defs>
+              <pattern id="manga_screentone" width="8" height="8" patternUnits="userSpaceOnUse">
+                <circle cx="4" cy="4" r="1.2" fill="#334155" opacity="0.6" />
+              </pattern>
+            </defs>
+            <rect width="100" height="100" fill="url(#manga_screentone)" />
+            {/* Dynamic Inked Manga Silhouette (Sharp Angles, Shading) */}
+            <path d="M20 90 L30 55 L38 58 L32 40 L44 46 L50 20 L58 44 L68 38 L64 56 L72 54 L80 90 Z" fill="#ffffff" />
+            <path d="M26 90 L34 60 L40 62 L36 46 L46 50 L50 28 L54 48 L64 44 L60 60 L68 58 L74 90 Z" fill="#09090b" />
+            {/* Manga Face Inking */}
+            <polygon points="40,52 60,52 50,78" fill="#f8fafc" />
+            {/* Piercing Monochrome Eyes */}
+            <polygon points="43,58 48,56 46,60" fill="#09090b" />
+            <polygon points="57,58 52,56 54,60" fill="#09090b" />
+            <line x1="48" y1="68" x2="52" y2="68" stroke="#09090b" strokeWidth="1.5" strokeLinecap="round" />
+            {/* Inked Speed Lines */}
+            <line x1="10" y1="20" x2="30" y2="28" stroke="#ffffff" strokeWidth="1" opacity="0.5" />
+            <line x1="90" y1="20" x2="70" y2="28" stroke="#ffffff" strokeWidth="1" opacity="0.5" />
+            <line x1="6" y1="50" x2="22" y2="52" stroke="#ffffff" strokeWidth="1" opacity="0.5" />
+            <line x1="94" y1="50" x2="78" y2="52" stroke="#ffffff" strokeWidth="1" opacity="0.5" />
+          </svg>
+        );
+
+      case 'abyssal_archivist':
+      case 'silly_blob_shrug': // legacy fallback
+        return (
+          <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" fill="#060814" />
+            {/* Celestial Starfield Background */}
+            <circle cx="20" cy="20" r="1" fill="#ffffff" opacity="0.7" />
+            <circle cx="80" cy="24" r="1.2" fill="#818cf8" opacity="0.8" />
+            <circle cx="75" cy="70" r="0.8" fill="#ffffff" opacity="0.5" />
+            <circle cx="25" cy="75" r="1" fill="#c084fc" opacity="0.6" />
+            {/* Dark Scholar Hood Silhouette */}
+            <path d="M50 14 C32 14 22 28 22 52 C22 74 16 92 16 92 L84 92 C84 92 78 74 78 52 C78 28 68 14 50 14 Z" fill="#0f172a" stroke="#1e293b" strokeWidth="1.8" />
+            {/* Deep Shadow Interior */}
+            <path d="M50 24 C38 24 30 36 30 52 C30 68 36 78 50 82 C64 78 70 68 70 52 C70 36 62 24 50 24 Z" fill="#020617" />
+            {/* Glowing Celestial Sigil / Raven Crest */}
+            <polygon points="50,38 53,46 62,47 55,53 58,61 50,56 42,61 45,53 38,47 47,46" fill="#6366f1" filter="drop-shadow(0 0 8px #818cf8)" />
+            <circle cx="50" cy="50" r="2" fill="#ffffff" />
+            {/* Intricate Magic Circle Ring */}
+            <circle cx="50" cy="50" r="16" stroke="#818cf8" strokeWidth="0.8" strokeDasharray="2 4" opacity="0.7" />
+          </svg>
+        );
+
+      case 'eclipse_zen':
       case 'minimal_lunar':
+      case 'silly_popcat': // legacy fallback
         return (
           <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect width="100" height="100" fill="#020617" />
             {/* Radiant Moon Halo */}
-            <circle cx="50" cy="50" r="32" stroke="#60a5fa" strokeWidth="1" strokeDasharray="3 6" opacity="0.5" />
+            <circle cx="50" cy="50" r="34" stroke="#60a5fa" strokeWidth="1" strokeDasharray="3 6" opacity="0.4" />
             {/* Sharp Geometric Crescent Moon */}
-            <path d="M62 24 C44 26 32 40 32 58 C32 70 38 78 46 84 C26 78 16 60 16 44 C16 26 30 14 48 14 C53 14 58 16 62 24 Z" fill="#e0f2fe" filter="drop-shadow(0 0 10px #38bdf8)" />
+            <path d="M62 22 C44 24 30 38 30 56 C30 70 38 80 48 86 C26 80 16 60 16 42 C16 24 30 12 48 12 C53 12 58 14 62 22 Z" fill="#e0f2fe" filter="drop-shadow(0 0 12px #38bdf8)" />
             {/* Distant Mountain Peak Silhouette */}
-            <polygon points="20,90 50,68 80,90" fill="#0f172a" />
-            <polygon points="50,90 70,74 90,90" fill="#1e293b" />
+            <polygon points="16,92 50,66 84,92" fill="#0f172a" />
+            <polygon points="46,92 70,72 94,92" fill="#1e293b" />
+            <polygon points="34,92 48,80 62,92" fill="#334155" />
+          </svg>
+        );
+
+      case 'shadow_shinobi':
+      case 'silly_capybara': // legacy fallback
+        return (
+          <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" fill="#090103" />
+            {/* Blood-Red Moon Circle in Background */}
+            <circle cx="50" cy="46" r="36" fill="#4c0519" opacity="0.6" />
+            <circle cx="50" cy="46" r="32" fill="#881337" opacity="0.4" />
+            {/* Shinobi Masked Hood Silhouette */}
+            <path d="M50 16 C34 16 26 28 26 50 C26 66 32 76 50 82 C68 76 74 66 74 50 C74 28 66 16 50 16 Z" fill="#18181b" stroke="#3f3f46" strokeWidth="1.5" />
+            {/* Ninja Face Wrap / Mask */}
+            <rect x="30" y="52" width="40" height="24" rx="3" fill="#09090b" />
+            {/* Intense Steely Gaze Slit */}
+            <line x1="36" y1="46" x2="46" y2="46" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="drop-shadow(0 0 5px #e11d48)" />
+            <line x1="54" y1="46" x2="64" y2="46" stroke="#f43f5e" strokeWidth="2.5" strokeLinecap="round" filter="drop-shadow(0 0 5px #e11d48)" />
+            {/* Flowing Crimson Long Scarf Tail */}
+            <path d="M42 74 Q24 82 12 70 Q16 88 38 84" fill="#e11d48" stroke="#9f1239" strokeWidth="1" />
+            <path d="M58 74 Q76 82 88 70 Q84 88 62 84" fill="#e11d48" stroke="#9f1239" strokeWidth="1" />
+          </svg>
+        );
+
+      case 'mecha_sentinel':
+      case 'silly_boba_ghost': // legacy fallback
+        return (
+          <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" fill="#09090b" />
+            {/* Tech Hexagon Backdrop */}
+            <polygon points="50,10 85,30 85,70 50,90 15,70 15,30" stroke="#475569" strokeWidth="1" fill="#0f172a" opacity="0.6" />
+            {/* Mecha Crest V-Fin Antennas */}
+            <polygon points="50,28 32,12 36,24 50,34 64,24 68,12" fill="#f59e0b" stroke="#b45309" strokeWidth="1" />
+            <polygon points="50,34 46,26 50,22 54,26" fill="#ef4444" />
+            {/* Armored Helmet & Cheek Guards */}
+            <path d="M30 40 L40 34 L60 34 L70 40 L72 64 L50 82 L28 64 Z" fill="#1e293b" stroke="#334155" strokeWidth="1.5" />
+            {/* Dual Amber Visor Optics */}
+            <polygon points="34,50 46,50 44,55 36,55" fill="#fbbf24" filter="drop-shadow(0 0 6px #f59e0b)" />
+            <polygon points="66,50 54,50 56,55 64,55" fill="#fbbf24" filter="drop-shadow(0 0 6px #f59e0b)" />
+            {/* Lower Chin Intake Vent */}
+            <polygon points="46,68 54,68 52,74 48,74" fill="#0f172a" stroke="#64748b" strokeWidth="1" />
+            <line x1="44" y1="62" x2="56" y2="62" stroke="#64748b" strokeWidth="1" />
           </svg>
         );
 
@@ -634,6 +531,18 @@ export const AnimeAvatar: React.FC<AnimeAvatarProps> = ({
           title="Sovereign Administrator"
         >
           👑
+        </div>
+      )}
+
+      {/* Supporter / Donator Heart Badge (For users who donate to KuroShelf - separate from membership!) */}
+      {isDonor && (
+        <div
+          className={`absolute -bottom-1 -right-1 z-30 flex items-center justify-center rounded-full bg-gradient-to-tr from-rose-600 to-pink-500 text-white shadow-[0_0_8px_rgba(244,63,94,0.8)] border border-white/40 ${
+            size === '2xl' ? 'w-7 h-7 text-xs' : size === 'xl' ? 'w-5 h-5 text-[10px]' : 'w-3.5 h-3.5 text-[8px]'
+          }`}
+          title="KuroShelf Generous Donator & Supporter ❤️"
+        >
+          ❤️
         </div>
       )}
     </div>

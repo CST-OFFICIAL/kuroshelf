@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence } from 'motion/react';
-import { AnimeItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll, AuthUser, DailyStreakInfo, ThemeMode, ViewDistance } from './types';
+import { AnimeItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll, AuthUser, DailyStreakInfo, ThemeMode } from './types';
 import { 
   getTopAnime, 
   getSeasonalAnime, 
@@ -19,16 +19,17 @@ import {
   getStoredPolls,
   getUserVotes,
   castPollVote,
+  createStoredPoll,
 } from './services/shelfStorage';
 import { getCurrentUser, getAuthHeaders, getSavedAccounts } from './services/authService';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { fetchServerPolls, voteInPoll } from './services/pollService';
-import { getStreakInfo } from './services/streakService';
+import { getStreakInfo, recordDailyCheckIn } from './services/streakService';
+import { getMembership, recordPollCreation, isUserDonor } from './services/membershipService';
 import { 
   getStoredThemeMode, 
   setStoredThemeMode, 
   applyTheme, 
-  getStoredViewDistance, 
-  setStoredViewDistance,
   applyViewScale,
   setupSystemThemeListener 
 } from './services/themeService';
@@ -55,6 +56,9 @@ import { AdminSyncPage } from './components/AdminSyncPage';
 import { DailyStreakModal } from './components/DailyStreakModal';
 import { AccountSwitcherModal } from './components/AccountSwitcherModal';
 import { AppearanceModal } from './components/AppearanceModal';
+import { CreatePollModal } from './components/CreatePollModal';
+import { MembershipSupportModal } from './components/MembershipSupportModal';
+import { DonationTickerMarquee } from './components/DonationTickerMarquee';
 import { 
   Flame, 
   Sparkles, 
@@ -148,10 +152,37 @@ export function App() {
   const [accountSwitcherOpen, setAccountSwitcherOpen] = useState(false);
   const [savedAccountsCount, setSavedAccountsCount] = useState<number>(() => getSavedAccounts().length);
 
-  // Screen Appearance & MAL View Distance state
+  // Screen Appearance & Theme state
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredThemeMode());
-  const [viewDistance, setViewDistance] = useState<ViewDistance>(() => getStoredViewDistance());
   const [appearanceModalOpen, setAppearanceModalOpen] = useState(false);
+
+  // Membership & VIP state
+  const [isPremium, setIsPremium] = useState<boolean>(() => getMembership(currentUser?.id).isPremium);
+  const [createPollModalOpen, setCreatePollModalOpen] = useState(false);
+  const [membershipModalOpen, setMembershipModalOpen] = useState(false);
+  const [membershipModalInitialTab, setMembershipModalInitialTab] = useState<'membership' | 'donate'>('membership');
+
+  // Supporter / Donor State (tracked in localStorage and event-synced)
+  const [isDonor, setIsDonor] = useState<boolean>(() => isUserDonor(currentUser?.id));
+
+  // Sync premium & donor status on user change
+  useEffect(() => {
+    setIsPremium(getMembership(currentUser?.id).isPremium);
+    setIsDonor(isUserDonor(currentUser?.id));
+  }, [currentUser]);
+
+  // Sync donor status on real-time events
+  useEffect(() => {
+    const handleDonorUpdate = () => {
+      setIsDonor(isUserDonor(currentUser?.id));
+    };
+    window.addEventListener('kuroshelf_donor_status_changed', handleDonorUpdate);
+    window.addEventListener('kuroshelf_donation_made', handleDonorUpdate);
+    return () => {
+      window.removeEventListener('kuroshelf_donor_status_changed', handleDonorUpdate);
+      window.removeEventListener('kuroshelf_donation_made', handleDonorUpdate);
+    };
+  }, [currentUser]);
 
   // Apply theme on mount and whenever themeMode changes
   useEffect(() => {
@@ -164,31 +195,18 @@ export function App() {
     }
   }, [themeMode]);
 
-  // Apply zoom / view scale on mount and whenever viewDistance changes
+  // Permanently lock backend application scale (80-85% comfortable view) on mount
   useEffect(() => {
-    applyViewScale(viewDistance);
-  }, [viewDistance]);
+    applyViewScale();
+  }, []);
 
   const handleThemeModeChange = (mode: ThemeMode) => {
     setThemeMode(mode);
     setStoredThemeMode(mode);
   };
 
-  const handleViewDistanceChange = (distance: ViewDistance) => {
-    setViewDistance(distance);
-    setStoredViewDistance(distance);
-  };
-
-  // Card grid layout class based on viewDistance (Zoomed in 85%/90% vs 75% vs 100%)
-  const cardGridClass = useMemo(() => {
-    if (viewDistance === '67%' || viewDistance === '75%') {
-      return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5';
-    }
-    if (viewDistance === '85%' || viewDistance === '90%' || viewDistance === 'far') {
-      return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-5 sm:gap-6';
-    }
-    return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 sm:gap-6';
-  }, [viewDistance]);
+  // Card grid layout: crisp, spacious, beautifully responsive columns with locked 82% view scale
+  const cardGridClass = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-5 sm:gap-6';
 
   // Modal detail view
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
@@ -276,8 +294,8 @@ export function App() {
     setUserVotes(getUserVotes());
 
     // Check user auth session and subscribe to changes
-    import('./lib/supabase').then(({ supabase, isSupabaseConfigured }) => { if (!isSupabaseConfigured) return;
-      supabase.auth.onAuthStateChange(async (_event, session) => {
+    if (isSupabaseConfigured) {
+      const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
         if (session?.user) {
           const user = {
             id: session.user.id,
@@ -289,20 +307,35 @@ export function App() {
           setCurrentUser(user);
           syncUserData(user);
         } else {
-          setCurrentUser(null);
-          setShelf([]);
-          setActivities([]);
-          setUserVotes({});
+          // If no active Supabase session, only reset if there's no active local/preset user
+          const localUser = localStorage.getItem('kuro_local_user');
+          if (!localUser) {
+            setCurrentUser(null);
+            setShelf([]);
+            setActivities([]);
+            setUserVotes({});
+          }
         }
       });
-    });
 
-    getCurrentUser().then((user) => {
-      setCurrentUser(user);
-      if (user) {
-        syncUserData(user);
-      }
-    });
+      getCurrentUser().then((user) => {
+        setCurrentUser(user);
+        if (user) {
+          syncUserData(user);
+        }
+      });
+
+      return () => {
+        authListener?.subscription?.unsubscribe();
+      };
+    } else {
+      getCurrentUser().then((user) => {
+        setCurrentUser(user);
+        if (user) {
+          syncUserData(user);
+        }
+      });
+    }
 
     // Load server prediction polls
     fetchServerPolls().then((serverPolls) => {
@@ -336,24 +369,47 @@ export function App() {
     });
   }, [syncUserData]);
 
-  // Synchronize scoped storage and streaks when active user changes
+  // Auto Check-In Daily Streak upon entering or performing any activity
+  const triggerAutoStreakCheckIn = useCallback((userId?: string) => {
+    const effectiveUserId = userId || currentUser?.id;
+    const current = getStreakInfo(effectiveUserId);
+    if (!current.checkedInToday) {
+      const res = recordDailyCheckIn(effectiveUserId);
+      setStreakInfo(res.info);
+      return res;
+    }
+    return null;
+  }, [currentUser?.id]);
+
+  // Synchronize scoped storage and streaks when active user changes (and auto-secure daily streak)
   useEffect(() => {
     if (currentUser) {
       setShelf(getStoredShelf(currentUser.id));
       setActivities(getStoredActivities(currentUser.id));
-      setStreakInfo(getStreakInfo(currentUser.id));
+      const autoRes = triggerAutoStreakCheckIn(currentUser.id);
+      if (!autoRes) {
+        setStreakInfo(getStreakInfo(currentUser.id));
+      }
       setSavedAccountsCount(getSavedAccounts().length);
+    } else {
+      const autoRes = triggerAutoStreakCheckIn(undefined);
+      if (!autoRes) {
+        setStreakInfo(getStreakInfo(undefined));
+      }
     }
-  }, [currentUser]);
+  }, [currentUser, triggerAutoStreakCheckIn]);
 
   const handleAccountSwitched = useCallback((newUser: AuthUser) => {
     setCurrentUser(newUser);
     setShelf(getStoredShelf(newUser.id));
     setActivities(getStoredActivities(newUser.id));
-    setStreakInfo(getStreakInfo(newUser.id));
+    const autoRes = triggerAutoStreakCheckIn(newUser.id);
+    if (!autoRes) {
+      setStreakInfo(getStreakInfo(newUser.id));
+    }
     setSavedAccountsCount(getSavedAccounts().length);
     syncUserData(newUser);
-  }, [syncUserData]);
+  }, [syncUserData, triggerAutoStreakCheckIn]);
   
   // Fetch initial anime datasets
   const loadInitialData = useCallback(async () => {
@@ -582,6 +638,7 @@ export function App() {
 
   // Shelf handlers
   const handleAddToShelf = async (anime: AnimeItem, status: ShelfStatus) => {
+    triggerAutoStreakCheckIn(currentUser?.id);
     const poster =
       anime.images.webp?.large_image_url ||
       anime.images.jpg.large_image_url ||
@@ -623,6 +680,7 @@ export function App() {
   };
 
   const handleToggleLike = async (anime: AnimeItem) => {
+    triggerAutoStreakCheckIn(currentUser?.id);
     const poster =
       anime.images.webp?.large_image_url ||
       anime.images.jpg.large_image_url ||
@@ -648,6 +706,7 @@ export function App() {
   };
 
   const handleUpdateRating = async (anime: AnimeItem, rating: number) => {
+    triggerAutoStreakCheckIn(currentUser?.id);
     const poster =
       anime.images.webp?.large_image_url ||
       anime.images.jpg.large_image_url ||
@@ -674,6 +733,7 @@ export function App() {
   };
 
   const handleUpdateProgress = async (id: number, mediaType: "anime" | "manga", progress: number) => {
+    triggerAutoStreakCheckIn(currentUser?.id);
     const updated = updateShelfProgress(id, mediaType, progress);
     setShelf(updated);
 
@@ -736,6 +796,7 @@ export function App() {
   };
 
   const handleVotePoll = async (pollId: string, optionId: string) => {
+    triggerAutoStreakCheckIn(currentUser?.id);
     const numPollId = Number(pollId);
     const numOptId = Number(optionId);
 
@@ -772,6 +833,34 @@ export function App() {
     const { polls: updatedPolls, votes: updatedVotes } = castPollVote(pollId, optionId);
     setPolls(updatedPolls);
     setUserVotes(updatedVotes);
+  };
+
+  const handleCreatePoll = (pollData: {
+    animeTitle?: string;
+    question: string;
+    options: string[];
+    durationDays: number;
+  }) => {
+    triggerAutoStreakCheckIn(currentUser?.id);
+    const endsAt = new Date(Date.now() + pollData.durationDays * 24 * 60 * 60 * 1000).toISOString();
+    const created = createStoredPoll({
+      animeTitle: pollData.animeTitle,
+      question: pollData.question,
+      options: pollData.options.map((text, i) => ({
+        id: `opt-${Date.now()}-${i}`,
+        text,
+        votes: 0,
+      })),
+      endsAt,
+      creatorId: currentUser?.id,
+      creatorName: currentUser?.display_name || currentUser?.username || 'Otaku Member',
+      isVipPoll: isPremium,
+    });
+
+    setPolls(created);
+    if (created.length > 0) {
+      recordPollCreation(created[0].id, currentUser?.id);
+    }
   };
 
   // High-performance O(1) hash map for shelf lookups
@@ -811,8 +900,12 @@ export function App() {
         savedAccountsCount={savedAccountsCount}
         themeMode={themeMode}
         onOpenAppearanceModal={() => setAppearanceModalOpen(true)}
-        viewDistance={viewDistance}
-        onViewDistanceChange={handleViewDistanceChange}
+        isPremium={isPremium}
+        isDonor={isDonor}
+        onOpenMembershipModal={(tab) => {
+          setMembershipModalInitialTab(tab || 'membership');
+          setMembershipModalOpen(true);
+        }}
       />
 
       {/* Main Content Area centered with spacious side margins (leaving sides open for future ads without cramped layout) */}
@@ -936,24 +1029,32 @@ export function App() {
                 onUpdateStatus={handleUpdateShelfStatus}
                 onToggleLike={handleToggleLike}
                 getIsLiked={(id) => getShelfItem(id)?.isLiked || false}
-                viewDistance={viewDistance}
               />
             )}
             {/* 2. TAB: HOME (DISCOVER) */}
-        {activeTab === 'home' && (
-              loadingInitial ? (
-                <div className="space-y-8 animate-pulse">
-                  <div className="w-full h-80 sm:h-96 rounded-2xl bg-neutral-900 border border-neutral-800" />
-                  <div className="space-y-4">
-                    <div className="h-6 w-48 bg-neutral-900 rounded" />
-                    <div className={cardGridClass}>
-                      {Array.from({ length: 6 }).map((_, i) => (
-                        <div key={i} className="aspect-[3/4] rounded-xl bg-neutral-900 border border-neutral-800" />
-                      ))}
+            {activeTab === 'home' && (
+              <div className="space-y-6">
+                {/* Thin horizontal notice board ticker mentioning donators */}
+                <DonationTickerMarquee
+                  onOpenDonate={() => {
+                    setMembershipModalInitialTab('donate');
+                    setMembershipModalOpen(true);
+                  }}
+                />
+
+                {loadingInitial ? (
+                  <div className="space-y-8 animate-pulse">
+                    <div className="w-full h-80 sm:h-96 rounded-2xl bg-neutral-900 border border-neutral-800" />
+                    <div className="space-y-4">
+                      <div className="h-6 w-48 bg-neutral-900 rounded" />
+                      <div className={cardGridClass}>
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          <div key={i} className="aspect-[3/4] rounded-xl bg-neutral-900 border border-neutral-800" />
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : (
+                ) : (
                 <div className="space-y-12">
                   {/* Hero Spotlight */}
                   <HeroBanner
@@ -1316,7 +1417,8 @@ export function App() {
                   </>
                   )}
                 </div>
-              )
+              )}
+              </div>
             )}
 
             {/* 3. TAB: THIS SEASON */}
@@ -1645,7 +1747,7 @@ export function App() {
             {activeTab === 'manga' && (
               <MangaSection
                 shelf={shelf}
-                viewDistance={viewDistance}
+                isPremium={isPremium}
                 onAddToShelf={(manga, status) => {
                   const poster =
                     manga.images.webp?.large_image_url ||
@@ -1682,7 +1784,6 @@ export function App() {
                 onAddToShelf={handleAddToShelf}
                 isItemInShelf={(id) => Boolean(getShelfItem(id))}
                 onNavigateTab={setActiveTab}
-                viewDistance={viewDistance}
               />
             )}
 
@@ -1693,6 +1794,13 @@ export function App() {
                 userVotes={userVotes}
                 onVote={handleVotePoll}
                 onSelectAnime={handleSelectPollAnime}
+                currentUser={currentUser}
+                isPremium={isPremium}
+                onOpenCreatePoll={() => setCreatePollModalOpen(true)}
+                onOpenMembershipModal={() => {
+                  setMembershipModalInitialTab('membership');
+                  setMembershipModalOpen(true);
+                }}
               />
             )}
 
@@ -1735,7 +1843,6 @@ export function App() {
                 onTabChange={(tab) => setShelfSubTab(tab)}
                 onOpenStats={() => setStatsModalOpen(true)}
                 onOpenImportExport={() => setImportExportModalOpen(true)}
-                viewDistance={viewDistance}
                 onSelectMedia={async (id) => {
                   const item = shelf.find((s) => s.id === id);
                   if (item) {
@@ -1899,6 +2006,10 @@ export function App() {
           handleClearSearch();
         }}
         onOpenInfoModal={(type) => setInfoModalType(type)}
+        onOpenMembershipModal={(tab) => {
+          setMembershipModalInitialTab(tab || 'membership');
+          setMembershipModalOpen(true);
+        }}
       />
 
       {/* Legal & Info Modal */}
@@ -1945,14 +2056,41 @@ export function App() {
         />
       )}
 
-      {/* Screen Appearance & View Distance Modal */}
+      {/* Screen Appearance Modal */}
       {appearanceModalOpen && (
         <AppearanceModal
           themeMode={themeMode}
           onThemeModeChange={handleThemeModeChange}
-          viewDistance={viewDistance}
-          onViewDistanceChange={handleViewDistanceChange}
           onClose={() => setAppearanceModalOpen(false)}
+        />
+      )}
+
+      {/* Create Prediction Poll Modal */}
+      {createPollModalOpen && (
+        <CreatePollModal
+          isOpen={createPollModalOpen}
+          onClose={() => setCreatePollModalOpen(false)}
+          currentUser={currentUser}
+          isPremium={isPremium}
+          onSubmitPoll={handleCreatePoll}
+          onOpenMembershipModal={() => {
+            setCreatePollModalOpen(false);
+            setMembershipModalInitialTab('membership');
+            setMembershipModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* Membership & Help KuroShelf Grow (Donations) Modal */}
+      {membershipModalOpen && (
+        <MembershipSupportModal
+          isOpen={membershipModalOpen}
+          onClose={() => setMembershipModalOpen(false)}
+          currentUser={currentUser}
+          initialTab={membershipModalInitialTab}
+          onMembershipUpdated={(newStatus: boolean) => {
+            setIsPremium(newStatus);
+          }}
         />
       )}
     </div>
