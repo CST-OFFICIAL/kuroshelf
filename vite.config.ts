@@ -4,7 +4,19 @@ import tailwindcss from '@tailwindcss/vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    {
+      name: 'disable-preview-hmr-client',
+      transformIndexHtml: {
+        order: 'post',
+        handler(html) {
+          return html.replace(/\s*<script type="module" src="\/@vite\/client"><\/script>/g, '')
+        },
+      },
+    },
+  ],
   envPrefix: 'VITE_',
   server: {
     host: '0.0.0.0',
