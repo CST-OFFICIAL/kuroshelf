@@ -705,10 +705,16 @@ async function startServer() {
 
   // ---------------- Vite / Static Asset Serving ----------------
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: false },
-      appType: 'spa',
-    });
+  const vite = await createViteServer({
+    // The Express server owns the dev lifecycle in the preview, so Vite must
+    // serve middleware without opening a browser HMR WebSocket.
+    server: {
+      middlewareMode: true,
+      hmr: false,
+      ws: false,
+    },
+    appType: 'spa',
+  });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
