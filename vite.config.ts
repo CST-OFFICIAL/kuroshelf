@@ -9,6 +9,8 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 3000,
+    // The Express host owns the dev server lifecycle; disable Vite's client
+    // injection so the preview does not try to connect to a non-existent HMR socket.
     hmr: false,
   },
 });
