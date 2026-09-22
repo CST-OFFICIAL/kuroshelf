@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import { AuthUser, ShelfEntry, ShelfStatus, UserActivity, UserProfileCustomization, DailyStreakInfo } from '../types';
 import { updateProfileSetup, logoutUser } from '../services/authService';
-import { isUserDonor } from '../services/membershipService';
+import { isUserDonor, getMembership, getUserDonationRecord, UserDonationSummary } from '../services/membershipService';
 import {
   isGoogleDriveConnected,
   requestGoogleDriveAuth,
@@ -68,6 +68,7 @@ import { AnimeAvatar } from './AnimeAvatar';
 import { AdminDragonBanner } from './AdminDragonBanner';
 import { NormalBannerArt } from './NormalBannerArt';
 import { DailyStreakWidget } from './DailyStreakWidget';
+import { VerifiedMemberBadge } from './VerifiedMemberBadge';
 
 interface ProfileViewProps {
   currentUser: AuthUser | null;
@@ -120,16 +121,39 @@ export function ProfileView({
 
   // Donor status check (distinct from membership!)
   const [isDonor, setIsDonor] = useState(() => currentUser?.is_donor || isUserDonor(currentUser?.id));
+  const [userDonationRecord, setUserDonationRecord] = useState<UserDonationSummary>(() =>
+    getUserDonationRecord(currentUser?.id)
+  );
 
   useEffect(() => {
     const handleDonorUpdate = () => {
       setIsDonor(currentUser?.is_donor || isUserDonor(currentUser?.id));
+      setUserDonationRecord(getUserDonationRecord(currentUser?.id));
     };
     window.addEventListener('kuroshelf_donor_status_changed', handleDonorUpdate);
     window.addEventListener('kuroshelf_donation_made', handleDonorUpdate);
+    window.addEventListener('kuroshelf_account_donation_updated', handleDonorUpdate);
     return () => {
       window.removeEventListener('kuroshelf_donor_status_changed', handleDonorUpdate);
       window.removeEventListener('kuroshelf_donation_made', handleDonorUpdate);
+      window.removeEventListener('kuroshelf_account_donation_updated', handleDonorUpdate);
+    };
+  }, [currentUser]);
+
+  // VIP Membership status check & real-time listener
+  const [isVipMember, setIsVipMember] = useState(() => !!currentUser?.is_premium || getMembership(currentUser?.id).isPremium);
+
+  useEffect(() => {
+    setIsVipMember(!!currentUser?.is_premium || getMembership(currentUser?.id).isPremium);
+  }, [currentUser]);
+
+  useEffect(() => {
+    const handleMembershipUpdate = () => {
+      setIsVipMember(!!currentUser?.is_premium || getMembership(currentUser?.id).isPremium);
+    };
+    window.addEventListener('kuroshelf_membership_updated', handleMembershipUpdate);
+    return () => {
+      window.removeEventListener('kuroshelf_membership_updated', handleMembershipUpdate);
     };
   }, [currentUser]);
 
@@ -830,6 +854,11 @@ export function ProfileView({
                   >
                     {displayName || currentUser.username}
                   </h1>
+                  {isVipMember && (
+                    <span title="Verified Kuro VIP Member (Monthly/Yearly Subscriber)">
+                      <VerifiedMemberBadge size="sm" />
+                    </span>
+                  )}
                   {isAdmin ? (
                     <span className="px-2.5 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 text-amber-700 dark:text-amber-200 border border-amber-400/60 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-[0_0_15px_rgba(245,158,11,0.3)]">
                       <Crown className="w-3.5 h-3.5 text-amber-500 dark:text-amber-300 fill-amber-400/40" />
@@ -840,13 +869,31 @@ export function ProfileView({
                       Member
                     </span>
                   )}
+                  {isVipMember && (
+                    <span
+                      className="px-2.5 py-0.5 rounded-md bg-gradient-to-r from-sky-500/20 via-blue-500/25 to-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-400/50 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-[0_0_12px_rgba(14,165,233,0.3)] cursor-default"
+                      title="Verified Kuro VIP Member"
+                    >
+                      <VerifiedMemberBadge size="xs" />
+                      VIP Member
+                    </span>
+                  )}
                   {isDonor && (
                     <span
                       className="px-2.5 py-0.5 rounded-md bg-gradient-to-r from-rose-500/20 via-pink-500/25 to-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-400/50 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-[0_0_12px_rgba(244,63,94,0.3)] cursor-default"
-                      title="KuroShelf Generous Donator ❤️ Thank you so much for your donation!"
+                      title={
+                        userDonationRecord.totalAmount > 0
+                          ? `Generous Supporter: $${userDonationRecord.totalAmount.toFixed(2)} donated (${userDonationRecord.donationCount} ${userDonationRecord.donationCount === 1 ? 'gift' : 'gifts'}) ❤️ Thank you!`
+                          : 'KuroShelf Generous Donator ❤️ Thank you so much for your donation!'
+                      }
                     >
                       <Heart className="w-3 h-3 text-rose-500 fill-rose-500 animate-pulse" />
-                      Donator
+                      <span>Donator</span>
+                      {userDonationRecord.totalAmount > 0 && (
+                        <span className="font-mono text-[9px] opacity-80 border-l border-rose-400/40 pl-1 ml-0.5">
+                          ${userDonationRecord.totalAmount.toFixed(0)}
+                        </span>
+                      )}
                     </span>
                   )}
                 </div>
@@ -1662,6 +1709,107 @@ export function ProfileView({
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* Supporter & Account Donation Record Card */}
+              <div className="p-6 rounded-2xl bg-white dark:bg-[#0f1422] border border-slate-200 dark:border-[#1e263d] shadow-sm space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-[#1e263d] pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-rose-500/15 text-rose-500 border border-rose-500/30">
+                      <Heart className="w-5 h-5 fill-rose-500" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white font-mono">
+                          Community Support & Donation Record
+                        </h3>
+                        {userDonationRecord.totalAmount > 0 && (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 text-[10px] font-bold">
+                            Active Supporter ❤️
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Personal contributions to KuroShelf server maintenance and open anime indexation
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block">
+                        Total Contributed
+                      </span>
+                      <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                        ${userDonationRecord.totalAmount.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="w-px h-8 bg-slate-200 dark:bg-[#1e263d]" />
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 block">
+                        Donations Given
+                      </span>
+                      <span className="text-lg font-black text-slate-900 dark:text-white font-mono">
+                        {userDonationRecord.donationCount}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {userDonationRecord.history.length > 0 ? (
+                  <div className="space-y-2 pt-1">
+                    <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono">
+                      Recent Contribution Receipts
+                    </h4>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                      {userDonationRecord.history.map((record) => (
+                        <div
+                          key={record.id}
+                          className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#090c14] border border-slate-100 dark:border-[#1e263d] text-xs"
+                        >
+                          <div className="space-y-0.5 min-w-0 pr-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                                {record.tierTitle || 'Community Donor'}
+                              </span>
+                              {record.isAnonymous && (
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 italic">
+                                  (Anonymous)
+                                </span>
+                              )}
+                            </div>
+                            {record.message && (
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 italic truncate max-w-md">
+                                "{record.message}"
+                              </p>
+                            )}
+                            <span className="text-[10px] text-slate-400 font-mono block">
+                              {new Date(record.createdAt).toLocaleDateString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                              +${record.amount.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#090c14] border border-dashed border-slate-200 dark:border-[#1e263d] text-center text-xs text-slate-500 dark:text-slate-400 space-y-1">
+                    <p className="font-medium">No donations recorded on this account yet.</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                      Contributions made via the Supporters Wall or Membership modal will be permanently tracked here!
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}

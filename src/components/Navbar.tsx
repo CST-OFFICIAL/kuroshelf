@@ -18,12 +18,13 @@ import {
   Sun,
   Moon,
   Laptop,
-  Sliders,
   Crown,
-  Heart
+  Heart,
+  Megaphone,
 } from 'lucide-react';
 import { AuthUser, DailyStreakInfo, ThemeMode } from '../types';
 import { isUserDonor } from '../services/membershipService';
+import { VerifiedMemberBadge } from './VerifiedMemberBadge';
 
 interface NavbarProps {
   activeTab: string;
@@ -40,9 +41,11 @@ interface NavbarProps {
   savedAccountsCount?: number;
   themeMode?: ThemeMode;
   onOpenAppearanceModal?: () => void;
+  onToggleTheme?: () => void;
   isPremium?: boolean;
   isDonor?: boolean;
   onOpenMembershipModal?: (tab?: 'membership' | 'donate') => void;
+  onOpenAnnouncements?: () => void;
 }
 
 export function Navbar({
@@ -60,9 +63,11 @@ export function Navbar({
   savedAccountsCount = 1,
   themeMode = 'system',
   onOpenAppearanceModal,
+  onToggleTheme,
   isPremium = false,
   isDonor,
   onOpenMembershipModal,
+  onOpenAnnouncements,
 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const effectiveIsDonor = isDonor ?? (currentUser ? isUserDonor(currentUser.id) : isUserDonor());
@@ -192,28 +197,33 @@ export function Navbar({
 
         {/* Daily Streak, Appearance & User Account Controls */}
         <div className="hidden sm:flex items-center gap-2">
-          {/* Appearance & Theme Trigger */}
-          {onOpenAppearanceModal && (
-            <button
-              type="button"
-              id="nav-appearance-button"
-              onClick={onOpenAppearanceModal}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-neutral-900 hover:bg-slate-200 dark:hover:bg-neutral-800 border border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-neutral-200 text-xs font-semibold transition-all cursor-pointer"
-              title={`Screen Appearance: ${themeMode.toUpperCase()}`}
-            >
-              {themeMode === 'light' ? (
-                <Sun className="w-4 h-4 text-amber-500" />
-              ) : themeMode === 'dark' ? (
-                <Moon className="w-4 h-4 text-indigo-400" />
-              ) : (
-                <Laptop className="w-4 h-4 text-rose-500" />
-              )}
-              <span className="hidden xl:inline text-[11px] capitalize font-medium text-slate-600 dark:text-neutral-300">
-                {themeMode}
-              </span>
-              <Sliders className="w-3 h-3 text-slate-400 ml-0.5" />
-            </button>
-          )}
+          {/* Day / Night 1-Click Switch Button */}
+          <button
+            type="button"
+            id="nav-theme-toggle-button"
+            onClick={() => {
+              if (onToggleTheme) {
+                onToggleTheme();
+              } else if (onOpenAppearanceModal) {
+                onOpenAppearanceModal();
+              }
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-neutral-900 hover:bg-slate-200 dark:hover:bg-neutral-800 border border-slate-200 dark:border-neutral-800 text-slate-800 dark:text-neutral-200 text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
+            title={themeMode === 'light' ? 'Click to switch to Night Mode (Dark)' : 'Click to switch to Day Mode (Light)'}
+            aria-label="Toggle Day and Night Mode"
+          >
+            {themeMode === 'light' ? (
+              <>
+                <Sun className="w-4 h-4 text-amber-500 fill-amber-400" />
+                <span className="hidden xl:inline text-[11px] font-bold text-amber-700">Day</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-4 h-4 text-indigo-400 fill-indigo-400/40" />
+                <span className="hidden xl:inline text-[11px] font-bold text-indigo-300">Night</span>
+              </>
+            )}
+          </button>
 
           {/* Daily Streak Trigger */}
           {onOpenStreakModal && (
@@ -263,6 +273,20 @@ export function Navbar({
               <span className="hidden lg:inline">
                 {isPremium ? 'VIP' : 'Support'}
               </span>
+            </button>
+          )}
+
+          {/* Announcements & Notices Trigger */}
+          {onOpenAnnouncements && (
+            <button
+              type="button"
+              id="nav-announcements-button"
+              onClick={onOpenAnnouncements}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-neutral-800 bg-slate-100 dark:bg-neutral-900 hover:bg-slate-200 dark:hover:bg-neutral-800 text-slate-700 dark:text-neutral-300 hover:text-amber-500 dark:hover:text-amber-400 text-xs font-medium transition-all cursor-pointer"
+              title="Official KuroShelf Announcements & Notices"
+            >
+              <Megaphone className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden xl:inline">Notices</span>
             </button>
           )}
 
@@ -318,6 +342,11 @@ export function Navbar({
             <span className="truncate max-w-[110px]">
               {currentUser ? currentUser.display_name || currentUser.username : 'Sign In'}
             </span>
+            {isPremium && (
+              <span title="Verified Kuro VIP Member">
+                <VerifiedMemberBadge size="xs" />
+              </span>
+            )}
             {effectiveIsDonor && (
               <span
                 className="shrink-0 text-rose-500 hover:scale-110 transition-transform"
@@ -418,6 +447,11 @@ export function Navbar({
               </div>
               <div className="flex items-center gap-2">
                 <span>{currentUser ? (currentUser.display_name || currentUser.username) : 'Sign In / Register'}</span>
+                {isPremium && (
+                  <span title="Verified Kuro VIP Member">
+                    <VerifiedMemberBadge size="xs" />
+                  </span>
+                )}
                 {effectiveIsDonor && (
                   <span className="px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-500 border border-rose-500/25 text-[10px] font-bold flex items-center gap-1">
                     <Heart className="w-2.5 h-2.5 fill-rose-500 text-rose-500" />
@@ -468,6 +502,47 @@ export function Navbar({
                 <span>{isPremium ? 'Kuro VIP Active' : 'Support & VIP'}</span>
               </button>
             )}
+
+            {onOpenAnnouncements && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onOpenAnnouncements();
+                }}
+                className="flex items-center justify-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-neutral-800 bg-slate-100 dark:bg-neutral-900 text-xs font-bold text-amber-600 dark:text-amber-400"
+              >
+                <Megaphone className="w-4 h-4 text-amber-500" />
+                <span>Notices & Bulletins</span>
+              </button>
+            )}
+
+            {/* Mobile 1-Click Day / Night Toggle */}
+            <button
+              type="button"
+              id="mobile-nav-theme-toggle"
+              onClick={() => {
+                if (onToggleTheme) {
+                  onToggleTheme();
+                } else if (onOpenAppearanceModal) {
+                  setMobileMenuOpen(false);
+                  onOpenAppearanceModal();
+                }
+              }}
+              className="flex items-center justify-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-neutral-800 bg-slate-100 dark:bg-neutral-900 text-xs font-bold text-slate-800 dark:text-neutral-200 hover:bg-slate-200 dark:hover:bg-neutral-800 transition-colors"
+            >
+              {themeMode === 'light' ? (
+                <>
+                  <Sun className="w-4 h-4 text-amber-500 fill-amber-400" />
+                  <span>Day Mode (Click for Night)</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4 text-indigo-400 fill-indigo-400/40" />
+                  <span>Night Mode (Click for Day)</span>
+                </>
+              )}
+            </button>
           </div>
           {navItems.map((item) => {
             const Icon = item.icon;

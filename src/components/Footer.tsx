@@ -5,9 +5,10 @@ interface FooterProps {
   onNavigateTab: (tab: string, subTab?: string) => void;
   onOpenInfoModal: (type: 'about' | 'privacy' | 'terms' | 'contact') => void;
   onOpenMembershipModal?: (tab?: 'membership' | 'donate') => void;
+  onOpenAnnouncements?: () => void;
 }
 
-export function Footer({ onNavigateTab, onOpenInfoModal, onOpenMembershipModal }: FooterProps) {
+export function Footer({ onNavigateTab, onOpenInfoModal, onOpenMembershipModal, onOpenAnnouncements }: FooterProps) {
   const activeSocials = getActiveSocials();
 
   const handleNavClick = (tab: string, subTab?: string) => {
@@ -133,6 +134,15 @@ export function Footer({ onNavigateTab, onOpenInfoModal, onOpenMembershipModal }
                 >
                   Prediction Polls
                 </button>
+                {onOpenAnnouncements && (
+                  <button
+                    type="button"
+                    onClick={onOpenAnnouncements}
+                    className="text-amber-400 hover:text-amber-300 transition-colors text-left"
+                  >
+                    Announcements & Notices
+                  </button>
+                )}
                 {onOpenMembershipModal && (
                   <>
                     <button

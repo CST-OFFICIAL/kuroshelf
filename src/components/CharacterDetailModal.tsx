@@ -234,7 +234,7 @@ export const CharacterDetailModal: React.FC<CharacterDetailModalProps> = ({
                           </h4>
                           {show.score && (
                             <div className="text-[10px] text-amber-400 font-bold mt-0.5">
-                              ★ {show.score}
+                              ★ {typeof show.score === 'number' ? show.score.toFixed(2) : show.score}
                             </div>
                           )}
                         </div>

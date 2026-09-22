@@ -98,7 +98,7 @@ export function ShelfView({
   const totalProgressUnits = shelf.reduce((acc, item) => acc + (item.progress || 0), 0);
   const averageRating =
     ratedItems.length > 0
-      ? (ratedItems.reduce((acc, item) => acc + (item.userRating || 0), 0) / ratedItems.length).toFixed(1)
+      ? (ratedItems.reduce((acc, item) => acc + (item.userRating || 0), 0) / ratedItems.length).toFixed(2)
       : 'N/A';
 
   const tabs: { id: ShelfViewFilterTab; label: string; count?: number; icon?: typeof User }[] = [

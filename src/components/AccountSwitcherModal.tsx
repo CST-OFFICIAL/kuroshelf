@@ -6,19 +6,18 @@ import {
   LogOut,
   X,
   Crown,
-  Sparkles,
-  BookOpen,
-  Tv,
+  Heart,
 } from 'lucide-react';
 import { AuthUser, SavedAccount } from '../types';
 import {
   getSavedAccounts,
   switchAccount,
   removeSavedAccount,
-  quickLogInPresetAccount,
 } from '../services/authService';
 import { AnimeAvatar } from './AnimeAvatar';
 import { getStoredProfileCustomization } from '../services/profileCustomizationService';
+import { getMembership, getUserDonationRecord } from '../services/membershipService';
+import { VerifiedMemberBadge } from './VerifiedMemberBadge';
 
 interface AccountSwitcherModalProps {
   currentUser: AuthUser | null;
@@ -60,17 +59,6 @@ export const AccountSwitcherModal: React.FC<AccountSwitcherModalProps> = ({
     setSavedAccounts(res.remainingAccounts);
     if (res.nextActiveUser) {
       onAccountSwitched(res.nextActiveUser);
-    }
-  };
-
-  const handleQuickAddPreset = async (presetAccountId: string) => {
-    setSwitchingId(presetAccountId);
-    try {
-      const user = await quickLogInPresetAccount(presetAccountId);
-      onAccountSwitched(user);
-      onClose();
-    } finally {
-      setSwitchingId(null);
     }
   };
 
@@ -121,6 +109,7 @@ export const AccountSwitcherModal: React.FC<AccountSwitcherModalProps> = ({
               const isActive = currentUser?.id === account.user.id;
               const isAdmin = account.user.role === 'admin' || account.user.username.toLowerCase() === 'kuro';
               const custom = getStoredProfileCustomization(account.user.id);
+              const donationRec = getUserDonationRecord(account.user.id);
 
               return (
                 <div
@@ -147,10 +136,22 @@ export const AccountSwitcherModal: React.FC<AccountSwitcherModalProps> = ({
                     </div>
 
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <h4 className="text-sm font-bold text-white truncate">
                           {account.user.display_name || account.user.username}
                         </h4>
+                        {(account.user.is_premium || getMembership(account.user.id).isPremium) && (
+                          <VerifiedMemberBadge size="xs" />
+                        )}
+                        {donationRec.totalAmount > 0 && (
+                          <span
+                            className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold flex items-center gap-1 border border-rose-500/30"
+                            title={`Contributed $${donationRec.totalAmount.toFixed(2)}`}
+                          >
+                            <Heart className="w-2.5 h-2.5 text-rose-400 fill-rose-400" />
+                            <span>${donationRec.totalAmount.toFixed(0)}</span>
+                          </span>
+                        )}
                         {isAdmin && (
                           <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-black uppercase flex items-center gap-0.5 border border-amber-500/30">
                             <Crown className="w-2.5 h-2.5" />
@@ -196,82 +197,7 @@ export const AccountSwitcherModal: React.FC<AccountSwitcherModalProps> = ({
           </div>
         </div>
 
-        {/* Quick Log In Additional Accounts (User Request: "Log in two more accounts") */}
-        <div className="space-y-3 pt-2 border-t border-neutral-800">
-          <div className="flex items-center justify-between text-xs text-neutral-400">
-            <span className="font-bold text-white flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>Quick Log In Two More Accounts</span>
-            </span>
-            <span className="text-[10px] text-neutral-400">1-click instant login</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {/* Account 1: Ren Manga Savant */}
-            <button
-              type="button"
-              disabled={switchingId === 'acc_ren_mangasavant' || currentUser?.id === 'acc_ren_mangasavant'}
-              onClick={() => handleQuickAddPreset('acc_ren_mangasavant')}
-              className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
-                currentUser?.id === 'acc_ren_mangasavant'
-                  ? 'bg-amber-950/20 border-amber-500/40 opacity-70'
-                  : 'bg-neutral-950/70 border-neutral-800 hover:border-amber-500/50 hover:bg-neutral-800/80'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 to-rose-400 flex items-center justify-center text-sm font-bold text-neutral-950">
-                  🐹
-                </div>
-                <div className="min-w-0">
-                  <h5 className="text-xs font-bold text-white truncate">Ren • Manga Savant</h5>
-                  <p className="text-[10px] text-amber-300 font-mono">@mangasavant</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-neutral-400 pt-1 border-t border-neutral-800/80">
-                <span className="flex items-center gap-1 text-[10px]">
-                  <BookOpen className="w-3 h-3 text-amber-400" />
-                  Manga Collector
-                </span>
-                <span className="font-bold text-xs text-amber-400 flex items-center gap-0.5">
-                  {currentUser?.id === 'acc_ren_mangasavant' ? 'Active' : 'Log In →'}
-                </span>
-              </div>
-            </button>
-
-            {/* Account 2: Sakura Anime Reviewer */}
-            <button
-              type="button"
-              disabled={switchingId === 'acc_sakura_animereviewer' || currentUser?.id === 'acc_sakura_animereviewer'}
-              onClick={() => handleQuickAddPreset('acc_sakura_animereviewer')}
-              className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
-                currentUser?.id === 'acc_sakura_animereviewer'
-                  ? 'bg-rose-950/20 border-rose-500/40 opacity-70'
-                  : 'bg-neutral-950/70 border-neutral-800 hover:border-rose-500/50 hover:bg-neutral-800/80'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-pink-400 to-purple-500 flex items-center justify-center text-sm font-bold text-white">
-                  👻
-                </div>
-                <div className="min-w-0">
-                  <h5 className="text-xs font-bold text-white truncate">Sakura • Anime Reviewer</h5>
-                  <p className="text-[10px] text-rose-300 font-mono">@sakuradreamer</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-neutral-400 pt-1 border-t border-neutral-800/80">
-                <span className="flex items-center gap-1 text-[10px]">
-                  <Tv className="w-3 h-3 text-rose-400" />
-                  Seasonal Critic
-                </span>
-                <span className="font-bold text-xs text-rose-400 flex items-center gap-0.5">
-                  {currentUser?.id === 'acc_sakura_animereviewer' ? 'Active' : 'Log In →'}
-                </span>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        {/* Custom Add Account Button */}
+        {/* Add Another Account Button */}
         <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
           <button
             type="button"
@@ -282,7 +208,7 @@ export const AccountSwitcherModal: React.FC<AccountSwitcherModalProps> = ({
             className="w-full px-5 py-3 rounded-2xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2"
           >
             <UserPlus className="w-4 h-4 text-rose-400" />
-            <span>Add Custom Account</span>
+            <span>Sign In / Add Another Account</span>
           </button>
         </div>
       </div>

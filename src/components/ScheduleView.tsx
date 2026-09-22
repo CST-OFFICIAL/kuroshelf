@@ -112,18 +112,18 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   return (
     <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-neutral-900 border border-neutral-800 p-6 sm:p-8">
+      <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 p-6 sm:p-8 shadow-xs">
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 rounded-full bg-rose-500/10 blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-semibold uppercase tracking-wider">
               <Calendar className="w-3.5 h-3.5" />
               <span>Simulcast Broadcast Calendar</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-slate-900 dark:text-white font-display">
               Weekly Release Schedule
             </h1>
-            <p className="text-sm sm:text-base text-neutral-400 max-w-2xl">
+            <p className="text-sm sm:text-base text-slate-600 dark:text-neutral-400 max-w-2xl">
               Track upcoming episode broadcasts, precise countdowns, and simulcast premieres calibrated to Japan Standard Time (JST).
             </p>
           </div>
@@ -135,33 +135,33 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                   id="schedule-nav-to-seasonal"
                   type="button"
                   onClick={() => onNavigateTab('seasonal')}
-                  className="px-3 py-1.5 rounded-lg text-neutral-400 hover:text-white transition-colors font-medium"
+                  className="px-3 py-1.5 rounded-lg text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white transition-colors font-medium"
                 >
                   Seasonal Anime
                 </button>
                 <button
                   type="button"
-                  className="px-3 py-1.5 rounded-lg bg-neutral-800 text-white font-semibold shadow-sm border border-neutral-700 flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-lg bg-white dark:bg-neutral-800 text-slate-900 dark:text-white font-semibold shadow-xs border border-slate-200 dark:border-neutral-700 flex items-center gap-1.5"
                 >
-                  <Calendar className="w-3.5 h-3.5 text-rose-400" />
+                  <Calendar className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
                   <span>Schedule</span>
                 </button>
               </div>
             )}
 
-            <div className="flex items-center gap-3 bg-neutral-950/80 border border-neutral-800 px-4 py-2.5 rounded-xl text-xs text-neutral-300">
-              <Clock className="w-4 h-4 text-rose-400" />
+            <div className="flex items-center gap-3 bg-slate-100 dark:bg-neutral-950/80 border border-slate-200 dark:border-neutral-800 px-4 py-2.5 rounded-xl text-xs text-slate-700 dark:text-neutral-300">
+              <Clock className="w-4 h-4 text-rose-500 dark:text-rose-400" />
               <div>
-                <div className="font-medium text-white">Asia / Tokyo (JST)</div>
-                <div className="text-neutral-500">Auto-synchronized broadcast times</div>
+                <div className="font-medium text-slate-900 dark:text-white">Asia / Tokyo (JST)</div>
+                <div className="text-slate-500 dark:text-neutral-500">Auto-synchronized broadcast times</div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Day Selector Pills */}
-        <div className="mt-6 pt-6 border-t border-neutral-800/80">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-neutral-800">
+        <div className="mt-6 pt-6 border-t border-slate-200 dark:border-neutral-800/80">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-neutral-800">
             {DAYS_OF_WEEK.map((day) => {
               const isToday = day.id === todayWeekday;
               const isSelected = selectedDay === day.id;
@@ -173,8 +173,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                   onClick={() => setSelectedDay(day.id)}
                   className={`relative shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
                     isSelected
-                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-950/40 font-semibold'
-                      : 'bg-neutral-950/60 text-neutral-400 hover:text-white hover:bg-neutral-800 border border-neutral-800/60'
+                      ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30 font-semibold'
+                      : 'bg-slate-100 dark:bg-neutral-950/60 text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-neutral-800 border border-slate-200 dark:border-neutral-800/60'
                   }`}
                 >
                   <span>{day.label}</span>
@@ -183,7 +183,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                       className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full ${
                         isSelected
                           ? 'bg-white/20 text-white'
-                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
                       }`}
                     >
                       Today
@@ -197,8 +197,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               onClick={() => setSelectedDay('all')}
               className={`shrink-0 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
                 selectedDay === 'all'
-                  ? 'bg-rose-600 text-white shadow-lg shadow-rose-950/40 font-semibold'
-                  : 'bg-neutral-950/60 text-neutral-400 hover:text-white hover:bg-neutral-800 border border-neutral-800/60'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30 font-semibold'
+                  : 'bg-slate-100 dark:bg-neutral-950/60 text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-neutral-800 border border-slate-200 dark:border-neutral-800/60'
               }`}
             >
               All Week
@@ -208,27 +208,27 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-neutral-900/60 border border-neutral-800/80 p-3 rounded-xl">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-neutral-900/60 border border-slate-200 dark:border-neutral-800/80 p-3 rounded-xl shadow-xs">
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-neutral-500" />
           <input
             id="schedule-search-input"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={`Filter ${selectedDay !== 'all' ? selectedDay : 'weekly'} releases...`}
-            className="w-full pl-10 pr-4 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors"
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-neutral-800 rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 focus:outline-none focus:border-rose-500 transition-colors"
           />
         </div>
 
         {availableGenres.length > 0 && (
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-neutral-500 shrink-0" />
+            <Filter className="w-4 h-4 text-slate-400 dark:text-neutral-500 shrink-0" />
             <select
               id="schedule-genre-filter"
               value={selectedGenre}
               onChange={(e) => setSelectedGenre(e.target.value)}
-              className="bg-neutral-950 border border-neutral-800 text-xs text-neutral-300 rounded-lg px-3 py-2 focus:outline-none focus:border-rose-500"
+              className="bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-neutral-800 text-xs text-slate-800 dark:text-neutral-300 rounded-lg px-3 py-2 focus:outline-none focus:border-rose-500"
             >
               <option value="all">All Genres ({scheduleItems.length})</option>
               {availableGenres.map((g) => (
@@ -288,10 +288,10 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 key={item.mal_id}
                 id={`schedule-card-${item.mal_id}`}
                 onClick={() => onSelectAnime(item)}
-                className="group relative bg-neutral-900 border border-neutral-800 hover:border-rose-500/50 rounded-2xl overflow-hidden flex flex-col cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-rose-950/20 hover:-translate-y-1"
+                className="group relative bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 hover:border-rose-500/50 rounded-2xl overflow-hidden flex flex-col cursor-pointer transition-all duration-300 shadow-xs hover:shadow-xl hover:shadow-rose-600/10 dark:hover:shadow-rose-950/20 hover:-translate-y-1"
               >
                 {/* Poster & Badges */}
-                <div className="relative aspect-[3/4] w-full overflow-hidden bg-neutral-950">
+                <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100 dark:bg-neutral-950">
                   <img
                     src={item.images?.jpg?.image_url || item.images?.webp?.image_url}
                     alt={item.title}
@@ -299,7 +299,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                     loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/20 to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />
 
                   {/* Top Badges */}
                   <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5 pointer-events-none">
@@ -316,7 +316,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                     {item.score ? (
                       <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-neutral-950/80 backdrop-blur-md text-amber-400 text-[11px] font-bold border border-neutral-800/80">
                         <Star className="w-3 h-3 fill-amber-400" />
-                        {item.score.toFixed(1)}
+                        {item.score.toFixed(2)}
                       </span>
                     ) : null}
                   </div>
@@ -340,11 +340,11 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 {/* Card Content */}
                 <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between space-y-3">
                   <div className="space-y-1">
-                    <h3 className="font-bold text-sm sm:text-base text-white line-clamp-1 group-hover:text-rose-400 transition-colors">
+                    <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white line-clamp-1 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
                       {item.title}
                     </h3>
                     {item.title_english && item.title_english !== item.title && (
-                      <p className="text-xs text-neutral-400 line-clamp-1">{item.title_english}</p>
+                      <p className="text-xs text-slate-500 dark:text-neutral-400 line-clamp-1">{item.title_english}</p>
                     )}
                   </div>
 
@@ -354,7 +354,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                       {item.genres.slice(0, 2).map((g) => (
                         <span
                           key={g.name}
-                          className="px-2 py-0.5 rounded-full bg-neutral-800/80 text-[10px] text-neutral-400"
+                          className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800/80 text-[10px] text-slate-600 dark:text-neutral-400 border border-slate-200/50 dark:border-transparent"
                         >
                           {g.name}
                         </span>
@@ -363,15 +363,15 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                   )}
 
                   {/* Action Row */}
-                  <div className="pt-2 border-t border-neutral-800/70 flex items-center justify-between gap-2">
+                  <div className="pt-2 border-t border-slate-200 dark:border-neutral-800/70 flex items-center justify-between gap-2">
                     <button
                       id={`schedule-add-btn-${item.mal_id}`}
                       onClick={(e) => handleQuickAdd(e, item)}
                       disabled={inShelf}
                       className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
                         inShelf
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 cursor-default'
-                          : 'bg-neutral-800 hover:bg-rose-600 text-neutral-200 hover:text-white'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 cursor-default'
+                          : 'bg-slate-100 dark:bg-neutral-800 hover:bg-rose-600 dark:hover:bg-rose-600 text-slate-700 dark:text-neutral-200 hover:text-white dark:hover:text-white'
                       }`}
                     >
                       {inShelf ? (

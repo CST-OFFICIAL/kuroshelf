@@ -3,8 +3,11 @@ import { AuthUser } from '../types';
 export interface MembershipInfo {
   isPremium: boolean;
   tier?: 'vip' | 'patron';
+  billingCycle?: 'monthly' | 'yearly';
+  pricePaid?: number;
   since?: string;
   expiresAt?: string;
+  autoRenew?: boolean;
 }
 
 export interface PollCreationRecord {
@@ -21,6 +24,16 @@ export interface DonationEntry {
   isAnonymous?: boolean;
   createdAt: string;
   tierTitle?: string;
+  userId?: string;
+  expiresAt?: number; // ms timestamp for marquee ticker expiration (1 minute)
+}
+
+export interface UserDonationSummary {
+  totalAmount: number;
+  donationCount: number;
+  history: DonationEntry[];
+  latestDonationDate?: string;
+  highestTierTitle?: string;
 }
 
 const STORAGE_KEYS = {
@@ -29,65 +42,40 @@ const STORAGE_KEYS = {
   DONATIONS: 'kuroshelf_donations',
   DONOR_STATUS: 'kuroshelf_is_donor',
   DONOR_PREFIX: 'kuroshelf_donor_',
+  USER_DONATIONS_PREFIX: 'kuroshelf_user_donations_',
 };
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const ONE_MINUTE_MS = 60 * 1000;
 
-// Default Wall of Honor donations
-const INITIAL_DONATIONS: DonationEntry[] = [
-  {
-    id: 'don-1',
-    supporterName: 'Kazuma & Megumin',
-    amount: 1000,
-    message: 'To keep KuroShelf independent and ad-free! Absolute favorite anime catalog.',
-    createdAt: '2026-09-18T14:22:00Z',
-    tierTitle: 'Dragon Deity Founder',
-  },
-  {
-    id: 'don-2',
-    supporterName: 'Ren (MangaSavant)',
-    amount: 250,
-    message: 'Thank you for the amazing Berserk and Vinland Saga tracking.',
-    createdAt: '2026-09-15T09:10:00Z',
-    tierTitle: 'Executive Producer',
-  },
-  {
-    id: 'don-3',
-    supporterName: 'ChainsawDev',
-    amount: 50,
-    message: 'Best prediction polls on the internet. Keep cooking!',
-    createdAt: '2026-09-12T19:45:00Z',
-    tierTitle: 'Collector Box Set Backer',
-  },
-  {
-    id: 'don-4',
-    supporterName: 'Anonymous Otaku',
-    amount: 25,
-    isAnonymous: true,
-    message: 'Love from Tokyo!',
-    createdAt: '2026-09-10T11:00:00Z',
-    tierTitle: 'Manga Tankobon Sponsor',
-  },
-  {
-    id: 'don-5',
-    supporterName: 'Aoi_Kuro',
-    amount: 15,
-    message: 'For coffee and servers. Cheers to the community!',
-    createdAt: '2026-09-08T16:30:00Z',
-    tierTitle: 'Boba & Coffee Supporter',
-  },
-];
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const THREE_SIXTY_FIVE_DAYS_MS = 365 * 24 * 60 * 60 * 1000;
 
 export function getMembership(userId?: string): MembershipInfo {
   try {
     const raw = localStorage.getItem(`${STORAGE_KEYS.MEMBERSHIP}_${userId || 'local'}`);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed: MembershipInfo = JSON.parse(raw);
+      // Check if expired
+      if (parsed.isPremium && parsed.expiresAt) {
+        const expiresTime = new Date(parsed.expiresAt).getTime();
+        if (Date.now() > expiresTime) {
+          parsed.isPremium = false;
+        }
+      }
+      return parsed;
     }
     // Also check global fallback
     const globalRaw = localStorage.getItem(STORAGE_KEYS.MEMBERSHIP);
     if (globalRaw) {
-      return JSON.parse(globalRaw);
+      const parsed: MembershipInfo = JSON.parse(globalRaw);
+      if (parsed.isPremium && parsed.expiresAt) {
+        const expiresTime = new Date(parsed.expiresAt).getTime();
+        if (Date.now() > expiresTime) {
+          parsed.isPremium = false;
+        }
+      }
+      return parsed;
     }
   } catch (err) {
     console.warn('[Membership] Failed to read membership:', err);
@@ -95,22 +83,29 @@ export function getMembership(userId?: string): MembershipInfo {
   return { isPremium: false };
 }
 
-export function setMembership(
-  isPremium: boolean,
-  tier: 'vip' | 'patron' = 'vip',
-  userId?: string
-): MembershipInfo {
+export function subscribeMembership(options: {
+  cycle: 'monthly' | 'yearly';
+  tier?: 'vip' | 'patron';
+  userId?: string;
+  paymentMethod?: string;
+}): MembershipInfo {
+  const isYearly = options.cycle === 'yearly';
+  const durationMs = isYearly ? THREE_SIXTY_FIVE_DAYS_MS : THIRTY_DAYS_MS;
+  const pricePaid = isYearly ? 41.90 : 4.99;
+  const tier = options.tier || 'vip';
+
   const info: MembershipInfo = {
-    isPremium,
-    tier: isPremium ? tier : undefined,
-    since: isPremium ? new Date().toISOString() : undefined,
-    expiresAt: isPremium
-      ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-      : undefined,
+    isPremium: true,
+    tier,
+    billingCycle: options.cycle,
+    pricePaid,
+    since: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + durationMs).toISOString(),
+    autoRenew: true,
   };
 
   try {
-    const key = `${STORAGE_KEYS.MEMBERSHIP}_${userId || 'local'}`;
+    const key = `${STORAGE_KEYS.MEMBERSHIP}_${options.userId || 'local'}`;
     localStorage.setItem(key, JSON.stringify(info));
     localStorage.setItem(STORAGE_KEYS.MEMBERSHIP, JSON.stringify(info));
 
@@ -118,16 +113,59 @@ export function setMembership(
     const activeRaw = localStorage.getItem('kuro_local_user');
     if (activeRaw) {
       const user: AuthUser = JSON.parse(activeRaw);
-      user.is_premium = isPremium;
-      user.premium_tier = isPremium ? tier : undefined;
+      user.is_premium = true;
+      user.premium_tier = tier;
       user.premium_since = info.since;
       localStorage.setItem('kuro_local_user', JSON.stringify(user));
     }
+
+    window.dispatchEvent(new CustomEvent('kuroshelf_membership_updated', { detail: info }));
   } catch (err) {
-    console.warn('[Membership] Failed to save membership:', err);
+    console.warn('[Membership] Failed to save subscription:', err);
   }
 
   return info;
+}
+
+export function cancelMembership(userId?: string): MembershipInfo {
+  const current = getMembership(userId);
+  const info: MembershipInfo = {
+    ...current,
+    isPremium: false,
+    autoRenew: false,
+  };
+
+  try {
+    const key = `${STORAGE_KEYS.MEMBERSHIP}_${userId || 'local'}`;
+    localStorage.setItem(key, JSON.stringify(info));
+    localStorage.setItem(STORAGE_KEYS.MEMBERSHIP, JSON.stringify(info));
+
+    const activeRaw = localStorage.getItem('kuro_local_user');
+    if (activeRaw) {
+      const user: AuthUser = JSON.parse(activeRaw);
+      user.is_premium = false;
+      user.premium_tier = undefined;
+      localStorage.setItem('kuro_local_user', JSON.stringify(user));
+    }
+
+    window.dispatchEvent(new CustomEvent('kuroshelf_membership_updated', { detail: info }));
+  } catch (err) {
+    console.warn('[Membership] Failed to cancel membership:', err);
+  }
+
+  return info;
+}
+
+export function setMembership(
+  isPremium: boolean,
+  tier: 'vip' | 'patron' = 'vip',
+  userId?: string
+): MembershipInfo {
+  if (isPremium) {
+    return subscribeMembership({ cycle: 'monthly', tier, userId });
+  } else {
+    return cancelMembership(userId);
+  }
 }
 
 /**
@@ -205,17 +243,103 @@ export function recordPollCreation(pollId: string, userId?: string): void {
 }
 
 // Donations / Help KuroShelf Grow
+const STATIC_BOT_IDS = new Set(['don-1', 'don-2', 'don-3', 'don-4', 'don-5', 'don-6', 'fake-1', 'fake-2', 'bot-1', 'bot-2']);
+
+/**
+ * Returns all historical donations for records and leaderboards.
+ */
 export function getDonations(): DonationEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.DONATIONS);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(INITIAL_DONATIONS));
-      return INITIAL_DONATIONS;
+      return [];
     }
-    return JSON.parse(raw);
+    const parsed: DonationEntry[] = JSON.parse(raw);
+    // Filter out only static hardcoded mock/bot donors
+    const genuine = parsed
+      .filter((d) => !STATIC_BOT_IDS.has(d.id) && !d.id.startsWith('mock-') && !d.id.match(/^don-[1-9]$/))
+      .map((d) => {
+        // Upgrade legacy don-timestamp IDs to kuro-don format so they persist cleanly
+        if (d.id.startsWith('don-')) {
+          return { ...d, id: d.id.replace('don-', 'kuro-don-') };
+        }
+        return d;
+      });
+
+    if (genuine.length !== parsed.length || parsed.some(d => d.id.startsWith('don-'))) {
+      localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(genuine));
+    }
+    return genuine;
   } catch {
-    return INITIAL_DONATIONS;
+    return [];
   }
+}
+
+/**
+ * Returns active donations for the marquee notice board.
+ * Each donation has a 1-minute (60 seconds) expiration window on the ticker so names do not loop forever!
+ */
+export function getActiveTickerDonations(): DonationEntry[] {
+  const all = getDonations();
+  const now = Date.now();
+
+  return all.filter((d) => {
+    // If expiresAt is set, respect it strictly (1 minute expiry)
+    if (d.expiresAt) {
+      return now < d.expiresAt;
+    }
+    // Backward compatibility: use createdAt + 1 minute
+    const createdTime = new Date(d.createdAt).getTime();
+    if (!isNaN(createdTime)) {
+      return now - createdTime < ONE_MINUTE_MS;
+    }
+    return false;
+  });
+}
+
+/**
+ * Retrieves the personal account donation record for a user.
+ */
+export function getUserDonationRecord(userId?: string): UserDonationSummary {
+  if (!userId) {
+    // Check fallback for local user
+    try {
+      const activeRaw = localStorage.getItem('kuro_local_user');
+      if (activeRaw) {
+        const u = JSON.parse(activeRaw);
+        if (u?.id) return getUserDonationRecord(u.id);
+      }
+    } catch {}
+    return { totalAmount: 0, donationCount: 0, history: [] };
+  }
+
+  try {
+    const raw = localStorage.getItem(`${STORAGE_KEYS.USER_DONATIONS_PREFIX}${userId}`);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+
+    // Fallback: search global donations list for this user's contributions
+    const all = getDonations();
+    const userDonations = all.filter(d => d.userId === userId);
+    if (userDonations.length > 0) {
+      const total = userDonations.reduce((sum, d) => sum + d.amount, 0);
+      const highestTier = getDonationTierTitle(Math.max(...userDonations.map(d => d.amount)));
+      const summary: UserDonationSummary = {
+        totalAmount: Number(total.toFixed(2)),
+        donationCount: userDonations.length,
+        history: userDonations,
+        latestDonationDate: userDonations[0]?.createdAt,
+        highestTierTitle: highestTier,
+      };
+      localStorage.setItem(`${STORAGE_KEYS.USER_DONATIONS_PREFIX}${userId}`, JSON.stringify(summary));
+      return summary;
+    }
+  } catch (err) {
+    console.warn('[Membership] Failed to fetch user donations record:', err);
+  }
+
+  return { totalAmount: 0, donationCount: 0, history: [] };
 }
 
 export function getDonationTierTitle(amount: number): string {
@@ -232,6 +356,8 @@ export function isUserDonor(userId?: string): boolean {
     if (userId) {
       const userKey = `${STORAGE_KEYS.DONOR_PREFIX}${userId}`;
       if (localStorage.getItem(userKey) === 'true') return true;
+      const userSummary = getUserDonationRecord(userId);
+      if (userSummary.totalAmount > 0) return true;
     }
     // Check global browser flag
     if (localStorage.getItem(STORAGE_KEYS.DONOR_STATUS) === 'true') return true;
@@ -241,6 +367,10 @@ export function isUserDonor(userId?: string): boolean {
     if (activeRaw) {
       const user = JSON.parse(activeRaw);
       if (user.is_donor) return true;
+      if (user.id) {
+        const summary = getUserDonationRecord(user.id);
+        if (summary.totalAmount > 0) return true;
+      }
     }
   } catch (err) {
     console.warn('[Membership] Failed to check donor status:', err);
@@ -276,23 +406,56 @@ export function submitDonation(donation: {
   userId?: string;
 }): DonationEntry {
   const donations = getDonations();
+  const nowMs = Date.now();
+  const validAmount = Math.min(10000, Math.max(1, Number(donation.amount.toFixed(2))));
+
   const newEntry: DonationEntry = {
-    id: `don-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: `kuro-don-${nowMs}-${Math.random().toString(36).slice(2, 7)}`,
     supporterName: donation.isAnonymous ? 'Anonymous Otaku' : donation.supporterName.trim() || 'Generous Otaku',
-    amount: Math.min(10000, Math.max(1, Number(donation.amount.toFixed(2)))),
+    amount: validAmount,
     message: donation.message?.trim(),
     isAnonymous: donation.isAnonymous,
-    createdAt: new Date().toISOString(),
-    tierTitle: getDonationTierTitle(donation.amount),
+    createdAt: new Date(nowMs).toISOString(),
+    tierTitle: getDonationTierTitle(validAmount),
+    userId: donation.userId,
+    // 1-minute expiration on ticker so names don't loop forever
+    expiresAt: nowMs + ONE_MINUTE_MS,
   };
 
   const updated = [newEntry, ...donations];
   try {
+    // 1. Save to global list of donations
     localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(updated));
-    // Mark donor status for this user / device
+
+    // 2. Record contribution to the user's personal account
+    if (donation.userId) {
+      const existingRecord = getUserDonationRecord(donation.userId);
+      const updatedTotal = Number((existingRecord.totalAmount + validAmount).toFixed(2));
+      const updatedHistory = [newEntry, ...existingRecord.history];
+      const highestTier = getDonationTierTitle(Math.max(...updatedHistory.map(d => d.amount)));
+
+      const updatedRecord: UserDonationSummary = {
+        totalAmount: updatedTotal,
+        donationCount: existingRecord.donationCount + 1,
+        history: updatedHistory,
+        latestDonationDate: newEntry.createdAt,
+        highestTierTitle: highestTier,
+      };
+
+      localStorage.setItem(
+        `${STORAGE_KEYS.USER_DONATIONS_PREFIX}${donation.userId}`,
+        JSON.stringify(updatedRecord)
+      );
+    }
+
+    // 3. Mark donor status for this user / device
     setUserDonor(donation.userId, true);
-    // Dispatch real-time event for notice board ticker and UI
+
+    // 4. Dispatch real-time events for ticker, profile, and navigation
     window.dispatchEvent(new CustomEvent('kuroshelf_donation_made', { detail: newEntry }));
+    window.dispatchEvent(new CustomEvent('kuroshelf_account_donation_updated', {
+      detail: { userId: donation.userId, amount: validAmount }
+    }));
   } catch (err) {
     console.warn('[Membership] Failed to save donation:', err);
   }

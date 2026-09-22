@@ -495,7 +495,7 @@ export function AnimeDetailModal({
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 font-bold" title="Kuro Shelf Rating">
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 fill-rose-400 text-rose-400" />
-                        <span className="text-sm">{communityScore.score.toFixed(1)}</span>
+                        <span className="text-sm">{communityScore.score.toFixed(2)}</span>
                       </div>
                       <span className="text-xs font-semibold text-rose-200">Kuro Shelf Rating</span>
                       <span className="text-[10px] text-rose-400/80 font-normal">({communityScore.users} KS user{communityScore.users !== 1 ? 's' : ''})</span>
@@ -505,7 +505,7 @@ export function AnimeDetailModal({
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold" title="Global Rating">
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                        <span className="text-sm">{anime.score.toFixed(1)}</span>
+                        <span className="text-sm">{anime.score.toFixed(2)}</span>
                       </div>
                       <span className="text-xs font-semibold text-amber-200">Global Rating</span>
                       {anime.scored_by ? (

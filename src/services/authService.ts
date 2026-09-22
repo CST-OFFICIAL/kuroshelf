@@ -10,11 +10,22 @@ export function getSavedAccounts(): SavedAccount[] {
     const raw = localStorage.getItem(SAVED_ACCOUNTS_KEY);
     let accounts: SavedAccount[] = raw ? JSON.parse(raw) : [];
     
+    // Auto-remove any legacy fake/demo accounts
+    const fakeAccountIds = new Set(['acc_ren_mangasavant', 'acc_sakura_animereviewer']);
+    const beforeCount = accounts.length;
+    accounts = accounts.filter((a) => !fakeAccountIds.has(a.user.id));
+    if (accounts.length !== beforeCount) {
+      localStorage.setItem(SAVED_ACCOUNTS_KEY, JSON.stringify(accounts));
+    }
+
     // Auto-migrate current active user if not already in saved accounts
     const activeRaw = localStorage.getItem('kuro_local_user');
     if (activeRaw) {
       const activeUser: AuthUser = JSON.parse(activeRaw);
-      if (!accounts.some((a) => a.user.id === activeUser.id)) {
+      if (fakeAccountIds.has(activeUser.id)) {
+        localStorage.removeItem('kuro_local_user');
+        localStorage.removeItem('kuro_local_token');
+      } else if (!accounts.some((a) => a.user.id === activeUser.id)) {
         accounts.push({
           user: activeUser,
           token: localStorage.getItem('kuro_local_token'),
@@ -116,36 +127,6 @@ export interface PresetDemoAccount {
 }
 
 export const PRESET_ACCOUNTS: PresetDemoAccount[] = [
-  {
-    user: {
-      id: 'acc_ren_mangasavant',
-      email: 'ren.manga@kuroshelf.local',
-      username: 'mangasavant',
-      display_name: 'Ren • Manga Savant',
-      profile_setup_complete: true,
-      role: 'user',
-      created_at: '2026-01-15T00:00:00Z',
-    },
-    description: 'Seinen collector & psychological manga reader. Tracks Berserk, Monster & Vinland Saga.',
-    avatarPreset: 'silly_smug_hamster',
-    bannerPreset: 'tokyo_rain',
-    tagline: 'Manga Critic & Collector',
-  },
-  {
-    user: {
-      id: 'acc_sakura_animereviewer',
-      email: 'sakura.reviewer@kuroshelf.local',
-      username: 'sakuradreamer',
-      display_name: 'Sakura • Anime Reviewer',
-      profile_setup_complete: true,
-      role: 'user',
-      created_at: '2026-02-10T00:00:00Z',
-    },
-    description: 'Seasonal anime enthusiast, soundtrack connoisseur, and slice-of-life reviewer.',
-    avatarPreset: 'silly_boba_ghost',
-    bannerPreset: 'amethyst_dusk',
-    tagline: 'Seasonal Anime Reviewer',
-  },
   {
     user: {
       id: 'kuro_admin_master',

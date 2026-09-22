@@ -482,6 +482,30 @@ const STATUS_MAP: Record<string, string> = {
   upcoming: 'NOT_YET_RELEASED'
 };
 
+export function computeExactScore(m: any): number | null {
+  if (!m) return null;
+  if (typeof m.score === 'number' && m.score > 0) {
+    return Number(m.score.toFixed(2));
+  }
+  if (m.stats?.scoreDistribution && Array.isArray(m.stats.scoreDistribution) && m.stats.scoreDistribution.length > 0) {
+    let totalVotes = 0;
+    let weightedSum = 0;
+    for (const d of m.stats.scoreDistribution) {
+      if (d && typeof d.score === 'number' && typeof d.amount === 'number') {
+        weightedSum += d.score * d.amount;
+        totalVotes += d.amount;
+      }
+    }
+    if (totalVotes > 0) {
+      return Number((weightedSum / totalVotes / 10).toFixed(2));
+    }
+  }
+  if (typeof m.averageScore === 'number' && m.averageScore > 0) {
+    return Number((m.averageScore / 10).toFixed(2));
+  }
+  return null;
+}
+
 async function searchAnilistFallback(query: string, page: number, limit: number, genreId?: string, typeApi: string = "ALL", statusStr?: string, orderBy?: string, originalType?: string): Promise<BaseJikanAnime[]> {
   const genreMeta = genreId ? resolveGenreInfo(genreId) : null;
   const genreStr = genreMeta?.isAnilistGenre ? genreMeta.name : undefined;
@@ -516,6 +540,7 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
         season
         seasonYear
         averageScore
+        stats { scoreDistribution { score amount } }
         synopsis: description(asHtml: false)
         genres
         studios(isMain: true) { nodes { name } }
@@ -573,7 +598,7 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
           status,
           airing: !isManga && m.status === 'RELEASING',
           publishing: isManga && m.status === 'RELEASING',
-          score: m.averageScore ? (m.averageScore / 10) : null,
+          score: computeExactScore(m),
           year: m.seasonYear || null,
           genres: (m.genres || []).map((g: string) => ({
             mal_id: Number(GENRE_NAME_TO_MAL_ID[g.toLowerCase()]) || 0,
@@ -907,6 +932,7 @@ export async function serverGetTop100Anime(options: {
             season
             seasonYear
             averageScore
+            stats { scoreDistribution { score amount } }
             popularity
             favourites
             synopsis: description(asHtml: false)
@@ -978,7 +1004,7 @@ export async function serverGetTop100Anime(options: {
           episodes: m.episodes || null,
           status: st,
           airing: m.status === 'RELEASING',
-          score: m.averageScore ? Number((m.averageScore / 10).toFixed(2)) : null,
+          score: computeExactScore(m),
           scored_by: m.popularity || null,
           year: m.seasonYear || null,
           genres: (m.genres || []).map((g: string) => ({ mal_id: 0, type: 'anime', name: g, url: '' })),
@@ -1097,6 +1123,7 @@ export async function serverGetAiringSchedule(targetDay?: string): Promise<Airin
             format
             episodes
             averageScore
+            stats { scoreDistribution { score amount } }
             genres
             status
             nextAiringEpisode {
@@ -1152,7 +1179,7 @@ export async function serverGetAiringSchedule(targetDay?: string): Promise<Airin
           airing: true,
           type: m.format || 'TV',
           episodes: m.episodes || null,
-          score: m.averageScore ? Number((m.averageScore / 10).toFixed(2)) : null,
+          score: computeExactScore(m),
           genres: (m.genres || []).map((g: string) => ({ mal_id: 0, type: 'anime', name: g, url: '' })),
           studios: m.studios?.nodes ? m.studios.nodes.map((s: any) => ({ mal_id: 0, type: 'anime', name: s.name, url: '' })) : [],
           airing_schedule: {
@@ -1239,6 +1266,7 @@ export async function serverGetAnimeRecommendations(id: number): Promise<Recomme
                 coverImage { large }
                 format
                 averageScore
+                stats { scoreDistribution { score amount } }
                 genres
               }
             }
@@ -1267,7 +1295,7 @@ export async function serverGetAnimeRecommendations(id: number): Promise<Recomme
             title: m.title?.english || m.title?.romaji || 'Unknown Title',
             title_english: m.title?.english || null,
             image_url: m.coverImage?.large || '',
-            score: m.averageScore ? Number((m.averageScore / 10).toFixed(1)) : null,
+            score: computeExactScore(m),
             votes: n.rating || 0,
             format: m.format || 'TV',
             genres: m.genres || []
@@ -1385,6 +1413,7 @@ export async function serverGetCharacterDetails(id: number, rawName?: string): P
                 coverImage { large }
                 format
                 averageScore
+                stats { scoreDistribution { score amount } }
               }
             }
           }
@@ -1406,7 +1435,7 @@ export async function serverGetCharacterDetails(id: number, rawName?: string): P
             mal_id: m.idMal || m.id,
             title: m.title?.english || m.title?.romaji || 'Unknown Title',
             image_url: m.coverImage?.large || '',
-            score: m.averageScore ? Number((m.averageScore / 10).toFixed(1)) : null
+            score: computeExactScore(m)
           }));
 
           const result: CharacterDetailInfo = {

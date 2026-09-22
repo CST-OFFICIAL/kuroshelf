@@ -208,7 +208,7 @@ export function MangaSection({
                     {manga.score && (
                       <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-md bg-neutral-950/90 border border-amber-500/30 text-amber-300 font-bold text-[11px] shadow">
                         <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                        <span>{manga.score.toFixed(1)}</span>
+                        <span>{manga.score.toFixed(2)}</span>
                       </div>
                     )}
 
@@ -390,7 +390,7 @@ export function MangaSection({
                     {selectedMangaDetail.score && (
                       <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
                         <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                        {selectedMangaDetail.score}
+                        {typeof selectedMangaDetail.score === 'number' ? selectedMangaDetail.score.toFixed(2) : selectedMangaDetail.score}
                       </span>
                     )}
                   </div>

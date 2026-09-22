@@ -59,6 +59,8 @@ import { AppearanceModal } from './components/AppearanceModal';
 import { CreatePollModal } from './components/CreatePollModal';
 import { MembershipSupportModal } from './components/MembershipSupportModal';
 import { DonationTickerMarquee } from './components/DonationTickerMarquee';
+import { NoticeTickerMarquee } from './components/NoticeTickerMarquee';
+import { AnnouncementsModal } from './components/AnnouncementsModal';
 import { 
   Flame, 
   Sparkles, 
@@ -165,6 +167,10 @@ export function App() {
   // Supporter / Donor State (tracked in localStorage and event-synced)
   const [isDonor, setIsDonor] = useState<boolean>(() => isUserDonor(currentUser?.id));
 
+  // Announcements & Notices State
+  const [announcementsModalOpen, setAnnouncementsModalOpen] = useState(false);
+  const [selectedAnnouncementId, setSelectedAnnouncementId] = useState<string | null>(null);
+
   // Sync premium & donor status on user change
   useEffect(() => {
     setIsPremium(getMembership(currentUser?.id).isPremium);
@@ -181,6 +187,17 @@ export function App() {
     return () => {
       window.removeEventListener('kuroshelf_donor_status_changed', handleDonorUpdate);
       window.removeEventListener('kuroshelf_donation_made', handleDonorUpdate);
+    };
+  }, [currentUser]);
+
+  // Sync membership status on real-time events
+  useEffect(() => {
+    const handleMembershipUpdate = () => {
+      setIsPremium(getMembership(currentUser?.id).isPremium);
+    };
+    window.addEventListener('kuroshelf_membership_updated', handleMembershipUpdate);
+    return () => {
+      window.removeEventListener('kuroshelf_membership_updated', handleMembershipUpdate);
     };
   }, [currentUser]);
 
@@ -203,6 +220,12 @@ export function App() {
   const handleThemeModeChange = (mode: ThemeMode) => {
     setThemeMode(mode);
     setStoredThemeMode(mode);
+  };
+
+  const handleToggleTheme = () => {
+    const isCurrentlyDark = document.documentElement.classList.contains('dark');
+    const nextMode: ThemeMode = isCurrentlyDark ? 'light' : 'dark';
+    handleThemeModeChange(nextMode);
   };
 
   // Card grid layout: crisp, spacious, beautifully responsive columns with locked 82% view scale
@@ -900,11 +923,16 @@ export function App() {
         savedAccountsCount={savedAccountsCount}
         themeMode={themeMode}
         onOpenAppearanceModal={() => setAppearanceModalOpen(true)}
+        onToggleTheme={handleToggleTheme}
         isPremium={isPremium}
         isDonor={isDonor}
         onOpenMembershipModal={(tab) => {
           setMembershipModalInitialTab(tab || 'membership');
           setMembershipModalOpen(true);
+        }}
+        onOpenAnnouncements={() => {
+          setSelectedAnnouncementId(null);
+          setAnnouncementsModalOpen(true);
         }}
       />
 
@@ -1034,13 +1062,24 @@ export function App() {
             {/* 2. TAB: HOME (DISCOVER) */}
             {activeTab === 'home' && (
               <div className="space-y-6">
-                {/* Thin horizontal notice board ticker mentioning donators */}
-                <DonationTickerMarquee
-                  onOpenDonate={() => {
-                    setMembershipModalInitialTab('donate');
-                    setMembershipModalOpen(true);
-                  }}
-                />
+                {/* Two Stacked Boards: Official Notices above, Donors/Supporters below */}
+                <div className="space-y-2">
+                  {/* Board 1: Notices & Platform Bulletins */}
+                  <NoticeTickerMarquee
+                    onOpenAnnouncements={(noticeId) => {
+                      setSelectedAnnouncementId(noticeId || null);
+                      setAnnouncementsModalOpen(true);
+                    }}
+                  />
+
+                  {/* Board 2: Donors & Supporters Wall */}
+                  <DonationTickerMarquee
+                    onOpenDonate={() => {
+                      setMembershipModalInitialTab('donate');
+                      setMembershipModalOpen(true);
+                    }}
+                  />
+                </div>
 
                 {loadingInitial ? (
                   <div className="space-y-8 animate-pulse">
@@ -1068,14 +1107,14 @@ export function App() {
                   {/* Discover by Genre & Theme Quick Filter Carousel */}
                   <div
                     id="discover-genre-section"
-                    className="p-3.5 sm:p-4 rounded-2xl bg-neutral-900/50 border border-neutral-800/80 space-y-3"
+                    className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-neutral-900/50 border border-slate-200 dark:border-neutral-800/80 shadow-xs space-y-3"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="p-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                        <div className="p-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400">
                           <Compass className="w-3.5 h-3.5" />
                         </div>
-                        <span className="text-xs font-bold text-neutral-200 uppercase tracking-wider">
+                        <span className="text-xs font-bold text-slate-800 dark:text-neutral-200 uppercase tracking-wider">
                           Discover by Genre & Theme
                         </span>
                       </div>
@@ -1083,7 +1122,7 @@ export function App() {
                         <button
                           id="reset-discover-genre-btn"
                           onClick={() => handleSelectDiscoverGenre(null)}
-                          className="text-xs text-rose-400 hover:text-rose-300 font-medium flex items-center gap-1 transition-colors px-2 py-0.5 rounded-md hover:bg-rose-500/10 cursor-pointer"
+                          className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-medium flex items-center gap-1 transition-colors px-2 py-0.5 rounded-md hover:bg-rose-500/10 cursor-pointer"
                         >
                           <span>Clear Filter</span>
                           <X className="w-3.5 h-3.5" />
@@ -1097,8 +1136,8 @@ export function App() {
                         onClick={() => handleSelectDiscoverGenre(null)}
                         className={`px-3.5 py-1.5 rounded-full text-xs font-medium shrink-0 transition-all cursor-pointer ${
                           discoverGenre === null
-                            ? 'bg-rose-600 text-white font-semibold shadow-sm shadow-rose-950/40 border border-rose-500'
-                            : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-800/80'
+                            ? 'bg-rose-600 text-white font-semibold shadow-xs shadow-rose-950/20 border border-rose-500'
+                            : 'bg-slate-100 dark:bg-neutral-900 text-slate-700 dark:text-neutral-300 border border-slate-200 dark:border-neutral-800 hover:border-slate-300 dark:hover:border-neutral-700 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-neutral-800/80'
                         }`}
                       >
                         All Featured
@@ -1112,8 +1151,8 @@ export function App() {
                             onClick={() => handleSelectDiscoverGenre(isSelected ? null : pill.value)}
                             className={`px-3.5 py-1.5 rounded-full text-xs shrink-0 transition-all flex items-center gap-1.5 cursor-pointer ${
                               isSelected
-                                ? 'bg-rose-600 text-white font-semibold shadow-sm shadow-rose-950/40 border border-rose-500'
-                                : 'bg-neutral-900 text-neutral-300 border border-neutral-800 hover:border-neutral-700 hover:text-white hover:bg-neutral-800/80 font-medium'
+                                ? 'bg-rose-600 text-white font-semibold shadow-xs shadow-rose-950/20 border border-rose-500'
+                                : 'bg-slate-100 dark:bg-neutral-900 text-slate-700 dark:text-neutral-300 border border-slate-200 dark:border-neutral-800 hover:border-slate-300 dark:hover:border-neutral-700 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-neutral-800/80 font-medium'
                             }`}
                           >
                             <span>{pill.name}</span>
@@ -1126,22 +1165,22 @@ export function App() {
 
                   {/* Dynamic View: If a Genre is Selected, Show Genre Results */}
                   {discoverGenre ? (
-                    <section className="flex flex-col gap-4 p-4 rounded-2xl bg-neutral-900/40 border border-neutral-800/80">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-800/70">
+                    <section className="flex flex-col gap-4 p-4 rounded-2xl bg-white dark:bg-neutral-900/40 border border-slate-200 dark:border-neutral-800/80 shadow-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-neutral-800/70">
                         <div className="flex items-center gap-2.5">
-                          <div className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-400">
+                          <div className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-500 dark:text-rose-400">
                             <Sparkles className="w-4 h-4" />
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <h2 className="text-lg font-bold text-white font-display tracking-tight leading-snug">
+                              <h2 className="text-lg font-bold text-slate-900 dark:text-white font-display tracking-tight leading-snug">
                                 {DISCOVER_GENRE_PILLS.find((p) => p.value === discoverGenre)?.name || 'Genre'} Anime
                               </h2>
-                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 font-semibold border border-rose-500/30">
+                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 font-semibold border border-rose-500/30">
                                 {discoverGenreResults.length} loaded
                               </span>
                             </div>
-                            <span className="text-xs text-neutral-400">
+                            <span className="text-xs text-slate-500 dark:text-neutral-400">
                               Curated titles matching this genre from catalog & live index
                             </span>
                           </div>
@@ -1149,14 +1188,14 @@ export function App() {
                         <div className="flex items-center gap-2.5">
                           <button
                             onClick={() => handleOpenGenreInExplore(discoverGenre)}
-                            className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white font-medium transition-colors px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 hover:border-neutral-700"
+                            className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white font-medium transition-colors px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 hover:border-slate-300 dark:hover:border-neutral-700"
                           >
                             <span>Open in Full Catalog</span>
-                            <ArrowRight className="w-3.5 h-3.5 text-rose-400" />
+                            <ArrowRight className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
                           </button>
                           <button
                             onClick={() => handleSelectDiscoverGenre(null)}
-                            className="text-xs text-neutral-400 hover:text-rose-300 font-medium transition-colors px-2.5 py-1.5 rounded-lg hover:bg-neutral-800 flex items-center gap-1"
+                            className="text-xs text-slate-500 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-300 font-medium transition-colors px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-neutral-800 flex items-center gap-1"
                           >
                             <X className="w-3.5 h-3.5" />
                             <span>Dismiss</span>
@@ -1171,12 +1210,12 @@ export function App() {
                           ))}
                         </div>
                       ) : discoverGenreResults.length === 0 ? (
-                        <div className="py-12 text-center border border-dashed border-neutral-800 rounded-2xl bg-neutral-900/30">
-                          <Compass className="w-8 h-8 mx-auto text-neutral-600 mb-2" />
-                          <h3 className="text-sm font-semibold text-white">No titles found for this genre</h3>
+                        <div className="py-12 text-center border border-dashed border-slate-300 dark:border-neutral-800 rounded-2xl bg-slate-50 dark:bg-neutral-900/30">
+                          <Compass className="w-8 h-8 mx-auto text-slate-400 dark:text-neutral-600 mb-2" />
+                          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">No titles found for this genre</h3>
                           <button
                             onClick={() => handleSelectDiscoverGenre(null)}
-                            className="mt-3 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold"
+                            className="mt-3 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold cursor-pointer"
                           >
                             Show All Discover
                           </button>
@@ -1206,7 +1245,7 @@ export function App() {
                               <button
                                 onClick={loadMoreDiscoverGenre}
                                 disabled={loadingDiscoverGenre}
-                                className="px-5 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 hover:text-white rounded-xl text-xs font-semibold transition-all disabled:opacity-50 flex items-center gap-2"
+                                className="px-5 py-2 bg-white dark:bg-neutral-900 hover:bg-slate-50 dark:hover:bg-neutral-800 border border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white rounded-xl text-xs font-semibold transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-xs"
                               >
                                 {loadingDiscoverGenre ? (
                                   <>
@@ -1232,7 +1271,7 @@ export function App() {
                     <div className="flex items-center justify-between pb-2 mb-1">
                       <div className="flex items-center gap-2.5">
                         <Flame className="w-5 h-5 text-rose-500 shrink-0" />
-                        <h2 className="text-lg sm:text-xl font-extrabold text-white font-display tracking-tight leading-snug">
+                        <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug">
                           Trending Airing Anime
                         </h2>
                       </div>
@@ -1241,7 +1280,7 @@ export function App() {
                           setActiveTab('rankings');
                           setRankingFilter('airing');
                         }}
-                        className="flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 font-semibold transition-colors"
+                        className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold transition-colors"
                       >
                         <span>View All</span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -1274,13 +1313,13 @@ export function App() {
                     <div className="flex items-center justify-between pb-2 mb-1">
                       <div className="flex items-center gap-2.5">
                         <Sparkles className="w-5 h-5 text-rose-500 shrink-0" />
-                        <h2 className="text-lg sm:text-xl font-extrabold text-white font-display tracking-tight leading-snug">
+                        <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug">
                           This Season&apos;s Highlights
                         </h2>
                       </div>
                       <button
                         onClick={() => setActiveTab('seasonal')}
-                        className="flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 font-semibold transition-colors"
+                        className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold transition-colors"
                       >
                         <span>Explore Season</span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -1312,8 +1351,8 @@ export function App() {
                     <section className="flex flex-col gap-4">
                       <div className="flex items-center justify-between pb-2 mb-1">
                         <div className="flex items-center gap-2.5">
-                          <Calendar className="w-5 h-5 text-purple-400 shrink-0" />
-                          <h2 className="text-lg sm:text-xl font-extrabold text-white font-display tracking-tight leading-snug">
+                          <Calendar className="w-5 h-5 text-purple-500 shrink-0" />
+                          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug">
                             Anticipated Upcoming Releases
                           </h2>
                         </div>
@@ -1322,7 +1361,7 @@ export function App() {
                             setActiveTab('rankings');
                             setRankingFilter('upcoming');
                           }}
-                          className="flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 font-semibold transition-colors"
+                          className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold transition-colors"
                         >
                           <span>View All Upcoming</span>
                           <ArrowRight className="w-3.5 h-3.5" />
@@ -1352,21 +1391,21 @@ export function App() {
 
 
                   {/* Prediction Polls Teaser */}
-                  <section className="p-6 rounded-2xl bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 border border-neutral-800 flex flex-col md:flex-row items-center justify-between gap-6">
+                  <section className="p-6 rounded-2xl bg-white dark:bg-gradient-to-br dark:from-neutral-900 dark:via-neutral-900 dark:to-neutral-950 border border-slate-200 dark:border-neutral-800 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xs">
                     <div className="space-y-2 text-center md:text-left">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/25">
                         Community Feature
                       </span>
-                      <h3 className="text-xl font-extrabold text-white font-display">
+                      <h3 className="text-xl font-extrabold text-slate-900 dark:text-white font-display">
                         Have Your Say in Seasonal Prediction Polls
                       </h3>
-                      <p className="text-xs text-neutral-400 max-w-xl">
+                      <p className="text-xs text-slate-600 dark:text-neutral-400 max-w-xl">
                         Vote on anime of the year candidates, upcoming movie adaptations, and battle outcomes.
                       </p>
                     </div>
                     <button
                       onClick={() => setActiveTab('polls')}
-                      className="shrink-0 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-colors shadow-lg shadow-rose-950/50 flex items-center gap-2"
+                      className="shrink-0 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-colors shadow-md shadow-rose-950/20 flex items-center gap-2 cursor-pointer"
                     >
                       <span>Go to Predictions</span>
                       <ArrowRight className="w-4 h-4" />
@@ -1377,8 +1416,8 @@ export function App() {
                   <section className="flex flex-col gap-4">
                     <div className="flex items-center justify-between pb-2 mb-1">
                       <div className="flex items-center gap-2.5">
-                        <Trophy className="w-5 h-5 text-amber-400 shrink-0" />
-                        <h2 className="text-lg sm:text-xl font-extrabold text-white font-display tracking-tight leading-snug">
+                        <Trophy className="w-5 h-5 text-amber-500 shrink-0" />
+                        <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug">
                           Most Popular Titles of All Time
                         </h2>
                       </div>
@@ -1387,7 +1426,7 @@ export function App() {
                           setActiveTab('rankings');
                           setRankingFilter('bypopularity');
                         }}
-                        className="flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 font-semibold transition-colors"
+                        className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold transition-colors"
                       >
                         <span>Full Rankings</span>
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -1424,24 +1463,24 @@ export function App() {
             {/* 3. TAB: THIS SEASON */}
             {activeTab === 'seasonal' && (
               <div className="space-y-8">
-                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-neutral-800 pb-6">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200 dark:border-neutral-800 pb-6">
                   <div>
-                    <div className="flex items-center gap-2 text-rose-400 text-xs uppercase font-bold tracking-wider mb-1">
+                    <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 text-xs uppercase font-bold tracking-wider mb-1">
                       <Sparkles className="w-4 h-4" />
                       <span>Current Season Premieres</span>
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-display">
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white font-display">
                       Seasonal Anime Directory
                     </h1>
-                    <p className="text-xs sm:text-sm text-neutral-400 mt-1">
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-neutral-400 mt-1">
                       Currently premiering series, sequels, and simulcasts airing this season.
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-1.5 bg-neutral-900 border border-neutral-800 p-1 rounded-xl text-xs self-start sm:self-auto">
+                  <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 p-1 rounded-xl text-xs self-start sm:self-auto shadow-xs">
                     <button
                       type="button"
-                      className="px-3.5 py-1.5 rounded-lg bg-neutral-800 text-white font-semibold shadow-sm border border-neutral-700"
+                      className="px-3.5 py-1.5 rounded-lg bg-white dark:bg-neutral-800 text-slate-900 dark:text-white font-semibold shadow-xs border border-slate-200 dark:border-neutral-700"
                     >
                       Seasonal Grid
                     </button>
@@ -1449,9 +1488,9 @@ export function App() {
                       id="seasonal-switch-to-schedule-btn"
                       type="button"
                       onClick={() => setActiveTab('schedule')}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-neutral-400 hover:text-white transition-colors font-medium"
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white transition-colors font-medium cursor-pointer"
                     >
-                      <Calendar className="w-3.5 h-3.5 text-rose-400" />
+                      <Calendar className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
                       <span>Weekly Schedule</span>
                     </button>
                   </div>
@@ -1481,29 +1520,29 @@ export function App() {
             {/* 4. TAB: RANKINGS */}
             {activeTab === 'rankings' && (
               <div className="space-y-6">
-                <div className="flex flex-col gap-4 border-b border-neutral-800 pb-6">
+                <div className="flex flex-col gap-4 border-b border-slate-200 dark:border-neutral-800 pb-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <div className="flex items-center gap-2 text-amber-400 text-xs uppercase font-bold tracking-wider mb-1">
+                      <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-xs uppercase font-bold tracking-wider mb-1">
                         <Trophy className="w-4 h-4" />
                         <span>Official Scores & Community Statistics</span>
                       </div>
-                      <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-display">
+                      <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white font-display">
                         Top Anime Rankings
                       </h1>
-                      <p className="text-xs sm:text-sm text-neutral-400 mt-1">
+                      <p className="text-xs sm:text-sm text-slate-600 dark:text-neutral-400 mt-1">
                         Browse the top 100 anime ranked by popularity, rating, favorites, and release across all genres and eras.
                       </p>
                     </div>
 
                     {/* View Mode Toggle */}
-                    <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 p-1 rounded-xl self-start sm:self-center">
+                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 p-1 rounded-xl self-start sm:self-center shadow-xs">
                       <button
                         onClick={() => setRankingViewMode('list')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                           rankingViewMode === 'list'
-                            ? 'bg-rose-600 text-white shadow-sm'
-                            : 'text-neutral-400 hover:text-neutral-200'
+                            ? 'bg-rose-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-neutral-200'
                         }`}
                         title="Ranked List View"
                       >
@@ -1512,10 +1551,10 @@ export function App() {
                       </button>
                       <button
                         onClick={() => setRankingViewMode('grid')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                           rankingViewMode === 'grid'
-                            ? 'bg-rose-600 text-white shadow-sm'
-                            : 'text-neutral-400 hover:text-neutral-200'
+                            ? 'bg-rose-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-neutral-200'
                         }`}
                         title="Poster Grid View"
                       >
@@ -1527,7 +1566,7 @@ export function App() {
 
                   {/* Filter chips & Dropdowns */}
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                    <div className="flex flex-wrap items-center gap-1.5 bg-neutral-900 p-1 rounded-xl border border-neutral-800">
+                    <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-neutral-900 p-1 rounded-xl border border-slate-200 dark:border-neutral-800 shadow-xs">
                       {[
                         { id: 'bypopularity', label: 'Popularity' },
                         { id: 'airing', label: 'Top Airing' },
@@ -1538,10 +1577,10 @@ export function App() {
                         <button
                           key={f.id}
                           onClick={() => setRankingFilter(f.id as typeof rankingFilter)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                             rankingFilter === f.id
-                              ? 'bg-rose-600 text-white shadow-sm'
-                              : 'text-neutral-400 hover:text-neutral-200'
+                              ? 'bg-rose-600 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-neutral-200'
                           }`}
                         >
                           {f.label}
@@ -1553,7 +1592,7 @@ export function App() {
                       <select 
                         value={rankingGenre}
                         onChange={(e) => setRankingGenre(e.target.value)}
-                        className="bg-neutral-900 border border-neutral-800 text-neutral-300 text-xs rounded-xl px-3 py-2 outline-none focus:border-rose-500 cursor-pointer"
+                        className="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-800 dark:text-neutral-300 text-xs rounded-xl px-3 py-2 outline-none focus:border-rose-500 cursor-pointer shadow-xs"
                       >
                         <option value="all">All Genres</option>
                         <option value="Action">Action</option>
@@ -1572,7 +1611,7 @@ export function App() {
                       <select 
                         value={rankingYear}
                         onChange={(e) => setRankingYear(e.target.value)}
-                        className="bg-neutral-900 border border-neutral-800 text-neutral-300 text-xs rounded-xl px-3 py-2 outline-none focus:border-rose-500 cursor-pointer"
+                        className="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-800 dark:text-neutral-300 text-xs rounded-xl px-3 py-2 outline-none focus:border-rose-500 cursor-pointer shadow-xs"
                       >
                         <option value="all">All Time</option>
                         <option value="2026">2026</option>
@@ -1633,34 +1672,34 @@ export function App() {
                             <div 
                               key={`top100-${anime.mal_id}-${idx}`}
                               onClick={() => setSelectedAnime(anime)}
-                              className="group flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3 bg-neutral-900 border border-neutral-800 rounded-xl hover:bg-neutral-800/80 hover:border-neutral-700 transition-all cursor-pointer shadow-sm hover:shadow-xl hover:-translate-y-0.5"
+                              className="group flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-xl hover:bg-slate-50 dark:hover:bg-neutral-800/80 hover:border-slate-300 dark:hover:border-neutral-700 transition-all cursor-pointer shadow-xs hover:shadow-lg hover:-translate-y-0.5"
                             >
                               <div className="flex items-center gap-4 w-full sm:w-auto">
                                 <div className="flex flex-col items-center justify-center w-11 sm:w-14 shrink-0">
                                   {idx === 0 ? (
-                                    <div className="flex flex-col items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-500/20 border border-amber-400/50 shadow-sm shadow-amber-950/40">
-                                      <span className="text-[8px] sm:text-[9px] uppercase tracking-wider font-extrabold text-amber-400 leading-none">TOP</span>
-                                      <span className="text-base sm:text-lg font-black font-display text-amber-300 leading-tight">1</span>
+                                    <div className="flex flex-col items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-500/20 border border-amber-400/50 shadow-sm shadow-amber-950/20">
+                                      <span className="text-[8px] sm:text-[9px] uppercase tracking-wider font-extrabold text-amber-600 dark:text-amber-400 leading-none">TOP</span>
+                                      <span className="text-base sm:text-lg font-black font-display text-amber-600 dark:text-amber-300 leading-tight">1</span>
                                     </div>
                                   ) : idx === 1 ? (
-                                    <div className="flex flex-col items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-slate-300/20 border border-slate-300/50 shadow-sm">
-                                      <span className="text-[8px] sm:text-[9px] uppercase tracking-wider font-extrabold text-slate-300 leading-none">TOP</span>
-                                      <span className="text-base sm:text-lg font-black font-display text-slate-100 leading-tight">2</span>
+                                    <div className="flex flex-col items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-slate-300/30 border border-slate-400/50 shadow-sm">
+                                      <span className="text-[8px] sm:text-[9px] uppercase tracking-wider font-extrabold text-slate-700 dark:text-slate-300 leading-none">TOP</span>
+                                      <span className="text-base sm:text-lg font-black font-display text-slate-800 dark:text-slate-100 leading-tight">2</span>
                                     </div>
                                   ) : idx === 2 ? (
                                     <div className="flex flex-col items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-700/20 border border-amber-600/50 shadow-sm">
-                                      <span className="text-[8px] sm:text-[9px] uppercase tracking-wider font-extrabold text-amber-500 leading-none">TOP</span>
-                                      <span className="text-base sm:text-lg font-black font-display text-amber-400 leading-tight">3</span>
+                                      <span className="text-[8px] sm:text-[9px] uppercase tracking-wider font-extrabold text-amber-700 dark:text-amber-500 leading-none">TOP</span>
+                                      <span className="text-base sm:text-lg font-black font-display text-amber-700 dark:text-amber-400 leading-tight">3</span>
                                     </div>
                                   ) : (
-                                    <div className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-neutral-950/80 border border-neutral-800/80 text-neutral-300 group-hover:border-neutral-700 group-hover:text-white transition-colors">
+                                    <div className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-slate-100 dark:bg-neutral-950/80 border border-slate-200 dark:border-neutral-800/80 text-slate-700 dark:text-neutral-300 group-hover:border-slate-300 dark:group-hover:border-neutral-700 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
                                       <span className="text-sm sm:text-base font-bold font-mono tracking-tight">
                                         {idx + 1}
                                       </span>
                                     </div>
                                   )}
                                 </div>
-                                <div className="relative w-16 h-24 sm:w-20 sm:h-28 rounded-lg overflow-hidden shrink-0 shadow-md">
+                                <div className="relative w-16 h-24 sm:w-20 sm:h-28 rounded-lg overflow-hidden shrink-0 shadow-sm">
                                   <img 
                                     src={anime.images?.webp?.image_url || anime.images?.jpg?.image_url} 
                                     alt={anime.title}
@@ -1670,33 +1709,33 @@ export function App() {
                                 </div>
                                 
                                 <div className="flex flex-col flex-1 sm:hidden">
-                                  <h3 className="font-bold text-sm text-white line-clamp-2 leading-tight">{anime.title}</h3>
+                                  <h3 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-2 leading-tight">{anime.title}</h3>
                                   <div className="flex items-center gap-2 mt-1">
-                                    <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                                    <span className="text-amber-400 font-bold text-xs">{anime.score ? anime.score.toFixed(2) : 'N/A'}</span>
+                                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                                    <span className="text-amber-600 dark:text-amber-400 font-bold text-xs">{anime.score ? anime.score.toFixed(2) : 'N/A'}</span>
                                   </div>
                                 </div>
                               </div>
                               
                               <div className="flex-1 min-w-0 hidden sm:flex flex-col gap-1.5">
-                                <h3 className="text-lg font-bold text-white group-hover:text-rose-400 transition-colors line-clamp-1">{anime.title}</h3>
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors line-clamp-1">{anime.title}</h3>
                                 {anime.title_english && anime.title_english !== anime.title && (
-                                  <p className="text-xs text-neutral-400 line-clamp-1">{anime.title_english}</p>
+                                  <p className="text-xs text-slate-500 dark:text-neutral-400 line-clamp-1">{anime.title_english}</p>
                                 )}
 
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-neutral-300">
-                                  <span className="font-medium px-2 py-0.5 bg-neutral-950 rounded border border-neutral-800">{anime.type || 'TV'}</span>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-600 dark:text-neutral-300">
+                                  <span className="font-medium px-2 py-0.5 bg-slate-100 dark:bg-neutral-950 rounded border border-slate-200 dark:border-neutral-800">{anime.type || 'TV'}</span>
                                   {anime.year && <span>{anime.year}</span>}
                                   {anime.episodes && <span>• {anime.episodes} eps</span>}
-                                  <span className="text-neutral-500">•</span>
-                                  <span className={anime.status === 'Currently Airing' ? 'text-emerald-400 font-medium' : ''}>
+                                  <span className="text-slate-400 dark:text-neutral-500">•</span>
+                                  <span className={anime.status === 'Currently Airing' ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}>
                                     {anime.status}
                                   </span>
                                 </div>
                                 {anime.genres && anime.genres.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-1">
                                     {anime.genres.slice(0, 4).map((g, i) => (
-                                      <span key={g.name || i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-800/80 text-neutral-400">
+                                      <span key={g.name || i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800/80 text-slate-600 dark:text-neutral-400 border border-slate-200 dark:border-neutral-800">
                                         {g.name}
                                       </span>
                                     ))}
@@ -1704,13 +1743,13 @@ export function App() {
                                 )}
                               </div>
 
-                              <div className="hidden sm:flex flex-col items-end gap-2 shrink-0 pl-4 border-l border-neutral-800 min-w-[120px]">
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                                  <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                                  <span className="text-amber-400 font-black text-lg">{anime.score ? anime.score.toFixed(2) : 'N/A'}</span>
+                              <div className="hidden sm:flex flex-col items-end gap-2 shrink-0 pl-4 border-l border-slate-200 dark:border-neutral-800 min-w-[120px]">
+                                <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/25 rounded-lg">
+                                  <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+                                  <span className="text-amber-600 dark:text-amber-400 font-black text-lg">{anime.score ? anime.score.toFixed(2) : 'N/A'}</span>
                                 </div>
                                 {anime.scored_by && (
-                                  <span className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">
+                                  <span className="text-[10px] text-slate-500 dark:text-neutral-500 font-medium uppercase tracking-wider">
                                     {(anime.scored_by / 1000).toFixed(1)}k users
                                   </span>
                                 )}
@@ -2010,6 +2049,10 @@ export function App() {
           setMembershipModalInitialTab(tab || 'membership');
           setMembershipModalOpen(true);
         }}
+        onOpenAnnouncements={() => {
+          setSelectedAnnouncementId(null);
+          setAnnouncementsModalOpen(true);
+        }}
       />
 
       {/* Legal & Info Modal */}
@@ -2091,6 +2134,18 @@ export function App() {
           onMembershipUpdated={(newStatus: boolean) => {
             setIsPremium(newStatus);
           }}
+        />
+      )}
+
+      {/* Announcements & Bulletins Modal */}
+      {announcementsModalOpen && (
+        <AnnouncementsModal
+          currentUser={currentUser}
+          onClose={() => {
+            setAnnouncementsModalOpen(false);
+            setSelectedAnnouncementId(null);
+          }}
+          selectedNoticeId={selectedAnnouncementId}
         />
       )}
     </div>

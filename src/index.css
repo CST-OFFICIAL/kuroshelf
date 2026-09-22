@@ -8,15 +8,15 @@
 }
 
 :root {
-  --color-bg-base: #f4f6fa;
+  --color-bg-base: #f8fafc;
   --color-bg-card: #ffffff;
   --color-bg-surface: #ffffff;
-  --color-bg-subtle: #f8fafc;
+  --color-bg-subtle: #f1f5f9;
   --color-border-subtle: #e2e8f0;
   --color-border-medium: #cbd5e1;
   --color-text-main: #0f172a;
-  --color-text-muted: #64748b;
-  --color-text-subtle: #94a3b8;
+  --color-text-muted: #475569;
+  --color-text-subtle: #64748b;
   --app-scale: 0.82;
 }
 
@@ -131,8 +131,8 @@ h1, h2, h3, h4, .font-display {
   }
 }
 
-/* Horizontal scrolling notice board marquee */
-@keyframes noticeMarqueeLeft {
+/* Horizontal scrolling notice board marquee - seamless continuous loop */
+@keyframes noticeMarqueeContinuous {
   0% {
     transform: translate3d(0, 0, 0);
   }
@@ -141,14 +141,35 @@ h1, h2, h3, h4, .font-display {
   }
 }
 
+/* Horizontal single-pass marquee for non-repeating entries */
+@keyframes singlePassMarquee {
+  0% {
+    transform: translate3d(100%, 0, 0);
+  }
+  100% {
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+
 .notice-marquee-track {
   display: inline-flex;
   white-space: nowrap;
-  animation: noticeMarqueeLeft 40s linear infinite;
+  animation: noticeMarqueeContinuous 75s linear infinite;
   will-change: transform;
 }
 
 .notice-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+.single-pass-marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: singlePassMarquee 60s linear infinite;
+  will-change: transform;
+}
+
+.single-pass-marquee-track:hover {
   animation-play-state: paused;
 }
 
