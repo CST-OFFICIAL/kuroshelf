@@ -2,7 +2,6 @@ import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import crypto from 'crypto';
 import cookieParser from 'cookie-parser';
-import { createServer as createViteServer } from 'vite';
 import { getUserBookmarks, upsertBookmark, deleteBookmark, getUserLikes, toggleLike, getUserRatings, setRating, removeRating, getPolls, votePoll } from './server/db';
 import {
   getCatalogTopAnime,
@@ -704,12 +703,15 @@ export async function createApp() {
 
   // ---------------- Vite / Static Asset Serving ----------------
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: false },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
+  const { createServer: createViteServer } = await import('vite');
+
+  const vite = await createViteServer({
+    server: { middlewareMode: true, hmr: false },
+    appType: 'spa',
+  });
+
+  app.use(vite.middlewares);
+} else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*all', (_req, res) => {
