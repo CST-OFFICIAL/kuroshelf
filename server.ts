@@ -4,7 +4,6 @@ import crypto from 'crypto';
 import cookieParser from 'cookie-parser';
 import { getUserBookmarks, upsertBookmark, deleteBookmark, getUserLikes, toggleLike, getUserRatings, setRating, removeRating, getPolls, votePoll } from './server/db';
 import {
-  getCatalogTopAnime,
   searchCatalogAnime,
   getCatalogAnimeById, updateAnimeSynopsis
 } from './server/catalogService';
@@ -417,7 +416,7 @@ export async function createApp() {
         return;
       }
 
-      const result = await getCatalogTopAnime(filter, page, limit);
+      const result = await serverGetTopAnime(filter, page, limit);
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
       res.status(500).json({ success: false, data: [], error: 'Failed to fetch rankings' });
@@ -522,7 +521,7 @@ export async function createApp() {
     const limit = Number(req.query.limit) || 24;
 
     try {
-      const result = await getCatalogTopAnime('airing', page, limit);
+      const result = await serverGetSeasonalAnime(page, limit);
       res.json({ success: true, data: result.data, pagination: result.pagination });
     } catch (err) {
       // console.warn('[API /api/anime/seasonal] Fetch unavailable:', err.message || err);
