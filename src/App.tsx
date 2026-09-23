@@ -446,29 +446,35 @@ export function App() {
     setApiError(null);
 
     try {
-      // 1. Fetch Top Airing for Spotlight & Airing row
-      const airing = await getTopAnime('airing', 24);
+      // Fetch in parallel using Promise.allSettled so if any single endpoint is slow or throttled,
+      // all other sections (airing, seasonal, top, upcoming) still render smoothly!
+      const [airingRes, seasonalRes, topRes, upcomingRes] = await Promise.allSettled([
+        getTopAnime('airing', 24),
+        getSeasonalAnime(24),
+        getTopAnime('bypopularity', 100),
+        getUpcomingAnime(24),
+      ]);
+
+      const airing = airingRes.status === 'fulfilled' ? airingRes.value : [];
+      const seasonal = seasonalRes.status === 'fulfilled' ? seasonalRes.value : [];
+      const top = topRes.status === 'fulfilled' ? topRes.value : [];
+      const upcoming = upcomingRes.status === 'fulfilled' ? upcomingRes.value : [];
+
       if (airing.length > 0) {
         setAiringAnime(airing);
-        setSpotlightAnime(airing[0]);
+        setSpotlightAnime((prev) => prev || airing[0]);
       }
 
-      // 2. Fetch Seasonal
-      const seasonal = await getSeasonalAnime(24);
       if (seasonal.length > 0) {
         setSeasonalAnime(seasonal);
         setSpotlightAnime((prev) => prev || seasonal[0]);
       }
 
-      // 3. Fetch Top Ranked (Top 100)
-      const top = await getTopAnime('bypopularity', 100);
       if (top.length > 0) {
         setTopRankedAnime(top);
         setSpotlightAnime((prev) => prev || top[0]);
       }
 
-      // 4. Fetch Upcoming
-      const upcoming = await getUpcomingAnime(24);
       if (upcoming.length > 0) {
         setUpcomingAnime(upcoming);
       }

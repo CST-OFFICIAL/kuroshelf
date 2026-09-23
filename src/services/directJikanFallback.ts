@@ -56,6 +56,9 @@ export async function fetchDirectJikan<T = any>(endpoint: string): Promise<{ dat
     throw new Error(`Jikan returned ${res.status}`);
   }
   const json = await res.json();
+  if (json.status && json.status >= 400) {
+    throw new Error(`Jikan error ${json.status}: ${json.message || 'Error'}`);
+  }
   const rawData = json.data as T;
   const pagination = json.pagination;
 

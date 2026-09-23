@@ -10,19 +10,22 @@ import {
   PersonDetail,
 } from '../types';
 import { fetchDirectJikan, isNsfwOrAdultClient } from './directJikanFallback';
+import { fetchAniListAnimeList } from './anilistService';
 
 // In-memory cache to avoid duplicate calls during session
 const memoryCache = new Map<string, { data: unknown; pagination?: JikanPagination; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes cache
 
-function deduplicateByMalId<T extends { mal_id: number }>(items: T[]): T[] {
+function deduplicateByMalId<T extends { mal_id?: number; id?: string | number }>(items: T[]): T[] {
   if (!Array.isArray(items)) return [];
-  const seen = new Set<number>();
+  const seen = new Set<string | number>();
   return items.filter((item) => {
-    if (!item || typeof item.mal_id !== 'number' || isNsfwOrAdultClient(item) || seen.has(item.mal_id)) {
+    if (!item || isNsfwOrAdultClient(item)) return false;
+    const identifier = item.mal_id ?? item.id;
+    if (!identifier || seen.has(identifier)) {
       return false;
     }
-    seen.add(item.mal_id);
+    seen.add(identifier);
     return true;
   });
 }
@@ -53,6 +56,14 @@ async function fetchFromApi<T>(
         const json = await res.json();
         const data = (json.data ?? fallbackData) as T;
         const pagination = json.pagination as JikanPagination | undefined;
+        // If the server succeeded but returned an empty array or null, trigger direct Jikan fallback
+        if (!data || (Array.isArray(data) && data.length === 0)) {
+          const directResult = await routeToDirectJikan<T>(endpoint);
+          if (directResult && directResult.data && (!Array.isArray(directResult.data) || directResult.data.length > 0)) {
+            memoryCache.set(cacheKey, { data: directResult.data, pagination: directResult.pagination, timestamp: Date.now() });
+            return directResult;
+          }
+        }
         memoryCache.set(cacheKey, { data, pagination, timestamp: Date.now() });
         return { data, pagination };
       }
@@ -90,29 +101,65 @@ async function routeToDirectJikan<T>(endpoint: string): Promise<{ data: T; pagin
 
   // 1. /api/anime/seasonal
   if (path === '/api/anime/seasonal') {
-    const page = params.get('page') || '1';
-    const limit = params.get('limit') || '24';
-    const res = await fetchDirectJikan<AnimeItem[]>(`/seasons/now?page=${page}&limit=${limit}`);
-    return { data: res.data as unknown as T, pagination: res.pagination };
+    const page = Number(params.get('page')) || 1;
+    const limit = Number(params.get('limit')) || 24;
+    try {
+      const res = await fetchDirectJikan<AnimeItem[]>(`/seasons/now?page=${page}&limit=${limit}`);
+      if (res.data && res.data.length > 0) {
+        return { data: res.data as unknown as T, pagination: res.pagination };
+      }
+    } catch (jikanErr) {
+      console.warn('[Jikan Direct seasonal] Error, trying AniList...', jikanErr);
+    }
+    // AniList fallback for seasonal
+    try {
+      const anilistRes = await fetchAniListAnimeList({
+        status: 'RELEASING',
+        sort: 'POPULARITY_DESC',
+        page,
+        perPage: limit,
+      });
+      return { data: anilistRes.data as unknown as T, pagination: anilistRes.pagination };
+    } catch (anilistErr) {
+      console.warn('[AniList seasonal] Error:', anilistErr);
+    }
   }
 
   // 2. /api/anime/upcoming
   if (path === '/api/anime/upcoming') {
-    const page = params.get('page') || '1';
-    const limit = params.get('limit') || '24';
-    const res = await fetchDirectJikan<AnimeItem[]>(`/seasons/upcoming?page=${page}&limit=${limit}`);
-    return { data: res.data as unknown as T, pagination: res.pagination };
+    const page = Number(params.get('page')) || 1;
+    const limit = Number(params.get('limit')) || 24;
+    try {
+      const res = await fetchDirectJikan<AnimeItem[]>(`/seasons/upcoming?page=${page}&limit=${limit}`);
+      if (res.data && res.data.length > 0) {
+        return { data: res.data as unknown as T, pagination: res.pagination };
+      }
+    } catch (jikanErr) {
+      console.warn('[Jikan Direct upcoming] Error, trying AniList...', jikanErr);
+    }
+    // AniList fallback for upcoming
+    try {
+      const anilistRes = await fetchAniListAnimeList({
+        status: 'NOT_YET_RELEASED',
+        sort: 'POPULARITY_DESC',
+        page,
+        perPage: limit,
+      });
+      return { data: anilistRes.data as unknown as T, pagination: anilistRes.pagination };
+    } catch (anilistErr) {
+      console.warn('[AniList upcoming] Error:', anilistErr);
+    }
   }
 
   // 3. /api/anime/top or /api/anime/top100
   if (path === '/api/anime/top' || path === '/api/anime/top100') {
     const filter = params.get('filter') || 'bypopularity';
-    const page = params.get('page') || '1';
-    const limit = params.get('limit') || '24';
+    const page = Number(params.get('page')) || 1;
+    const limit = Number(params.get('limit')) || 24;
     const genre = params.get('genre');
     const jikanParams = new URLSearchParams();
-    jikanParams.set('page', page);
-    jikanParams.set('limit', limit);
+    jikanParams.set('page', String(page));
+    jikanParams.set('limit', String(limit));
 
     if (filter === 'airing') jikanParams.set('filter', 'airing');
     else if (filter === 'upcoming') jikanParams.set('filter', 'upcoming');
@@ -121,16 +168,52 @@ async function routeToDirectJikan<T>(endpoint: string): Promise<{ data: T; pagin
 
     if (genre && genre !== 'all') jikanParams.set('genres', genre);
 
-    const res = await fetchDirectJikan<AnimeItem[]>(`/top/anime?${jikanParams.toString()}`);
-    return { data: res.data as unknown as T, pagination: res.pagination };
+    try {
+      const res = await fetchDirectJikan<AnimeItem[]>(`/top/anime?${jikanParams.toString()}`);
+      if (res.data && res.data.length > 0) {
+        return { data: res.data as unknown as T, pagination: res.pagination };
+      }
+    } catch (jikanErr) {
+      console.warn('[Jikan Direct top] Error, trying AniList...', jikanErr);
+    }
+
+    // AniList fallback for top/popular/airing
+    try {
+      let anilistStatus: string | undefined;
+      let anilistSort = 'SCORE_DESC';
+      if (filter === 'airing') {
+        anilistStatus = 'RELEASING';
+        anilistSort = 'POPULARITY_DESC';
+      } else if (filter === 'upcoming') {
+        anilistStatus = 'NOT_YET_RELEASED';
+        anilistSort = 'POPULARITY_DESC';
+      } else if (filter === 'bypopularity' || filter === 'top100') {
+        anilistSort = 'POPULARITY_DESC';
+      } else if (filter === 'favorite') {
+        anilistSort = 'FAVOURITES_DESC';
+      }
+
+      const anilistRes = await fetchAniListAnimeList({
+        status: anilistStatus,
+        sort: anilistSort,
+        page,
+        perPage: limit,
+      });
+      return { data: anilistRes.data as unknown as T, pagination: anilistRes.pagination };
+    } catch (anilistErr) {
+      console.warn('[AniList top] Error:', anilistErr);
+    }
   }
 
   // 4. /api/anime/search
   if (path === '/api/anime/search') {
     const searchParams = new URLSearchParams();
-    if (params.get('q')) searchParams.set('q', params.get('q')!);
-    if (params.get('page')) searchParams.set('page', params.get('page')!);
-    if (params.get('limit')) searchParams.set('limit', params.get('limit')!);
+    const q = params.get('q');
+    const page = Number(params.get('page')) || 1;
+    const limit = Number(params.get('limit')) || 24;
+    if (q) searchParams.set('q', q);
+    searchParams.set('page', String(page));
+    searchParams.set('limit', String(limit));
     if (params.get('type') && params.get('type') !== 'all') searchParams.set('type', params.get('type')!);
     if (params.get('status') && params.get('status') !== 'all') searchParams.set('status', params.get('status')!);
     if (params.get('genres') && params.get('genres') !== 'all') searchParams.set('genres', params.get('genres')!);
@@ -139,8 +222,27 @@ async function routeToDirectJikan<T>(endpoint: string): Promise<{ data: T; pagin
 
     // Safe default to sfw
     searchParams.set('sfw', 'true');
-    const res = await fetchDirectJikan<AnimeItem[]>(`/anime?${searchParams.toString()}`);
-    return { data: res.data as unknown as T, pagination: res.pagination };
+    try {
+      const res = await fetchDirectJikan<AnimeItem[]>(`/anime?${searchParams.toString()}`);
+      if (res.data && res.data.length > 0) {
+        return { data: res.data as unknown as T, pagination: res.pagination };
+      }
+    } catch (jikanErr) {
+      console.warn('[Jikan Direct search] Error, trying AniList...', jikanErr);
+    }
+
+    if (q) {
+      try {
+        const anilistRes = await fetchAniListAnimeList({
+          search: q,
+          page,
+          perPage: limit,
+        });
+        return { data: anilistRes.data as unknown as T, pagination: anilistRes.pagination };
+      } catch (anilistErr) {
+        console.warn('[AniList search] Error:', anilistErr);
+      }
+    }
   }
 
   // 5. /api/anime/:id/characters

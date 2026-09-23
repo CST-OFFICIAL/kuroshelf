@@ -722,11 +722,14 @@ export async function createApp() {
   return app;
 }
 
-if (process.env.VERCEL !== '1') {
+const isVercel = Boolean(process.env.VERCEL || process.env.NOW_REGION);
+
+if (!isVercel && process.env.NODE_ENV !== 'test') {
   createApp().then(app => {
-    app.listen(3000, '0.0.0.0', () => {
+    const port = process.env.PORT || 3000;
+    app.listen(port, '0.0.0.0', () => {
       startBackgroundScraper();
-      console.log('Kuro Shelf server online at http://0.0.0.0:3000');
+      console.log(`Kuro Shelf server online at http://0.0.0.0:${port}`);
     });
   });
 }
@@ -738,14 +741,17 @@ if (process.env.VERCEL !== '1') {
 // by running it periodically from the Express server.
 const SYNC_INTERVAL_MS = 1000 * 60 * 60 * 24; // 24 hours
 
-if (process.env.VERCEL !== '1') {
-  setInterval(() => {
+if (!isVercel) {
+  setInterval(async () => {
     if (process.env.VITE_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       console.log('[Cron] Starting scheduled catalog synchronization...');
-      const { runIngestionJob } = require('./server/ingestionService');
-      runIngestionJob('airing', '/top/anime?filter=airing', 1)
-        .then(() => runIngestionJob('upcoming', '/top/anime?filter=upcoming', 1))
-        .catch(e => console.error('[Cron] Sync job failed:', e));
+      try {
+        const { runIngestionJob } = await import('./server/ingestionService');
+        await runIngestionJob('airing', '/top/anime?filter=airing', 1);
+        await runIngestionJob('upcoming', '/top/anime?filter=upcoming', 1);
+      } catch (e) {
+        console.error('[Cron] Sync job failed:', e);
+      }
     }
   }, SYNC_INTERVAL_MS);
 }
