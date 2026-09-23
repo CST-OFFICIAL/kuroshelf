@@ -726,7 +726,7 @@ const isVercel = Boolean(process.env.VERCEL || process.env.NOW_REGION);
 
 if (!isVercel && process.env.NODE_ENV !== 'test') {
   createApp().then(app => {
-    const port = process.env.PORT || 3000;
+    const port = Number(process.env.PORT) || 3000;
     app.listen(port, '0.0.0.0', () => {
       startBackgroundScraper();
       console.log(`Kuro Shelf server online at http://0.0.0.0:${port}`);
