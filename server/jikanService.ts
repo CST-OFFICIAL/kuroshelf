@@ -706,6 +706,7 @@ export async function serverGetTopAnime(
   const params = new URLSearchParams();
   if (safePage > 1) params.set('page', String(safePage));
   params.set('sfw', 'true');
+  params.set('limit', String(safeLimit));
   if (filter && filter !== 'all' && filter !== 'bypopularity') {
     params.set('filter', filter);
   }
