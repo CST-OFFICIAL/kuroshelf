@@ -627,6 +627,7 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
   const params = new URLSearchParams();
   if (clean) params.set('q', clean);
   params.set('sfw', 'true');
+  params.set('limit', String(limit));
   params.set('genres_exclude', '12,49');
   if (page > 1) params.set('page', String(page));
   if (options.type && options.type !== 'all') params.set('type', options.type);
