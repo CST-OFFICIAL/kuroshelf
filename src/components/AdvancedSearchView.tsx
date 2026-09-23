@@ -41,52 +41,80 @@ export function AdvancedSearchView({
   }, [query]);
 
   const fetchResults = useCallback(async (isLoadMore = false) => {
-    setLoading(true);
-    try {
-      // We will need to construct a robust URL for jikan api
-      const queryParams = new URLSearchParams();
-      if (debouncedQuery) queryParams.set('q', debouncedQuery);
-      if (status) queryParams.set('status', status);
-      if (type) queryParams.set('type', type);
-      if (orderBy) queryParams.set('order_by', orderBy);
-      if (sort) queryParams.set('sort', sort);
-      queryParams.set('page', isLoadMore ? String(page + 1) : '1');
-      queryParams.set('limit', '24');
-      
-     const result = await searchAnimePaginated({
-  query: debouncedQuery,
-  page: isLoadMore ? page + 1 : 1,
-  limit: 24,
-  status: status || undefined,
-  type: type || undefined,
-  orderBy: orderBy || undefined,
-  sort: sort || undefined,
-});
+  setLoading(true);
 
-const data = result.data || [];
+  try {
+    const nextPage = isLoadMore ? page + 1 : 1;
 
-if (isLoadMore) {
-  setResults(prev => {
-    const newItems = data.filter(
-      (d: AnimeItem) => !prev.some(p => p.mal_id === d.mal_id)
-    );
-    return [...prev, ...newItems];
-  });
-  setPage(p => p + 1);
-} else {
-  setResults(data);
-  setPage(1);
-}
+    const hasFilters =
+      Boolean(debouncedQuery.trim()) ||
+      Boolean(status) ||
+      Boolean(type);
 
-setHasMore(
-  result.pagination?.has_next_page ?? data.length === 24
-);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+    let result;
+
+    if (!hasFilters) {
+      const response = await fetch(
+        `/api/anime/top?filter=bypopularity&page=${nextPage}&limit=24`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Catalog request failed: ${response.status}`);
+      }
+
+      result = await response.json();
+    } else {
+      result = await searchAnimePaginated({
+        query: debouncedQuery.trim(),
+        page: nextPage,
+        limit: 24,
+        status: status || undefined,
+        type: type || undefined,
+        orderBy: orderBy || undefined,
+        sort: sort || undefined,
+      });
     }
-  }, [debouncedQuery, status, type, orderBy, sort, page]);
+
+    const data = result.data || [];
+
+    if (isLoadMore) {
+      setResults(prev => {
+        const existingIds = new Set(prev.map(item => item.mal_id));
+        const uniqueNewItems = data.filter(
+          (item: AnimeItem) => !existingIds.has(item.mal_id)
+        );
+        return [...prev, ...uniqueNewItems];
+      });
+      setPage(nextPage);
+    } else {
+      setResults(data);
+      setPage(1);
+    }
+
+    setHasMore(
+      Boolean(
+        result.pagination?.has_next_page ||
+        data.length === 24
+      )
+    );
+  } catch (err) {
+    console.error('Catalog fetch failed:', err);
+
+    if (!isLoadMore) {
+      setResults([]);
+      setHasMore(false);
+    }
+  } finally {
+    setLoading(false);
+  }
+}, [
+  debouncedQuery,
+  status,
+  type,
+  orderBy,
+  sort,
+  page,
+]);
 
   useEffect(() => {
     setResults([]);
