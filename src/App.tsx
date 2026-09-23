@@ -7,6 +7,7 @@ import {
   getSeasonalAnime, 
   getUpcomingAnime, 
   searchAnime,
+  searchAnimePaginated
   getAnimeById
 } from './services/jikan';
 import {
@@ -104,6 +105,9 @@ export function App() {
   const [infoModalType, setInfoModalType] = useState<InfoModalType>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [searchPage, setSearchPage] = useState(1);
+const [searchHasMore, setSearchHasMore] = useState(false);
+const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
 
   // Fast GPU-friendly instant scroll on tab change to prevent mobile stutter
   useEffect(() => {
@@ -616,29 +620,96 @@ export function App() {
 
   // Search execution with error handling and empty states
   const executeSearch = useCallback(async (query: string) => {
-    const trimmed = query.trim();
-    if (!trimmed) {
-      setSearchResults([]);
-      setLoadingSearch(false);
-      setSearchError(null);
-      return;
-    }
+  const trimmed = query.trim();
 
-    setLoadingSearch(true);
+  if (!trimmed) {
+    setSearchResults([]);
+    setSearchPage(1);
+    setSearchHasMore(false);
+    setLoadingSearch(false);
     setSearchError(null);
+    return;
+  }
 
-    try {
-      const results = await searchAnime(trimmed, 24);
-      setSearchResults(results);
-    } catch (err) {
-      console.warn('Search query error:', err);
-      setSearchError('Search is taking longer than expected. Please try again.');
-      setSearchResults([]);
-    } finally {
-      setLoadingSearch(false);
-    }
-  }, []);
+  setLoadingSearch(true);
+  setSearchError(null);
 
+  try {
+    const result = await searchAnimePaginated({
+      query: trimmed,
+      page: 1,
+      limit: 24,
+    });
+
+    setSearchResults(result.data || []);
+    setSearchPage(1);
+
+    setSearchHasMore(
+      Boolean(
+        result.pagination?.has_next_page ||
+        (result.data?.length ?? 0) === 24
+      )
+    );
+  } catch (err) {
+    console.warn('Search query error:', err);
+    setSearchError(
+      'Search is taking longer than expected. Please try again.'
+    );
+    setSearchResults([]);
+    setSearchHasMore(false);
+  } finally {
+    setLoadingSearch(false);
+  }
+}, []);
+  const loadMoreSearchResults = useCallback(async () => {
+  if (loadingMoreSearch || !searchHasMore || !searchQuery.trim()) {
+    return;
+  }
+
+  setLoadingMoreSearch(true);
+
+  try {
+    const nextPage = searchPage + 1;
+
+    const result = await searchAnimePaginated({
+      query: searchQuery.trim(),
+      page: nextPage,
+      limit: 24,
+    });
+
+    const newResults = result.data || [];
+
+    setSearchResults((previous) => {
+      const existingIds = new Set(
+        previous.map((anime) => anime.mal_id)
+      );
+
+      const uniqueNewResults = newResults.filter(
+        (anime) => !existingIds.has(anime.mal_id)
+      );
+
+      return [...previous, ...uniqueNewResults];
+    });
+
+    setSearchPage(nextPage);
+
+    setSearchHasMore(
+      Boolean(
+        result.pagination?.has_next_page ||
+        newResults.length === 24
+      )
+    );
+  } catch (err) {
+    console.warn('Load more search results failed:', err);
+  } finally {
+    setLoadingMoreSearch(false);
+  }
+}, [
+  loadingMoreSearch,
+  searchHasMore,
+  searchQuery,
+  searchPage
+]);
   // Debounced search when typing
   useEffect(() => {
     const timer = setTimeout(() => {
