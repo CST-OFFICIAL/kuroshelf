@@ -1147,6 +1147,24 @@ const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
                   );
                 })}
               </div>
+                            })}
+              </div>
+
+              {!loadingSearch && searchResults.length > 0 && searchHasMore && (
+                <div className="flex justify-center pt-4">
+                  <button
+                    onClick={loadMoreSearchResults}
+                    disabled={loadingMoreSearch}
+                    className="px-6 py-3 bg-neutral-900 hover:bg-neutral-800 text-white font-semibold rounded-lg border border-neutral-800 transition-colors disabled:opacity-50"
+                  >
+                    {loadingMoreSearch ? 'Loading...' : 'Load More'}
+                  </button>
+                </div>
+              )}
+
+            )}
+          </div>
+        ) : (
             )}
           </div>
         ) : (
