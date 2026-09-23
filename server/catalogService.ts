@@ -201,7 +201,7 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
 
   // If local DB is empty or has fewer items than limit for a search/genre query, trigger Live API fallback to supplement!
   const hasSearchOrFilter = Boolean(clean || (options.genres && options.genres !== 'all') || (options.status && options.status !== 'all') || (options.type && options.type !== 'all'));
-  if (hasSearchOrFilter && localItems.length < limit) {
+  if (localItems.length < limit) {
      try {
        console.log('[Catalog] Local DB results sparse (' + localItems.length + '/' + limit + '), triggering live API fallback...');
        const jikanResult = await jikanSearch(options);
