@@ -1138,9 +1138,6 @@ const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
             )}
           </div>
         ) : (
-            )}
-          </div>
-        ) : (
           <div
             key={activeTab}
             id={`tab-panel-${activeTab}`}
