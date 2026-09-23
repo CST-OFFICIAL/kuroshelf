@@ -243,7 +243,7 @@ export async function fetchFromJikan<T>(
               'Accept': 'application/json',
               'Accept-Encoding': 'gzip, deflate, br'
             },
-            signal: AbortSignal.timeout(isSearch ? 4500 : 7000),
+            signal: AbortSignal.timeout(10000),
           });
 
           console.log('Jikan HTTP Status:', res.status, url);
@@ -670,7 +670,7 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
     
     // If Jikan fails or returns empty for a query or genre/filter search, trigger fallback to Anilist!
     const hasFilter = Boolean(clean || (options.genres && options.genres !== 'all') || (options.status && options.status !== 'all') || (options.type && options.type !== 'all'));
-    if ((!jikanData || jikanData.length === 0) && hasFilter) {
+if (!jikanData || jikanData.length === 0) {
        console.log("Triggering anilist fallback for query:", clean, "genre:", options.genres);
        const anilistData = await searchAnilistFallback(clean, page, limit, options.genres, anilistType, options.status, options.orderBy, options.type);
        if (anilistData && anilistData.length > 0) {
