@@ -23,11 +23,11 @@ export const siteConfig = {
   disqusUrl: import.meta.env.VITE_DISQUS_URL || '',
   disqusShortname: import.meta.env.VITE_DISQUS_SHORTNAME || '',
 
-  // Configurable social platform URLs (empty by default so no fake handles are displayed)
+  // Configurable social platform URLs
   socials: {
-    instagram: import.meta.env.VITE_SOCIAL_INSTAGRAM || '',
-    twitter: import.meta.env.VITE_SOCIAL_TWITTER || '',
-    youtube: import.meta.env.VITE_SOCIAL_YOUTUBE || '',
+    instagram: import.meta.env.VITE_SOCIAL_INSTAGRAM || 'https://www.instagram.com/kuroshelf.official?stkn=MTBsdnl0NW54bG5pbA==',
+    twitter: import.meta.env.VITE_SOCIAL_TWITTER || 'https://x.com/KuroShelf_HQ',
+    youtube: import.meta.env.VITE_SOCIAL_YOUTUBE || 'https://youtube.com/@kuroshelfofficial?si=8g3jji8KBMM3jwYj',
     discord: import.meta.env.VITE_SOCIAL_DISCORD || '',
   },
 };
