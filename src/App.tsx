@@ -1102,6 +1102,7 @@ const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
                 </p>
               </div>
             ) : (
+              <>
               <div className={cardGridClass}>
                 {searchResults.map((anime, idx) => {
                    
@@ -1133,6 +1134,7 @@ const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
                 </div>
               )}
 
+              </>
             )}
           </div>
         ) : (
