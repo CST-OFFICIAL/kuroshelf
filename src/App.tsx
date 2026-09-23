@@ -1120,7 +1120,6 @@ const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
                   );
                 })}
               </div>
-                            })}
               </div>
 
               {!loadingSearch && searchResults.length > 0 && searchHasMore && (
