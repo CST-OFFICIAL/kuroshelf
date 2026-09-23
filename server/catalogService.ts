@@ -118,7 +118,7 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
     try {
       const liveRes = await jikanSearch(options);
       return {
-        data: (liveRes?.data || []).filter((item: any) => !isNsfwOrAdult(item)),
+        data: (liveRes?.data || []).filter((item: any) => !isNsfwOrAdult(item)) as unknown as AnimeItem[],
         pagination: liveRes?.pagination || {
           last_visible_page: 1,
           has_next_page: false,
@@ -258,13 +258,13 @@ export async function getCatalogAnimeById(id: number): Promise<{ data: AnimeItem
         const jikanRes = await jikanGetById(id);
         if (jikanRes && !isNsfwOrAdult(jikanRes)) {
           if ((!mapped.genres || mapped.genres.length === 0) && jikanRes.genres && jikanRes.genres.length > 0) {
-            mapped.genres = jikanRes.genres;
+            mapped.genres = jikanRes.genres as unknown as AnimeItem['genres'];
           }
           if (jikanRes.themes && jikanRes.themes.length > 0) {
-            mapped.themes = jikanRes.themes;
+            mapped.themes = jikanRes.themes as unknown as AnimeItem['themes'];
           }
           if (jikanRes.demographics && jikanRes.demographics.length > 0) {
-            mapped.demographics = jikanRes.demographics;
+            mapped.demographics = jikanRes.demographics as unknown as AnimeItem['demographics'];
           }
           if (jikanRes.streaming && jikanRes.streaming.length > 0) {
             mapped.streaming = jikanRes.streaming;

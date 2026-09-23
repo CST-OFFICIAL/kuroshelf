@@ -2,7 +2,6 @@ import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import crypto from 'crypto';
 import cookieParser from 'cookie-parser';
-import { createServer as createViteServer } from 'vite';
 import { getUserBookmarks, upsertBookmark, deleteBookmark, getUserLikes, toggleLike, getUserRatings, setRating, removeRating, getPolls, votePoll } from './server/db';
 import {
   getCatalogTopAnime,
@@ -36,11 +35,10 @@ export interface AuthenticatedRequest extends Request {
   voterHash?: string;
 }
 
-async function startServer() {
+export async function createApp() {
   // Initialize Database schemas & seeds
 
   const app = express();
-  const PORT = 3000;
 
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -705,12 +703,15 @@ async function startServer() {
 
   // ---------------- Vite / Static Asset Serving ----------------
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: false },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
+  const { createServer: createViteServer } = await import('vite');
+
+  const vite = await createViteServer({
+    server: { middlewareMode: true, hmr: false },
+    appType: 'spa',
+  });
+
+  app.use(vite.middlewares);
+} else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*all', (_req, res) => {
@@ -718,13 +719,17 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    startBackgroundScraper();
-    console.log(`Kuro Shelf server online at http://0.0.0.0:${PORT}`);
-  });
+  return app;
 }
 
-startServer();
+if (process.env.VERCEL !== '1') {
+  createApp().then(app => {
+    app.listen(3000, '0.0.0.0', () => {
+      startBackgroundScraper();
+      console.log('Kuro Shelf server online at http://0.0.0.0:3000');
+    });
+  });
+}
 
 // ---------------- Scheduled Sync Worker ----------------
 // Note: In a production Supabase environment, this would ideally be
@@ -733,12 +738,14 @@ startServer();
 // by running it periodically from the Express server.
 const SYNC_INTERVAL_MS = 1000 * 60 * 60 * 24; // 24 hours
 
-setInterval(() => {
-  if (process.env.VITE_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.log('[Cron] Starting scheduled catalog synchronization...');
-    const { runIngestionJob } = require('./server/ingestionService');
-    runIngestionJob('airing', '/top/anime?filter=airing', 1)
-      .then(() => runIngestionJob('upcoming', '/top/anime?filter=upcoming', 1))
-      .catch(e => console.error('[Cron] Sync job failed:', e));
-  }
-}, SYNC_INTERVAL_MS);
+if (process.env.VERCEL !== '1') {
+  setInterval(() => {
+    if (process.env.VITE_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.log('[Cron] Starting scheduled catalog synchronization...');
+      const { runIngestionJob } = require('./server/ingestionService');
+      runIngestionJob('airing', '/top/anime?filter=airing', 1)
+        .then(() => runIngestionJob('upcoming', '/top/anime?filter=upcoming', 1))
+        .catch(e => console.error('[Cron] Sync job failed:', e));
+    }
+  }, SYNC_INTERVAL_MS);
+}
