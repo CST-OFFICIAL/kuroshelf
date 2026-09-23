@@ -53,22 +53,34 @@ export function AdvancedSearchView({
       queryParams.set('page', isLoadMore ? String(page + 1) : '1');
       queryParams.set('limit', '24');
       
-      const res = await fetch(`/api/anime/search?${queryParams.toString()}`);
-      const data = await res.json();
-      
-      if (data && data.success && data.data) {
-        if (isLoadMore) {
-          setResults(prev => {
-            const newItems = data.data.filter((d: any) => !prev.some(p => p.mal_id === d.mal_id));
-            return [...prev, ...newItems];
-          });
-          setPage(p => p + 1);
-        } else {
-          setResults(data.data);
-          setPage(1);
-        }
-        setHasMore(data.pagination?.has_next_page || data.data.length === 24);
-      }
+     const result = await searchAnimePaginated({
+  query: debouncedQuery,
+  page: isLoadMore ? page + 1 : 1,
+  limit: 24,
+  status: status || undefined,
+  type: type || undefined,
+  orderBy: orderBy || undefined,
+  sort: sort || undefined,
+});
+
+const data = result.data || [];
+
+if (isLoadMore) {
+  setResults(prev => {
+    const newItems = data.filter(
+      (d: AnimeItem) => !prev.some(p => p.mal_id === d.mal_id)
+    );
+    return [...prev, ...newItems];
+  });
+  setPage(p => p + 1);
+} else {
+  setResults(data);
+  setPage(1);
+}
+
+setHasMore(
+  result.pagination?.has_next_page ?? data.length === 24
+);
     } catch (err) {
       console.error(err);
     } finally {
