@@ -320,14 +320,20 @@ export function App() {
     if (isSupabaseConfigured) {
       const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
         if (session?.user) {
-          const user = {
+          const rawUsername = session.user.user_metadata?.user_name || session.user.email?.split('@')[0] || 'User';
+          const isAdmin = rawUsername.toLowerCase() === 'kuro' || session.user.user_metadata?.role === 'admin';
+          const user: AuthUser = {
             id: session.user.id,
             email: session.user.email!,
-            username: session.user.user_metadata?.user_name || session.user.email?.split('@')[0] || 'User',
+            username: rawUsername,
+            display_name: session.user.user_metadata?.full_name || rawUsername,
+            profile_setup_complete: !!session.user.user_metadata?.user_name,
             avatar_url: session.user.user_metadata?.avatar_url || null,
+            role: isAdmin ? 'admin' : 'user',
             created_at: session.user.created_at || new Date().toISOString(),
           };
           setCurrentUser(user);
+          localStorage.setItem('kuro_local_user', JSON.stringify(user));
           syncUserData(user);
         } else {
           // If no active Supabase session, only reset if there's no active local/preset user

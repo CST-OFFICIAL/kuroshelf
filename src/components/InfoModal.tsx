@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Mail, Shield, FileText, Info, Copy, Check, ExternalLink } from 'lucide-react';
+import { X, Mail, Shield, FileText, Info, Copy, Check, ExternalLink, AlertTriangle, Cookie, Scale } from 'lucide-react';
 import { siteConfig } from '../config/site';
 
-export type InfoModalType = 'about' | 'privacy' | 'terms' | 'contact' | null;
+export type InfoModalType = 'about' | 'privacy' | 'terms' | 'dmca' | 'cookies' | 'contact' | null;
 
 interface InfoModalProps {
   type: InfoModalType;
@@ -49,7 +49,7 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 overflow-y-auto overscroll-contain"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-xs overflow-y-auto overscroll-contain animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -64,12 +64,16 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
             {type === 'about' && <Info className="w-5 h-5 text-rose-500" />}
             {type === 'privacy' && <Shield className="w-5 h-5 text-rose-500" />}
             {type === 'terms' && <FileText className="w-5 h-5 text-rose-500" />}
+            {type === 'dmca' && <Scale className="w-5 h-5 text-rose-500" />}
+            {type === 'cookies' && <Cookie className="w-5 h-5 text-rose-500" />}
             {type === 'contact' && <Mail className="w-5 h-5 text-rose-500" />}
             <h2 className="text-base font-bold text-white font-display">
               {type === 'about' && 'About Kuro Shelf'}
               {type === 'privacy' && 'Privacy Policy'}
               {type === 'terms' && 'Terms of Service'}
-              {type === 'contact' && 'Contact Kuro Shelf'}
+              {type === 'dmca' && 'DMCA & Copyright Policy'}
+              {type === 'cookies' && 'Cookie Policy'}
+              {type === 'contact' && 'Contact & Support'}
             </h2>
           </div>
           <button
@@ -83,6 +87,8 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
 
         {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-6 text-xs text-neutral-300 leading-relaxed font-sans">
+          
+          {/* ABOUT */}
           {type === 'about' && (
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-neutral-900/60 border border-neutral-800 space-y-2">
@@ -95,112 +101,232 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
                   </span>
                 </div>
                 <p className="text-neutral-300">
-                  Kuro Shelf is a modern anime and manga discovery, tracking, and community platform built for fans who want a clean, responsive digital library.
+                  Kuro Shelf is a modern anime and manga discovery, personal tracking, and community platform built for fans who value a clean, responsive, and privacy-respecting digital library.
                 </p>
               </div>
 
               <div className="space-y-2">
                 <h3 className="text-sm font-bold text-white font-display">Our Mission</h3>
                 <p>
-                  To provide an independent catalog where anime enthusiasts can discover premiering titles, organize their personal watching progress across customizable shelf categories, participate in community prediction polls, and check legitimate streaming availability.
+                  To provide an independent catalog where anime enthusiasts can discover premiering titles, organize their personal watching progress across customizable shelf categories, participate in community prediction polls, and check legitimate streaming availability without intrusive popups or disruptive ads.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-sm font-bold text-white font-display">Key Pillars</h3>
-                <ul className="list-disc pl-5 space-y-1 text-neutral-400">
+                <h3 className="text-sm font-bold text-white font-display">Core Pillars</h3>
+                <ul className="list-disc pl-5 space-y-1.5 text-neutral-400">
                   <li><strong className="text-neutral-200">Independent Identity:</strong> Original user experience designed specifically for clarity, speed, and dark-mode elegance.</li>
-                  <li><strong className="text-neutral-200">Local-First Privacy:</strong> Your shelf entries and ratings reside safely in your browser storage.</li>
-                  <li><strong className="text-neutral-200">Verified Information:</strong> Aggregating global anime and manga metadata, official broadcast timetables, and licensed where-to-watch streaming directories.</li>
-                  <li><strong className="text-neutral-200">Community Driven:</strong> Real-time prediction polls for upcoming season highlights, battles, and milestones.</li>
+                  <li><strong className="text-neutral-200">Local-First & Cloud Sync:</strong> Seamlessly organizes your shelf locally in your browser, with optional cloud backup via secure authentication.</li>
+                  <li><strong className="text-neutral-200">Verified Catalog Metadata:</strong> Aggregating global anime and manga metadata, official broadcast timetables, and licensed where-to-watch streaming directories.</li>
+                  <li><strong className="text-neutral-200">Community Driven:</strong> Interactive prediction polls, custom themes, and daily streaks celebrating our collective love for anime.</li>
                 </ul>
               </div>
             </div>
           )}
 
+          {/* PRIVACY POLICY */}
           {type === 'privacy' && (
             <div className="space-y-4">
-              <div>
-                <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold block">Last Updated: September 2026</span>
-                <h3 className="text-sm font-bold text-white font-display mt-1">Our Privacy Commitment</h3>
+              <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2">
+                <div>
+                  <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold block">Effective Date: September 2026</span>
+                  <h3 className="text-sm font-bold text-white font-display mt-0.5">Privacy Policy</h3>
+                </div>
+                <span className="text-[10px] bg-rose-500/10 text-rose-400 px-2 py-0.5 rounded border border-rose-500/20 font-medium">GDPR & CCPA Compliant</span>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-semibold text-neutral-200">1. Data Storage & Local Shelf</h4>
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">1. Information We Collect</h4>
                 <p>
-                  Kuro Shelf operates with a local-first architecture. Your personal shelf entries, watch statuses, episode counts, custom ratings, and poll votes are stored directly in your browser&apos;s local storage. This data remains on your device and is not sold, rented, or shared with third-party data brokers.
+                  Kuro Shelf is designed with minimal data collection principles:
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-neutral-400">
+                  <li><strong className="text-neutral-300">Local Device Data:</strong> When browsing as a guest, your personal shelf entries, watch progress, bookmarks, and UI settings are stored exclusively in your browser&apos;s local storage. This data never leaves your device.</li>
+                  <li><strong className="text-neutral-300">Account Credentials:</strong> If you register or authenticate using email or single sign-on, our cloud infrastructure securely receives your email address and profile identifiers to sync your personal shelf. We do not store plaintext passwords.</li>
+                  <li><strong className="text-neutral-300">Technical Logs:</strong> Global edge delivery networks may record standard, temporary HTTP connection logs (IP address, user-agent, request path) strictly for network security, DDoS prevention, and rate-limiting.</li>
+                </ul>
+              </div>
+
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">2. How We Use Information</h4>
+                <p>
+                  Information is used exclusively to deliver core features: displaying your personal anime shelf, maintaining episode tracking, calculating community poll distributions, and enabling optional VIP profile customizations. We never sell, rent, or trade your personal data to advertisers or third-party brokers.
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-semibold text-neutral-200">2. External Services & APIs</h4>
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">3. Infrastructure & Processing</h4>
                 <p>
-                  To provide comprehensive anime and manga listings, search results, and cover artwork, Kuro Shelf queries verified external metadata providers. These queries transmit only the necessary search terms or item identifiers required to retrieve catalog information.
+                  Kuro Shelf utilizes secure cloud infrastructure to provide content and database functionality:
                 </p>
+                <ul className="list-disc pl-5 space-y-1 text-neutral-400">
+                  <li><strong className="text-neutral-300">Public Media Directory:</strong> Anime and manga metadata, broadcast schedules, and character information are gathered via open media directories. No personally identifiable user information is transmitted during these catalog queries.</li>
+                  <li><strong className="text-neutral-300">Encrypted Cloud Storage:</strong> Account authentication and cloud sync are protected under strict international security standards and industry encryption practices.</li>
+                  <li><strong className="text-neutral-300">Secure Payment Gateways:</strong> Any voluntary supporter contributions or VIP memberships are processed securely through certified, PCI-DSS compliant payment gateways. Kuro Shelf never sees or retains your credit card numbers or banking secrets.</li>
+                </ul>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-semibold text-neutral-200">3. Cookies & Tracking</h4>
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">4. Your Data Rights & Deletion</h4>
                 <p>
-                  Kuro Shelf does not deploy intrusive cross-site advertising trackers or profiling cookies. Any state retained by the browser is strictly functional to ensure your shelf and viewing preferences persist across sessions.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="font-semibold text-neutral-200">4. Contact Inquiries</h4>
-                <p>
-                  If you contact Kuro Shelf via our official email, your email address is used solely to respond to your inquiry and will never be shared without your explicit consent.
+                  You hold full ownership of your data. You can export or wipe your entire shelf at any time via the Shelf Settings modal. To request permanent deletion of your account and synchronized cloud data, email us with your registered account handle.
                 </p>
               </div>
             </div>
           )}
 
+          {/* TERMS OF SERVICE */}
           {type === 'terms' && (
             <div className="space-y-4">
-              <div>
-                <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold block">Last Updated: September 2026</span>
-                <h3 className="text-sm font-bold text-white font-display mt-1">Terms of Service</h3>
+              <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2">
+                <div>
+                  <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold block">Effective Date: September 2026</span>
+                  <h3 className="text-sm font-bold text-white font-display mt-0.5">Terms of Service</h3>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-semibold text-neutral-200">1. Platform Purpose</h4>
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">1. Acceptance of Terms</h4>
                 <p>
-                  Kuro Shelf is an informational and organizational catalog for anime and manga. Kuro Shelf does not host, stream, or distribute video files or copyrighted media on its servers. All streaming links direct to official, legitimate third-party platforms.
+                  By accessing or utilizing Kuro Shelf, you agree to comply with and be bound by these Terms of Service. If you do not agree, please discontinue using the platform.
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-semibold text-neutral-200">2. Intellectual Property</h4>
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">2. Informational & Indexing Purpose Only</h4>
                 <p>
-                  All anime posters, studio logos, character names, and descriptive synopses belong to their respective copyright owners, production committees, and authors. Their presence on Kuro Shelf is for discovery and informational commentary purposes.
+                  Kuro Shelf is strictly an anime & manga metadata indexing, personal tracking, and review platform. 
+                  <strong className="text-rose-400 block mt-1">
+                    Kuro Shelf DOES NOT host, upload, rip, encode, torrent, or stream any full video media, audio episodes, or copyrighted broadcast files.
+                  </strong>
+                  All streaming buttons and watch links redirect users directly to official, licensed third-party distributors and broadcaster portals.
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-semibold text-neutral-200">3. Community Conduct</h4>
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">3. Intellectual Property Rights</h4>
                 <p>
-                  Users participating in prediction polls and community discussions agree to engage respectfully. Spamming, vote manipulation, hate speech, or harassment is strictly prohibited.
+                  All anime posters, promotional key visuals, character names, studio trademarks, and synopses belong to their respective copyright holders, authors, and production committees. Kuro Shelf uses this media under Fair Use / Nominative Use doctrine for educational, cataloging, and commentary purposes.
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-semibold text-neutral-200">4. External Links</h4>
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">4. Community Guidelines & Conduct</h4>
                 <p>
-                  Kuro Shelf may link to external websites, including official streaming services, publishers, and retailers. We are not responsible for the content, privacy practices, or availability of external destinations.
+                  Users participating in community prediction polls, discussions, or custom profiles agree to conduct themselves respectfully. Automated bot voting, script attacks, harassment, hate speech, upload of inappropriate avatar imagery, or attempts to disrupt service stability will result in immediate suspension.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">5. Disclaimer of Warranties & Limitation of Liability</h4>
+                <p>
+                  The platform is provided on an &quot;AS IS&quot; and &quot;AS AVAILABLE&quot; basis without warranties of any kind. Kuro Shelf will not be held liable for any data loss, downtime, or discrepancies in third-party broadcast schedules.
                 </p>
               </div>
             </div>
           )}
 
+          {/* DMCA & COPYRIGHT */}
+          {type === 'dmca' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2">
+                <div>
+                  <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold block">Notice & Takedown</span>
+                  <h3 className="text-sm font-bold text-white font-display mt-0.5">DMCA & Copyright Policy</h3>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200/90 text-xs flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <p>
+                  Kuro Shelf respects the intellectual property rights of creators and rights holders. We comply fully with the Digital Millennium Copyright Act (17 U.S.C. § 512) and international copyright legislation.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">No Hosted Media</h4>
+                <p>
+                  Kuro Shelf operates as an informational directory and personal watch list. We do not maintain or distribute video files or digital manga scans on our servers. All media metadata (posters, character images) is retrieved via official third-party indexing APIs for non-commercial identification purposes.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">Submitting a Takedown Notice</h4>
+                <p>
+                  If you are a copyright owner or an authorized agent and believe that content hosted on or linked by Kuro Shelf infringes upon your copyright, please provide a written communication containing:
+                </p>
+                <ol className="list-decimal pl-5 space-y-1 text-neutral-400">
+                  <li>Identification of the copyrighted work claimed to have been infringed.</li>
+                  <li>Identification of the specific URL or metadata item on Kuro Shelf you request removed.</li>
+                  <li>Your full legal name, company name, physical address, email address, and telephone number.</li>
+                  <li>A statement that you have a good-faith belief that use of the material is not authorized by the copyright owner.</li>
+                  <li>A physical or electronic signature of the authorized copyright holder or legal representative.</li>
+                </ol>
+                <p className="mt-2 text-neutral-300">
+                  Send DMCA notifications directly to: <span className="font-mono text-rose-400 font-semibold">{siteConfig.contactEmail || 'dmca@kuroshelf.com'}</span>. We process verified takedown notices within 24–48 business hours.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* COOKIES */}
+          {type === 'cookies' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-neutral-800/80 pb-2">
+                <div>
+                  <span className="text-[10px] text-neutral-400 uppercase tracking-wider font-semibold block">Browser Storage</span>
+                  <h3 className="text-sm font-bold text-white font-display mt-0.5">Cookie & Local Storage Policy</h3>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">What We Store</h4>
+                <p>
+                  Unlike most websites, Kuro Shelf does not use invasive cross-site advertising cookies or behavioral tracking beacons. We rely almost entirely on standard browser <strong>LocalStorage</strong> to save your experience locally.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="font-semibold text-neutral-200">Breakdown of Stored Preferences:</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                  <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800">
+                    <strong className="text-neutral-100 block">Personal Shelf Items</strong>
+                    Saves your watched episodes, reading status, and favorites locally on your device.
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800">
+                    <strong className="text-neutral-100 block">UI Theme & Density</strong>
+                    Remembers dark mode, AMOLED black, and grid size preferences.
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800">
+                    <strong className="text-neutral-100 block">Auth Session Token</strong>
+                    Encrypted authentication session token used only to keep your profile signed in.
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800">
+                    <strong className="text-neutral-100 block">Daily Streak Tracker</strong>
+                    Logs timestamps of your daily visit to reward you with shelf milestones.
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <h4 className="font-semibold text-neutral-200">Managing Your Storage</h4>
+                <p>
+                  You can clear these stored preferences at any time by clearing your browser cache/cookies or clicking &quot;Reset Shelf&quot; in the Kuro Shelf settings.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* CONTACT & SUPPORT */}
           {type === 'contact' && (
             <div className="space-y-5">
               <p>
-                Have feedback, a feature request, or an inquiry regarding catalog listings? Reach out to the Kuro Shelf team directly.
+                Have a question, feedback, feature proposal, or metadata correction? Reach out to the Kuro Shelf development team directly.
               </p>
 
               <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 space-y-3">
                 <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">
-                  Official Contact Channel
+                  Official Communication Channel
                 </span>
                 {hasContactEmail ? (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-neutral-950 border border-neutral-800">
@@ -240,25 +366,25 @@ export function InfoModal({ type, onClose }: InfoModalProps) {
                   <div className="p-4 rounded-lg bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs leading-relaxed space-y-1.5">
                     <div className="flex items-center gap-2 text-rose-400 font-semibold">
                       <Mail className="w-4 h-4 shrink-0" />
-                      <span>Contact details coming soon</span>
+                      <span>Contact details & email</span>
                     </div>
                     <p className="text-neutral-400 text-xs">
-                      Official email and inquiry channels for Kuro Shelf are currently being configured. Dedicated support, catalog corrections, and partnership inquiries will become available once domain email accounts are established.
+                      You can configure your custom contact address anytime in your deployment environment variables via <code className="text-rose-400 font-mono">VITE_CONTACT_EMAIL</code>.
                     </p>
                   </div>
                 )}
               </div>
 
               <div className="space-y-2">
-                <h4 className="font-semibold text-neutral-200">Topics We Handle</h4>
+                <h4 className="font-semibold text-neutral-200">Inquiry Categories We Prioritize</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-neutral-400">
                   <div className="p-2.5 rounded-lg bg-neutral-900/40 border border-neutral-800/80">
-                    <strong className="text-neutral-200 block">Corrections & Metadata</strong>
-                    Report missing titles, updated broadcast slots, or where-to-watch platforms.
+                    <strong className="text-neutral-200 block">Catalog & Metadata</strong>
+                    Missing anime seasons, schedule timing errors, or new streaming links.
                   </div>
                   <div className="p-2.5 rounded-lg bg-neutral-900/40 border border-neutral-800/80">
-                    <strong className="text-neutral-200 block">Feature Feedback</strong>
-                    Share ideas for prediction polls, shelf filters, or UI improvements.
+                    <strong className="text-neutral-200 block">Community & Feedback</strong>
+                    Feature requests, prediction poll suggestions, or UI improvements.
                   </div>
                 </div>
               </div>

@@ -1,9 +1,10 @@
 import { siteConfig, getActiveSocials } from '../config/site';
 import { Camera, Hash, Video, MessageCircle, ExternalLink, Crown, Heart } from 'lucide-react';
+import { InfoModalType } from './InfoModal';
 
 interface FooterProps {
   onNavigateTab: (tab: string, subTab?: string) => void;
-  onOpenInfoModal: (type: 'about' | 'privacy' | 'terms' | 'contact') => void;
+  onOpenInfoModal: (type: NonNullable<InfoModalType>) => void;
   onOpenMembershipModal?: (tab?: 'membership' | 'donate') => void;
   onOpenAnnouncements?: () => void;
 }
@@ -207,10 +208,24 @@ export function Footer({ onNavigateTab, onOpenInfoModal, onOpenMembershipModal, 
                 </button>
                 <button
                   type="button"
+                  onClick={() => onOpenInfoModal('dmca')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  DMCA & Copyright
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenInfoModal('cookies')}
+                  className="text-neutral-400 hover:text-white transition-colors text-left"
+                >
+                  Cookie Policy
+                </button>
+                <button
+                  type="button"
                   onClick={() => onOpenInfoModal('contact')}
                   className="text-neutral-400 hover:text-white transition-colors text-left"
                 >
-                  Contact
+                  Contact & Support
                 </button>
               </div>
             </div>

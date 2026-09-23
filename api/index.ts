@@ -1,9 +1,11 @@
 import type { Request, Response } from 'express';
-import { createApp } from '../server.ts';
+import { createApp } from '../server';
 
-const appPromise = createApp();
+let appHandler: any = null;
 
 export default async function handler(req: Request, res: Response) {
-  const app = await appPromise;
-  return app(req, res);
+  if (!appHandler) {
+    appHandler = await createApp();
+  }
+  return appHandler(req, res);
 }

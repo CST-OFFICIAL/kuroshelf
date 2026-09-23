@@ -36,6 +36,7 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmationSent, setConfirmationSent] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -101,7 +102,9 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
     setLoading(true);
     try {
       const res = await registerUser(username.trim(), displayName.trim(), email.trim(), password);
-      if (res.success && res.user) {
+      if (res.needsEmailConfirmation) {
+        setConfirmationSent(email.trim());
+      } else if (res.success && res.user) {
         onAuthSuccess(res.user);
         onClose();
       } else {
@@ -192,7 +195,32 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
 
         {/* Content */}
         <div className="p-6">
-          {currentUser && isProfileComplete ? (
+          {confirmationSent ? (
+            <div className="text-center space-y-4 py-2">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+                <Mail className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-white font-display">Confirmation Email Sent</h4>
+                <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                  We sent a confirmation link to <span className="text-neutral-200 font-mono font-semibold">{confirmationSent}</span>.
+                </p>
+                <p className="text-xs text-neutral-400 mt-2">
+                  Please check your inbox (and spam folder) and click the confirmation link to activate your Kuro Shelf account and sign in.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmationSent(null);
+                  setTab('login');
+                }}
+                className="w-full py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs border border-neutral-800 transition-colors cursor-pointer"
+              >
+                Back to Sign In
+              </button>
+            </div>
+          ) : currentUser && isProfileComplete ? (
             /* Logged-In Profile Card */
             <div className="space-y-6">
               <div className="flex items-center gap-4 p-4 rounded-xl bg-neutral-900 border border-neutral-800">

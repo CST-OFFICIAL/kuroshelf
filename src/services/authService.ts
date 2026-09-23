@@ -307,12 +307,19 @@ export async function verifyEmailOtp(email: string, token: string): Promise<{ su
   return { success: true, user: finalUser };
 }
 
+export interface RegisterResult {
+  success: boolean;
+  user?: AuthUser;
+  needsEmailConfirmation?: boolean;
+  error?: string;
+}
+
 export async function registerUser(
   username: string,
   displayName: string,
   email: string,
   password?: string
-): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+): Promise<RegisterResult> {
   const validation = validateUsername(username, null);
   if (!validation.valid) {
     return { success: false, error: validation.error };
@@ -335,12 +342,23 @@ export async function registerUser(
             user_name: cleanUsername,
             full_name: displayName.trim(),
             role: isAdmin ? 'admin' : 'user'
-          }
+          },
+          emailRedirectTo: window.location.origin
         }
       });
       if (error) {
         return { success: false, error: error.message };
       }
+      
+      // If Supabase has email confirmation enabled, data.session is null and data.user.identities is present
+      if (data.user && !data.session) {
+        return { 
+          success: true, 
+          needsEmailConfirmation: true,
+          error: undefined 
+        };
+      }
+
       if (data.user) {
         const authUser: AuthUser = {
           id: data.user.id,
@@ -352,7 +370,7 @@ export async function registerUser(
           created_at: data.user.created_at || new Date().toISOString(),
         };
         localStorage.setItem('kuro_local_user', JSON.stringify(authUser));
-        saveAccount(authUser);
+        saveAccount(authUser, data.session?.access_token);
         return { success: true, user: authUser };
       }
     } catch (e: any) {

@@ -9,22 +9,11 @@ import {
   CharacterDetail,
   PersonDetail,
 } from '../types';
+import { fetchDirectJikan, isNsfwOrAdultClient } from './directJikanFallback';
 
 // In-memory cache to avoid duplicate calls during session
 const memoryCache = new Map<string, { data: unknown; pagination?: JikanPagination; timestamp: number }>();
 const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes cache
-
-function isNsfwOrAdultClient(item: any): boolean {
-  if (!item) return false;
-  const malId = Number(item.mal_id);
-  if (malId === 34246) return true;
-  if (item.isAdult === true) return true;
-  const rating = String(item.rating || '').toLowerCase();
-  if (rating.includes('rx') || rating.includes('hentai')) return true;
-  const title = `${item.title || ''} ${item.title_english || ''}`.toLowerCase();
-  if (title.includes('rina witch') || title.includes('kimi no mana wa') || title.includes('your magical name is rina')) return true;
-  return false;
-}
 
 function deduplicateByMalId<T extends { mal_id: number }>(items: T[]): T[] {
   if (!Array.isArray(items)) return [];
@@ -38,6 +27,13 @@ function deduplicateByMalId<T extends { mal_id: number }>(items: T[]): T[] {
   });
 }
 
+/**
+ * Universal requester:
+ * 1. Attempts the internal backend endpoint (/api/...) first.
+ * 2. If the backend is not present (e.g. Vercel static deployment) or returns 404/5xx,
+ *    it seamlessly falls back to direct Jikan API query on the client side.
+ *    This ensures the anime and manga library NEVER shows up blank or empty!
+ */
 async function fetchFromApi<T>(
   endpoint: string,
   fallbackData?: T
@@ -50,16 +46,31 @@ async function fetchFromApi<T>(
 
   try {
     const res = await fetch(endpoint);
-    if (!res.ok) {
-      throw new Error(`API error ${res.status}`);
+    // If the server responded with OK and valid json
+    if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const json = await res.json();
+        const data = (json.data ?? fallbackData) as T;
+        const pagination = json.pagination as JikanPagination | undefined;
+        memoryCache.set(cacheKey, { data, pagination, timestamp: Date.now() });
+        return { data, pagination };
+      }
     }
-    const json = await res.json();
-    const data = (json.data ?? fallbackData) as T;
-    const pagination = json.pagination as JikanPagination | undefined;
-    memoryCache.set(cacheKey, { data, pagination, timestamp: Date.now() });
-    return { data, pagination };
+    // If 404 or HTML (Vercel SPA fallback), trigger the direct Jikan fallback
+    throw new Error(`API error ${res.status}`);
   } catch (err) {
-    console.warn(`[Client Service] Endpoint ${endpoint} failed:`, err);
+    // Attempt direct Jikan fallback based on endpoint mapping
+    try {
+      const directResult = await routeToDirectJikan<T>(endpoint);
+      if (directResult) {
+        memoryCache.set(cacheKey, { data: directResult.data, pagination: directResult.pagination, timestamp: Date.now() });
+        return directResult;
+      }
+    } catch (fallbackErr) {
+      console.warn(`[Client Direct Fallback] Failed for ${endpoint}:`, fallbackErr);
+    }
+
     if (mem) {
       return { data: mem.data as T, pagination: mem.pagination };
     }
@@ -68,6 +79,142 @@ async function fetchFromApi<T>(
     }
     throw err;
   }
+}
+
+/**
+ * Maps Kuro Shelf /api/* routes directly to public Jikan v4 endpoints
+ */
+async function routeToDirectJikan<T>(endpoint: string): Promise<{ data: T; pagination?: JikanPagination } | null> {
+  const [path, queryString] = endpoint.split('?');
+  const params = new URLSearchParams(queryString || '');
+
+  // 1. /api/anime/seasonal
+  if (path === '/api/anime/seasonal') {
+    const page = params.get('page') || '1';
+    const limit = params.get('limit') || '24';
+    const res = await fetchDirectJikan<AnimeItem[]>(`/seasons/now?page=${page}&limit=${limit}`);
+    return { data: res.data as unknown as T, pagination: res.pagination };
+  }
+
+  // 2. /api/anime/upcoming
+  if (path === '/api/anime/upcoming') {
+    const page = params.get('page') || '1';
+    const limit = params.get('limit') || '24';
+    const res = await fetchDirectJikan<AnimeItem[]>(`/seasons/upcoming?page=${page}&limit=${limit}`);
+    return { data: res.data as unknown as T, pagination: res.pagination };
+  }
+
+  // 3. /api/anime/top or /api/anime/top100
+  if (path === '/api/anime/top' || path === '/api/anime/top100') {
+    const filter = params.get('filter') || 'bypopularity';
+    const page = params.get('page') || '1';
+    const limit = params.get('limit') || '24';
+    const genre = params.get('genre');
+    const jikanParams = new URLSearchParams();
+    jikanParams.set('page', page);
+    jikanParams.set('limit', limit);
+
+    if (filter === 'airing') jikanParams.set('filter', 'airing');
+    else if (filter === 'upcoming') jikanParams.set('filter', 'upcoming');
+    else if (filter === 'favorite') jikanParams.set('filter', 'favorite');
+    else if (filter === 'bypopularity') jikanParams.set('filter', 'bypopularity');
+
+    if (genre && genre !== 'all') jikanParams.set('genres', genre);
+
+    const res = await fetchDirectJikan<AnimeItem[]>(`/top/anime?${jikanParams.toString()}`);
+    return { data: res.data as unknown as T, pagination: res.pagination };
+  }
+
+  // 4. /api/anime/search
+  if (path === '/api/anime/search') {
+    const searchParams = new URLSearchParams();
+    if (params.get('q')) searchParams.set('q', params.get('q')!);
+    if (params.get('page')) searchParams.set('page', params.get('page')!);
+    if (params.get('limit')) searchParams.set('limit', params.get('limit')!);
+    if (params.get('type') && params.get('type') !== 'all') searchParams.set('type', params.get('type')!);
+    if (params.get('status') && params.get('status') !== 'all') searchParams.set('status', params.get('status')!);
+    if (params.get('genres') && params.get('genres') !== 'all') searchParams.set('genres', params.get('genres')!);
+    if (params.get('order_by')) searchParams.set('order_by', params.get('order_by')!);
+    if (params.get('sort')) searchParams.set('sort', params.get('sort')!);
+
+    // Safe default to sfw
+    searchParams.set('sfw', 'true');
+    const res = await fetchDirectJikan<AnimeItem[]>(`/anime?${searchParams.toString()}`);
+    return { data: res.data as unknown as T, pagination: res.pagination };
+  }
+
+  // 5. /api/anime/:id/characters
+  const charMatch = path.match(/^\/api\/anime\/(\d+)\/characters$/);
+  if (charMatch) {
+    const malId = charMatch[1];
+    const res = await fetchDirectJikan<CharacterItem[]>(`/anime/${malId}/characters`);
+    return { data: res.data as unknown as T };
+  }
+
+  // 6. /api/anime/:id/recommendations
+  const recMatch = path.match(/^\/api\/anime\/(\d+)\/recommendations$/);
+  if (recMatch) {
+    const malId = recMatch[1];
+    const res = await fetchDirectJikan<RecommendedAnimeItem[]>(`/anime/${malId}/recommendations`);
+    return { data: res.data as unknown as T };
+  }
+
+  // 7. /api/anime/:id (Detail)
+  const detailMatch = path.match(/^\/api\/anime\/(\d+)$/);
+  if (detailMatch) {
+    const malId = detailMatch[1];
+    const res = await fetchDirectJikan<AnimeItem>(`/anime/${malId}/full`);
+    return { data: res.data as unknown as T };
+  }
+
+  // 8. /api/anime/genres
+  if (path === '/api/anime/genres') {
+    const res = await fetchDirectJikan<JikanGenre[]>(`/genres/anime`);
+    return { data: res.data as unknown as T };
+  }
+
+  // 9. /api/manga/top
+  if (path === '/api/manga/top') {
+    const page = params.get('page') || '1';
+    const limit = params.get('limit') || '24';
+    const res = await fetchDirectJikan<MangaItem[]>(`/top/manga?page=${page}&limit=${limit}`);
+    return { data: res.data as unknown as T, pagination: res.pagination };
+  }
+
+  // 10. /api/manga/search
+  if (path === '/api/manga/search') {
+    const q = params.get('q') || '';
+    const page = params.get('page') || '1';
+    const limit = params.get('limit') || '24';
+    const res = await fetchDirectJikan<MangaItem[]>(`/manga?q=${encodeURIComponent(q)}&page=${page}&limit=${limit}&sfw=true`);
+    return { data: res.data as unknown as T, pagination: res.pagination };
+  }
+
+  // 11. /api/anime/schedule
+  if (path === '/api/anime/schedule') {
+    const day = params.get('day');
+    const dayParam = day ? `?filter=${encodeURIComponent(day.toLowerCase())}` : '';
+    const res = await fetchDirectJikan<AiringScheduleItem[]>(`/schedules${dayParam}`);
+    return { data: res.data as unknown as T };
+  }
+
+  // 12. /api/characters/:id
+  const charDetailMatch = path.match(/^\/api\/characters\/(\d+)$/);
+  if (charDetailMatch) {
+    const charId = charDetailMatch[1];
+    const res = await fetchDirectJikan<CharacterDetail>(`/characters/${charId}/full`);
+    return { data: res.data as unknown as T };
+  }
+
+  // 13. /api/people/:id
+  const personDetailMatch = path.match(/^\/api\/people\/(\d+)$/);
+  if (personDetailMatch) {
+    const personId = personDetailMatch[1];
+    const res = await fetchDirectJikan<PersonDetail>(`/people/${personId}/full`);
+    return { data: res.data as unknown as T };
+  }
+
+  return null;
 }
 
 export interface SearchOptions {
@@ -239,4 +386,3 @@ export async function getPersonDetails(id: number, name?: string): Promise<Perso
   const res = await fetchFromApi<PersonDetail | null>(endpoint, null);
   return res.data;
 }
-
