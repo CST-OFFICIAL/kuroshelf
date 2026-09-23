@@ -7,7 +7,7 @@ import {
   getSeasonalAnime, 
   getUpcomingAnime, 
   searchAnime,
-  searchAnimePaginated
+  searchAnimePaginated,
   getAnimeById
 } from './services/jikan';
 import {
