@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { AnimeItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll, AuthUser, DailyStreakInfo, ThemeMode } from './types';
 import { 
-  getTopAnime, 
+  getTopAnime,
+  getTopAnimePaginated,
   getSeasonalAnime, 
   getUpcomingAnime, 
   searchAnime,
@@ -451,7 +452,7 @@ export function App() {
       const [airingRes, seasonalRes, topRes, upcomingRes] = await Promise.allSettled([
         getTopAnime('airing', 24),
         getSeasonalAnime(24),
-        getTopAnime('bypopularity', 100),
+        getTopAnimePaginated('bypopularity', 1, 24).then((res) => res.data),
         getUpcomingAnime(24),
       ]);
 
