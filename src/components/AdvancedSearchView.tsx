@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { AnimeItem, ShelfStatus } from '../types';
 import { AnimeCard } from './AnimeCard';
+import { searchAnimePaginated } from '../services/jikan';
 
 
 interface AdvancedSearchViewProps {
