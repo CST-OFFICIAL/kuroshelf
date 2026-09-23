@@ -710,33 +710,6 @@ const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
   searchQuery,
   searchPage
 ]);
-  const loadMoreSearchResults = useCallback(async () => {
-  if (loadingMoreSearch || !searchHasMore) return;
-
-  setLoadingMoreSearch(true);
-
-  try {
-    const nextPage = searchPage + 1;
-    const result = await searchAnimePaginated({
-      query: debouncedQuery,
-      page: nextPage,
-      limit: 24,
-    });
-
-    setSearchResults(prev => {
-      const existingIds = new Set(prev.map(anime => anime.mal_id));
-      const newItems = result.data.filter(anime => !existingIds.has(anime.mal_id));
-      return [...prev, ...newItems];
-    });
-
-    setSearchPage(nextPage);
-    setSearchHasMore(Boolean(result.pagination?.has_next_page));
-  } catch (err) {
-    console.warn('Load more search error:', err);
-  } finally {
-    setLoadingMoreSearch(false);
-  }
-}, [debouncedQuery, searchPage, searchHasMore, loadingMoreSearch]);
   // Debounced search when typing
   useEffect(() => {
     const timer = setTimeout(() => {
