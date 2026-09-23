@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1. PROFILES
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   username TEXT UNIQUE NOT NULL,
   display_name TEXT,
@@ -12,12 +12,15 @@ CREATE TABLE profiles (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON profiles;
 CREATE POLICY "Public profiles are viewable by everyone." ON profiles FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can insert their own profile." ON profiles;
 CREATE POLICY "Users can insert their own profile." ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can update own profile." ON profiles;
 CREATE POLICY "Users can update own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
 
 -- 2. CANONICAL ANIME CATALOG
-CREATE TABLE anime (
+CREATE TABLE IF NOT EXISTS anime (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   title TEXT NOT NULL,
   title_english TEXT,
@@ -48,18 +51,19 @@ CREATE TABLE anime (
   last_synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE anime ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anime is publicly viewable" ON anime;
 CREATE POLICY "Anime is publicly viewable" ON anime FOR SELECT USING (true);
 
 -- Indexes for frequent searches
-CREATE INDEX idx_anime_mal_id ON anime(mal_id);
-CREATE INDEX idx_anime_popularity ON anime(popularity ASC);
-CREATE INDEX idx_anime_score ON anime(score DESC);
-CREATE INDEX idx_anime_status ON anime(status);
-CREATE INDEX idx_anime_title ON anime(title);
-CREATE INDEX idx_anime_year ON anime(year);
+CREATE INDEX IF NOT EXISTS idx_anime_mal_id ON anime(mal_id);
+CREATE INDEX IF NOT EXISTS idx_anime_popularity ON anime(popularity ASC);
+CREATE INDEX IF NOT EXISTS idx_anime_score ON anime(score DESC);
+CREATE INDEX IF NOT EXISTS idx_anime_status ON anime(status);
+CREATE INDEX IF NOT EXISTS idx_anime_title ON anime(title);
+CREATE INDEX IF NOT EXISTS idx_anime_year ON anime(year);
 
 -- 3. EXTERNAL ANIME SOURCES (Normalization for multi-source)
-CREATE TABLE anime_sources (
+CREATE TABLE IF NOT EXISTS anime_sources (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   anime_id UUID NOT NULL REFERENCES anime(id) ON DELETE CASCADE,
   provider TEXT NOT NULL, -- e.g., 'jikan', 'anilist', 'kitsu'
@@ -70,12 +74,13 @@ CREATE TABLE anime_sources (
   UNIQUE (provider, external_id)
 );
 ALTER TABLE anime_sources ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anime sources are publicly viewable" ON anime_sources;
 CREATE POLICY "Anime sources are publicly viewable" ON anime_sources FOR SELECT USING (true);
-CREATE INDEX idx_anime_sources_anime_id ON anime_sources(anime_id);
-CREATE INDEX idx_anime_sources_provider_external_id ON anime_sources(provider, external_id);
+CREATE INDEX IF NOT EXISTS idx_anime_sources_anime_id ON anime_sources(anime_id);
+CREATE INDEX IF NOT EXISTS idx_anime_sources_provider_external_id ON anime_sources(provider, external_id);
 
 -- 4. GENRES
-CREATE TABLE genres (
+CREATE TABLE IF NOT EXISTS genres (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT UNIQUE NOT NULL,
   type TEXT NOT NULL,
@@ -83,38 +88,42 @@ CREATE TABLE genres (
   mal_id INTEGER UNIQUE
 );
 ALTER TABLE genres ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Genres are publicly viewable" ON genres;
 CREATE POLICY "Genres are publicly viewable" ON genres FOR SELECT USING (true);
 
-CREATE TABLE anime_genres (
+CREATE TABLE IF NOT EXISTS anime_genres (
   anime_id UUID REFERENCES anime(id) ON DELETE CASCADE,
   genre_id UUID REFERENCES genres(id) ON DELETE CASCADE,
   PRIMARY KEY (anime_id, genre_id)
 );
 ALTER TABLE anime_genres ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anime genres are publicly viewable" ON anime_genres;
 CREATE POLICY "Anime genres are publicly viewable" ON anime_genres FOR SELECT USING (true);
-CREATE INDEX idx_anime_genres_genre_id ON anime_genres(genre_id);
+CREATE INDEX IF NOT EXISTS idx_anime_genres_genre_id ON anime_genres(genre_id);
 
 -- 5. STUDIOS
-CREATE TABLE studios (
+CREATE TABLE IF NOT EXISTS studios (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT UNIQUE NOT NULL,
   -- legacy compatibility
   mal_id INTEGER UNIQUE
 );
 ALTER TABLE studios ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Studios are publicly viewable" ON studios;
 CREATE POLICY "Studios are publicly viewable" ON studios FOR SELECT USING (true);
 
-CREATE TABLE anime_studios (
+CREATE TABLE IF NOT EXISTS anime_studios (
   anime_id UUID REFERENCES anime(id) ON DELETE CASCADE,
   studio_id UUID REFERENCES studios(id) ON DELETE CASCADE,
   PRIMARY KEY (anime_id, studio_id)
 );
 ALTER TABLE anime_studios ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anime studios are publicly viewable" ON anime_studios;
 CREATE POLICY "Anime studios are publicly viewable" ON anime_studios FOR SELECT USING (true);
-CREATE INDEX idx_anime_studios_studio_id ON anime_studios(studio_id);
+CREATE INDEX IF NOT EXISTS idx_anime_studios_studio_id ON anime_studios(studio_id);
 
 -- 6. ANIME RELATIONSHIPS
-CREATE TABLE anime_relations (
+CREATE TABLE IF NOT EXISTS anime_relations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   source_anime_id UUID NOT NULL REFERENCES anime(id) ON DELETE CASCADE,
   target_anime_id UUID NOT NULL REFERENCES anime(id) ON DELETE CASCADE,
@@ -123,19 +132,21 @@ CREATE TABLE anime_relations (
   UNIQUE (source_anime_id, target_anime_id, relation_type)
 );
 ALTER TABLE anime_relations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anime relations are publicly viewable" ON anime_relations;
 CREATE POLICY "Anime relations are publicly viewable" ON anime_relations FOR SELECT USING (true);
-CREATE INDEX idx_anime_relations_source ON anime_relations(source_anime_id);
+CREATE INDEX IF NOT EXISTS idx_anime_relations_source ON anime_relations(source_anime_id);
 
 -- 7. STREAMING/WATCH PROVIDERS
-CREATE TABLE streaming_providers (
+CREATE TABLE IF NOT EXISTS streaming_providers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT UNIQUE NOT NULL,
   logo_url TEXT
 );
 ALTER TABLE streaming_providers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Streaming providers are publicly viewable" ON streaming_providers;
 CREATE POLICY "Streaming providers are publicly viewable" ON streaming_providers FOR SELECT USING (true);
 
-CREATE TABLE anime_streaming (
+CREATE TABLE IF NOT EXISTS anime_streaming (
   anime_id UUID REFERENCES anime(id) ON DELETE CASCADE,
   provider_id UUID REFERENCES streaming_providers(id) ON DELETE CASCADE,
   region TEXT NOT NULL DEFAULT 'global',
@@ -143,10 +154,11 @@ CREATE TABLE anime_streaming (
   PRIMARY KEY (anime_id, provider_id, region)
 );
 ALTER TABLE anime_streaming ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Anime streaming viewable" ON anime_streaming;
 CREATE POLICY "Anime streaming viewable" ON anime_streaming FOR SELECT USING (true);
 
 -- 8. USER FEATURES (Shelves, Bookmarks, Likes, Ratings)
-CREATE TABLE bookmarks (
+CREATE TABLE IF NOT EXISTS bookmarks (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   anime_id UUID REFERENCES anime(id) ON DELETE CASCADE,
@@ -164,12 +176,16 @@ CREATE TABLE bookmarks (
   UNIQUE(user_id, anime_id)
 );
 ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their own bookmarks." ON bookmarks;
 CREATE POLICY "Users can view their own bookmarks." ON bookmarks FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert their own bookmarks." ON bookmarks;
 CREATE POLICY "Users can insert their own bookmarks." ON bookmarks FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update their own bookmarks." ON bookmarks;
 CREATE POLICY "Users can update their own bookmarks." ON bookmarks FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete their own bookmarks." ON bookmarks;
 CREATE POLICY "Users can delete their own bookmarks." ON bookmarks FOR DELETE USING (auth.uid() = user_id);
 
-CREATE TABLE likes (
+CREATE TABLE IF NOT EXISTS likes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   anime_id UUID REFERENCES anime(id) ON DELETE CASCADE,
@@ -182,11 +198,14 @@ CREATE TABLE likes (
   UNIQUE(user_id, anime_id)
 );
 ALTER TABLE likes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their own likes." ON likes;
 CREATE POLICY "Users can view their own likes." ON likes FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert their own likes." ON likes;
 CREATE POLICY "Users can insert their own likes." ON likes FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete their own likes." ON likes;
 CREATE POLICY "Users can delete their own likes." ON likes FOR DELETE USING (auth.uid() = user_id);
 
-CREATE TABLE ratings (
+CREATE TABLE IF NOT EXISTS ratings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   anime_id UUID REFERENCES anime(id) ON DELETE CASCADE,
@@ -199,13 +218,17 @@ CREATE TABLE ratings (
   UNIQUE(user_id, anime_id)
 );
 ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their own ratings." ON ratings;
 CREATE POLICY "Users can view their own ratings." ON ratings FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert their own ratings." ON ratings;
 CREATE POLICY "Users can insert their own ratings." ON ratings FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update their own ratings." ON ratings;
 CREATE POLICY "Users can update their own ratings." ON ratings FOR UPDATE USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can delete their own ratings." ON ratings;
 CREATE POLICY "Users can delete their own ratings." ON ratings FOR DELETE USING (auth.uid() = user_id);
 
 -- 9. PREDICTION POLLS
-CREATE TABLE polls (
+CREATE TABLE IF NOT EXISTS polls (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   anime_id UUID REFERENCES anime(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -214,17 +237,19 @@ CREATE TABLE polls (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE polls ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Polls are publicly viewable" ON polls;
 CREATE POLICY "Polls are publicly viewable" ON polls FOR SELECT USING (true);
 
-CREATE TABLE poll_options (
+CREATE TABLE IF NOT EXISTS poll_options (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   poll_id UUID NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
   option_text TEXT NOT NULL
 );
 ALTER TABLE poll_options ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Poll options are publicly viewable" ON poll_options;
 CREATE POLICY "Poll options are publicly viewable" ON poll_options FOR SELECT USING (true);
 
-CREATE TABLE poll_votes (
+CREATE TABLE IF NOT EXISTS poll_votes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   poll_id UUID NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
   option_id UUID NOT NULL REFERENCES poll_options(id) ON DELETE CASCADE,
@@ -233,11 +258,13 @@ CREATE TABLE poll_votes (
   UNIQUE(poll_id, user_id)
 );
 ALTER TABLE poll_votes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their own votes." ON poll_votes;
 CREATE POLICY "Users can view their own votes." ON poll_votes FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert their own votes." ON poll_votes;
 CREATE POLICY "Users can insert their own votes." ON poll_votes FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- 10. SYNCHRONIZATION INFRASTRUCTURE (Internal/Admin)
-CREATE TABLE sync_history (
+CREATE TABLE IF NOT EXISTS sync_history (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   provider TEXT NOT NULL,
   sync_type TEXT NOT NULL, -- e.g., 'full', 'incremental', 'daily'
@@ -251,6 +278,7 @@ CREATE TABLE sync_history (
   duration_ms BIGINT
 );
 ALTER TABLE sync_history ENABLE ROW LEVEL SECURITY;
+-- No public policies -> accessible only via Service Role
 -- No public policies -> accessible only via Service Role
 
 -- Auth Trigger for Profiles
