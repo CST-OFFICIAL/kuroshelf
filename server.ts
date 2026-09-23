@@ -34,7 +34,7 @@ export interface AuthenticatedRequest extends Request {
   voterHash?: string;
 }
 
-export async function createApp() {
+export async function createApp();
   // Initialize Database schemas & seeds
 
   const app = express();
