@@ -64,6 +64,7 @@ import { MembershipSupportModal } from './components/MembershipSupportModal';
 import { DonationTickerMarquee } from './components/DonationTickerMarquee';
 import { NoticeTickerMarquee } from './components/NoticeTickerMarquee';
 import { AnnouncementsModal } from './components/AnnouncementsModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { 
   Flame, 
   Sparkles, 
@@ -1196,23 +1197,25 @@ export function App() {
             {activeTab === 'home' && (
               <div className="space-y-6">
                 {/* Two Stacked Boards: Official Notices above, Donors/Supporters below */}
-                <div className="space-y-2">
-                  {/* Board 1: Notices & Platform Bulletins */}
-                  <NoticeTickerMarquee
-                    onOpenAnnouncements={(noticeId) => {
-                      setSelectedAnnouncementId(noticeId || null);
-                      setAnnouncementsModalOpen(true);
-                    }}
-                  />
+                <ErrorBoundary fallback={null}>
+                  <div className="space-y-2">
+                    {/* Board 1: Notices & Platform Bulletins */}
+                    <NoticeTickerMarquee
+                      onOpenAnnouncements={(noticeId) => {
+                        setSelectedAnnouncementId(noticeId || null);
+                        setAnnouncementsModalOpen(true);
+                      }}
+                    />
 
-                  {/* Board 2: Donors & Supporters Wall */}
-                  <DonationTickerMarquee
-                    onOpenDonate={() => {
-                      setMembershipModalInitialTab('donate');
-                      setMembershipModalOpen(true);
-                    }}
-                  />
-                </div>
+                    {/* Board 2: Donors & Supporters Wall */}
+                    <DonationTickerMarquee
+                      onOpenDonate={() => {
+                        setMembershipModalInitialTab('donate');
+                        setMembershipModalOpen(true);
+                      }}
+                    />
+                  </div>
+                </ErrorBoundary>
 
                 {loadingInitial ? (
                   <div className="space-y-8 animate-pulse">

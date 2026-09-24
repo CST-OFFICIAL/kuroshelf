@@ -23,8 +23,16 @@ export const NoticeTickerMarquee: React.FC<NoticeTickerMarqueeProps> = ({
   });
 
   useEffect(() => {
-    const handleUpdate = () => {
-      setNotices(getAnnouncements());
+    const handleUpdate = (e?: StorageEvent | Event) => {
+      // If triggered by a storage event, only respond if the announcements key changed or all keys cleared
+      if (e && 'key' in e && e.key && e.key !== 'kuroshelf_announcements') {
+        return;
+      }
+      try {
+        setNotices(getAnnouncements());
+      } catch (err) {
+        console.warn('[NoticeTickerMarquee] Failed to update notices:', err);
+      }
     };
 
     window.addEventListener('kuroshelf_announcements_updated', handleUpdate);
@@ -36,7 +44,11 @@ export const NoticeTickerMarquee: React.FC<NoticeTickerMarqueeProps> = ({
     };
   }, []);
 
-  const handleToggleHide = (hidden: boolean) => {
+  const handleToggleHide = (hidden: boolean, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setIsHidden(hidden);
     try {
       localStorage.setItem(STORAGE_HIDE_NOTICES_KEY, hidden ? 'true' : 'false');
@@ -53,7 +65,7 @@ export const NoticeTickerMarquee: React.FC<NoticeTickerMarqueeProps> = ({
       <div className={`flex items-center justify-end ${className}`}>
         <button
           type="button"
-          onClick={() => handleToggleHide(false)}
+          onClick={(e) => handleToggleHide(false, e)}
           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer shadow-xs"
           title="Show KuroShelf Announcements Banner"
         >
@@ -171,7 +183,7 @@ export const NoticeTickerMarquee: React.FC<NoticeTickerMarqueeProps> = ({
 
         <button
           type="button"
-          onClick={() => handleToggleHide(true)}
+          onClick={(e) => handleToggleHide(true, e)}
           className="p-1 rounded-md text-slate-500 hover:text-slate-800 dark:text-neutral-400 dark:hover:text-white hover:bg-amber-500/15 transition-colors cursor-pointer"
           title="Hide Notices banner"
           aria-label="Hide Notices banner"

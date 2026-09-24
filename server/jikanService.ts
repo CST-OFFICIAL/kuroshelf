@@ -506,6 +506,17 @@ export function computeExactScore(m: any): number | null {
   return null;
 }
 
+function matchesEntity(search: string, entityName?: string): boolean {
+  if (!search || !entityName) return false;
+  const s = search.toLowerCase().trim();
+  const e = entityName.toLowerCase().trim();
+  if (e === s) return true;
+  const words = e.split(/[\s\-_\/]+/);
+  if (words.some(w => w === s || (s.length >= 3 && w.startsWith(s)))) return true;
+  if (e.startsWith(s) || (s.length >= 4 && s.startsWith(e))) return true;
+  return false;
+}
+
 async function searchAnilistFallback(query: string, page: number, limit: number, genreId?: string, typeApi: string = "ALL", statusStr?: string, orderBy?: string, originalType?: string): Promise<BaseJikanAnime[]> {
   const genreMeta = genreId ? resolveGenreInfo(genreId) : null;
   const genreStr = genreMeta?.isAnilistGenre ? genreMeta.name : undefined;
@@ -558,19 +569,121 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
     if (statusApi) variables.status = statusApi;
     if (typeApi && typeApi !== 'ALL') variables.type = typeApi;
 
-    const res = await fetch('https://graphql.anilist.co', {
+    const mainPromise = fetch('https://graphql.anilist.co', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ query: anilistQuery, variables }),
       signal: AbortSignal.timeout(5000)
-    });
-    const data = (await res.json()) as any;
-    
-    if (!data?.data?.Page?.media) return [];
-    
+    }).then(r => r.json()).catch(() => null);
+
+    const cleanQuery = query?.trim();
+    let charPromise: Promise<any> = Promise.resolve(null);
+    let studioPromise: Promise<any> = Promise.resolve(null);
+
+    // If text search is active, simultaneously check Character and Studio matching!
+    if (cleanQuery && cleanQuery.length >= 2 && typeApi !== 'MANGA') {
+      const charGql = `
+        query ($search: String) {
+          Character(search: $search) {
+            name { full alternative }
+            media(sort: [POPULARITY_DESC], perPage: 10) {
+              nodes {
+                idMal
+                title { romaji english native }
+                coverImage { large }
+                status
+                episodes
+                seasonYear
+                averageScore
+                synopsis: description(asHtml: false)
+                genres
+                studios(isMain: true) { nodes { name } }
+              }
+            }
+          }
+        }
+      `;
+      const studioGql = `
+        query ($search: String) {
+          Studio(search: $search) {
+            name
+            media(sort: [POPULARITY_DESC], perPage: 12) {
+              nodes {
+                idMal
+                title { romaji english native }
+                coverImage { large }
+                status
+                episodes
+                seasonYear
+                averageScore
+                synopsis: description(asHtml: false)
+                genres
+                studios(isMain: true) { nodes { name } }
+              }
+            }
+          }
+        }
+      `;
+
+      charPromise = fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ query: charGql, variables: { search: cleanQuery } }),
+        signal: AbortSignal.timeout(4500)
+      }).then(r => r.json()).catch(() => null);
+
+      studioPromise = fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ query: studioGql, variables: { search: cleanQuery } }),
+        signal: AbortSignal.timeout(4500)
+      }).then(r => r.json()).catch(() => null);
+    }
+
+    const [mainRes, charRes, studioRes] = await Promise.all([
+      mainPromise,
+      charPromise,
+      studioPromise
+    ]);
+
+    const directMedia = Array.isArray(mainRes?.data?.Page?.media) ? mainRes.data.Page.media : [];
+    const extraMedia: any[] = [];
+    let isStudioHit = false;
+    let isCharHit = false;
+
+    if (studioRes?.data?.Studio) {
+      const studio = studioRes.data.Studio;
+      if (matchesEntity(cleanQuery, studio.name) && Array.isArray(studio.media?.nodes)) {
+        isStudioHit = true;
+        extraMedia.push(...studio.media.nodes);
+      }
+    }
+
+    if (charRes?.data?.Character) {
+      const char = charRes.data.Character;
+      const charMatches = matchesEntity(cleanQuery, char.name?.full) || (char.name?.alternative || []).some((alt: string) => matchesEntity(cleanQuery, alt));
+      if (charMatches && Array.isArray(char.media?.nodes)) {
+        isCharHit = true;
+        extraMedia.push(...char.media.nodes);
+      }
+    }
+
+    // If query matches studio or character, prioritize those hit anime first
+    const combinedMedia = (isStudioHit || isCharHit)
+      ? [...extraMedia, ...directMedia]
+      : directMedia;
+
+    if (combinedMedia.length === 0) return [];
+
+    const seenIds = new Set<number>();
     const isManga = typeApi === 'MANGA';
-    return data.data.Page.media
-      .filter((m: any) => m.idMal)
+
+    return combinedMedia
+      .filter((m: any) => {
+        if (!m || !m.idMal || seenIds.has(m.idMal)) return false;
+        seenIds.add(m.idMal);
+        return true;
+      })
       .map((m: any) => {
         let status = 'Finished Airing';
         if (isManga) {
@@ -668,19 +781,19 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
       }
     } catch(e) {}
     
-    // If Jikan fails or returns empty for a query or genre/filter search, trigger fallback to Anilist!
-    const hasFilter = Boolean(clean || (options.genres && options.genres !== 'all') || (options.status && options.status !== 'all') || (options.type && options.type !== 'all'));
-if (!jikanData || jikanData.length === 0) {
-       console.log("Triggering anilist fallback for query:", clean, "genre:", options.genres);
+    // If search query is present or Jikan returns empty/sparse, fetch AniList character/studio/media results
+    if (clean || !jikanData || jikanData.length === 0) {
        const anilistData = await searchAnilistFallback(clean, page, limit, options.genres, anilistType, options.status, options.orderBy, options.type);
        if (anilistData && anilistData.length > 0) {
+          // If query was studio/character/title, prioritize anilistData (which ranks entity matches first) and combine with Jikan
+          const combined = deduplicateByMalId([...anilistData, ...(jikanData || [])]);
           return {
-            data: anilistData,
+            data: combined.slice(0, limit),
             pagination: {
               current_page: page,
-              has_next_page: anilistData.length === limit,
-              last_visible_page: page + (anilistData.length === limit ? 1 : 0),
-              items: { count: anilistData.length, total: 10000, per_page: limit }
+              has_next_page: combined.length >= limit,
+              last_visible_page: page + (combined.length >= limit ? 1 : 0),
+              items: { count: combined.length, total: 10000, per_page: limit }
             }
           };
        }

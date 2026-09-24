@@ -24,17 +24,27 @@ export const DonationTickerMarquee: React.FC<DonationTickerMarqueeProps> = ({
   });
 
   useEffect(() => {
-    const handleDonationEvent = () => {
-      setDonations(getActiveTickerDonations());
+    const handleDonationEvent = (e?: StorageEvent | Event) => {
+      // If triggered by a storage event, only respond if donations key changed or all keys cleared
+      if (e && 'key' in e && e.key && e.key !== 'kuroshelf_donations') {
+        return;
+      }
+      try {
+        setDonations(getActiveTickerDonations());
+      } catch (err) {
+        console.warn('[DonationTickerMarquee] Failed to update donations:', err);
+      }
     };
 
     window.addEventListener('kuroshelf_donation_made', handleDonationEvent);
     window.addEventListener('storage', handleDonationEvent);
 
-    // Check periodically every 2 seconds to gracefully expire items after 1 minute (60s)
+    // Check periodically every 5 seconds to gracefully expire items after 1 minute (60s)
     const expiryInterval = setInterval(() => {
-      setDonations(getActiveTickerDonations());
-    }, 2000);
+      try {
+        setDonations(getActiveTickerDonations());
+      } catch {}
+    }, 5000);
 
     return () => {
       window.removeEventListener('kuroshelf_donation_made', handleDonationEvent);
@@ -43,30 +53,16 @@ export const DonationTickerMarquee: React.FC<DonationTickerMarqueeProps> = ({
     };
   }, []);
 
-  const handleToggleHide = (hidden: boolean) => {
+  const handleToggleHide = (hidden: boolean, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setIsHidden(hidden);
     try {
       localStorage.setItem(STORAGE_HIDE_KEY, hidden ? 'true' : 'false');
     } catch {}
   };
-
-  // If user minimized/hid the banner, render a small discrete pill to show it again
-  if (isHidden) {
-    return (
-      <div className={`flex items-center justify-end ${className}`}>
-        <button
-          type="button"
-          onClick={() => handleToggleHide(false)}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition-all cursor-pointer shadow-xs"
-          title="Show KuroShelf Supporters Wall Banner"
-        >
-          <Heart className="w-3 h-3 fill-rose-500" />
-          <span>Show Supporters Wall</span>
-          <Eye className="w-3 h-3 ml-0.5 opacity-70" />
-        </button>
-      </div>
-    );
-  }
 
   // Marquee items:
   // Strictly 1 time per donation. Never duplicate or repeat the same donor name.
@@ -77,6 +73,24 @@ export const DonationTickerMarquee: React.FC<DonationTickerMarqueeProps> = ({
   // Give generous duration so the text moves smoothly and comfortably (not too fast)
   // 35s per donor item or at least 45s so users can comfortably read
   const animationDuration = `${Math.max(45, marqueeItems.length * 30)}s`;
+
+  // If user minimized/hid the banner, render a small discrete pill to show it again
+  if (isHidden) {
+    return (
+      <div className={`flex items-center justify-end ${className}`}>
+        <button
+          type="button"
+          onClick={(e) => handleToggleHide(false, e)}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 transition-all cursor-pointer shadow-xs"
+          title="Show KuroShelf Supporters Wall Banner"
+        >
+          <Heart className="w-3 h-3 fill-rose-500" />
+          <span>Show Supporters Wall</span>
+          <Eye className="w-3 h-3 ml-0.5 opacity-70" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -153,7 +167,7 @@ export const DonationTickerMarquee: React.FC<DonationTickerMarqueeProps> = ({
 
         <button
           type="button"
-          onClick={() => handleToggleHide(true)}
+          onClick={(e) => handleToggleHide(true, e)}
           className="p-1 rounded-md text-slate-500 hover:text-slate-800 dark:text-neutral-400 dark:hover:text-white hover:bg-rose-500/15 transition-colors cursor-pointer"
           title="Hide Supporters Wall banner"
           aria-label="Hide Supporters Wall banner"

@@ -90,57 +90,29 @@ export function Navbar({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-200/90 dark:border-[#202534] bg-white/95 dark:bg-[#0c0e14]/95 backdrop-blur-md transition-colors">
+    <header className="sticky top-0 z-40 w-full border-b border-slate-200/90 dark:border-[#202534] bg-white/95 dark:bg-[#0c0e14]/95 backdrop-blur-md transition-colors shadow-xs">
+      {/* Top Header Panel: KUROSHELF Branding & Top Utilities */}
       <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Logo / Brand */}
+        {/* Logo / Brand - Primary focus of the top panel */}
         <div 
           id="brand-logo"
           onClick={() => handleNavClick('home')}
           className="flex items-center gap-3 cursor-pointer group select-none shrink-0"
         >
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-rose-500 to-red-700 flex items-center justify-center text-white font-extrabold shadow-md shadow-rose-950/40 group-hover:scale-105 transition-transform">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 via-rose-600 to-red-700 flex items-center justify-center text-white font-black text-lg shadow-md shadow-rose-950/40 group-hover:scale-105 transition-transform ring-1 ring-white/10">
             黒
           </div>
           <div className="flex flex-col">
-            <span className="font-display font-extrabold tracking-tight text-lg text-slate-900 dark:text-white group-hover:text-rose-500 transition-colors">
+            <span className="font-display font-black tracking-tight text-xl text-slate-900 dark:text-white group-hover:text-rose-500 transition-colors flex items-center gap-1">
               KURO<span className="text-rose-500 ml-0.5">SHELF</span>
             </span>
-            <span className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-neutral-400 -mt-1 font-medium">
+            <span className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-neutral-400 -mt-0.5 font-semibold">
               Digital Anime Library
             </span>
           </div>
         </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                id={`nav-link-${item.id}`}
-                aria-current={isActive ? 'page' : undefined}
-                onClick={() => handleNavClick(item.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-slate-900 dark:bg-neutral-800 text-white shadow-sm border border-slate-800 dark:border-neutral-700'
-                    : 'text-slate-600 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-900/80'
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-rose-400' : 'text-slate-400 dark:text-neutral-400'}`} />
-                <span>{item.label}</span>
-                {typeof item.badge === 'number' && item.badge > 0 && (
-                  <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30">
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Daily Streak, Appearance & User Account Controls */}
+        {/* Daily Streak, Appearance & User Account Controls (Desktop) */}
         <div className="hidden sm:flex items-center gap-2">
           {/* Day / Night 1-Click Switch Button */}
           <button
@@ -324,6 +296,46 @@ export function Navbar({
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
+        </div>
+      </div>
+
+      {/* Descended Navigation Tabs Panel - Below the panel of KUROSHELF */}
+      <div className="w-full border-t border-slate-200/80 dark:border-[#1a1f2e] bg-slate-50/95 dark:bg-[#090b10]/95 backdrop-blur-md">
+        <div className="w-full max-w-[1920px] mx-auto px-3 sm:px-6 lg:px-8">
+          <nav 
+            aria-label="Main Navigation Tabs"
+            className="flex items-center gap-1 sm:gap-2 py-1.5 overflow-x-auto no-scrollbar scroll-smooth"
+          >
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  id={`nav-link-${item.id}`}
+                  aria-current={isActive ? 'page' : undefined}
+                  onClick={() => handleNavClick(item.id)}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all duration-150 cursor-pointer select-none shrink-0 ${
+                    isActive
+                      ? 'bg-rose-500 text-white shadow-sm shadow-rose-950/20 ring-1 ring-rose-600/30'
+                      : 'text-slate-600 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-neutral-800/80'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 dark:text-neutral-400'}`} />
+                  <span>{item.label}</span>
+                  {typeof item.badge === 'number' && item.badge > 0 && (
+                    <span className={`px-1.5 py-0.2 text-[10px] font-bold rounded-full border ${
+                      isActive
+                        ? 'bg-white/25 text-white border-white/40'
+                        : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
         </div>
       </div>
 

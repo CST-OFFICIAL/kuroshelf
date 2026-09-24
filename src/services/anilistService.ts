@@ -75,6 +75,17 @@ function mapAniListMediaToAnimeItem(media: any): AnimeItem {
   };
 }
 
+function matchesEntityClient(search: string, entityName?: string): boolean {
+  if (!search || !entityName) return false;
+  const s = search.toLowerCase().trim();
+  const e = entityName.toLowerCase().trim();
+  if (e === s) return true;
+  const words = e.split(/[\s\-_\/]+/);
+  if (words.some(w => w === s || (s.length >= 3 && w.startsWith(s)))) return true;
+  if (e.startsWith(s) || (s.length >= 4 && s.startsWith(e))) return true;
+  return false;
+}
+
 export async function fetchAniListAnimeList(options: {
   sort?: string;
   season?: string;
@@ -86,6 +97,52 @@ export async function fetchAniListAnimeList(options: {
 }): Promise<{ data: AnimeItem[]; pagination: JikanPagination }> {
   const page = options.page || 1;
   const perPage = options.perPage || 24;
+  const cleanSearch = options.search?.trim();
+
+  const mediaFields = `
+    id
+    idMal
+    title {
+      romaji
+      english
+      native
+    }
+    coverImage {
+      extraLarge
+      large
+      medium
+    }
+    bannerImage
+    format
+    episodes
+    duration
+    status
+    averageScore
+    popularity
+    favourites
+    description
+    season
+    seasonYear
+    genres
+    isAdult
+    startDate {
+      year
+    }
+    trailer {
+      id
+      site
+    }
+    studios(isMain: true) {
+      nodes {
+        id
+        name
+      }
+    }
+    externalLinks {
+      site
+      url
+    }
+  `;
 
   const query = `
     query ($page: Int, $perPage: Int, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int, $status: MediaStatus, $search: String) {
@@ -98,48 +155,7 @@ export async function fetchAniListAnimeList(options: {
           perPage
         }
         media (type: ANIME, sort: $sort, season: $season, seasonYear: $seasonYear, status: $status, search: $search, isAdult: false) {
-          id
-          idMal
-          title {
-            romaji
-            english
-            native
-          }
-          coverImage {
-            extraLarge
-            large
-            medium
-          }
-          bannerImage
-          format
-          episodes
-          duration
-          status
-          averageScore
-          popularity
-          favourites
-          description
-          season
-          seasonYear
-          genres
-          isAdult
-          startDate {
-            year
-          }
-          trailer {
-            id
-            site
-          }
-          studios(isMain: true) {
-            nodes {
-              id
-              name
-            }
-          }
-          externalLinks {
-            site
-            url
-          }
+          ${mediaFields}
         }
       }
     }
@@ -154,26 +170,96 @@ export async function fetchAniListAnimeList(options: {
   if (options.season) variables.season = options.season.toUpperCase();
   if (options.seasonYear) variables.seasonYear = options.seasonYear;
   if (options.status) variables.status = options.status.toUpperCase();
-  if (options.search) variables.search = options.search;
+  if (cleanSearch) variables.search = cleanSearch;
 
-  const response = await fetch(ANILIST_GRAPHQL_URL, {
+  const fetchMain = fetch(ANILIST_GRAPHQL_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
     body: JSON.stringify({ query, variables }),
-  });
+  }).then(async (r) => (r.ok ? r.json() : null)).catch(() => null);
 
-  if (!response.ok) {
-    throw new Error(`AniList returned status ${response.status}`);
+  let fetchChar: Promise<any> = Promise.resolve(null);
+  let fetchStudio: Promise<any> = Promise.resolve(null);
+
+  if (cleanSearch && cleanSearch.length >= 2) {
+    const charGql = `
+      query ($search: String) {
+        Character(search: $search) {
+          name { full alternative }
+          media(sort: [POPULARITY_DESC], perPage: 10) {
+            nodes {
+              ${mediaFields}
+            }
+          }
+        }
+      }
+    `;
+    const studioGql = `
+      query ($search: String) {
+        Studio(search: $search) {
+          name
+          media(sort: [POPULARITY_DESC], perPage: 12) {
+            nodes {
+              ${mediaFields}
+            }
+          }
+        }
+      }
+    `;
+
+    fetchChar = fetch(ANILIST_GRAPHQL_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ query: charGql, variables: { search: cleanSearch } }),
+    }).then(async (r) => (r.ok ? r.json() : null)).catch(() => null);
+
+    fetchStudio = fetch(ANILIST_GRAPHQL_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ query: studioGql, variables: { search: cleanSearch } }),
+    }).then(async (r) => (r.ok ? r.json() : null)).catch(() => null);
   }
 
-  const json = await response.json();
-  const pageData = json.data?.Page;
-  const mediaList = pageData?.media || [];
+  const [mainJson, charJson, studioJson] = await Promise.all([fetchMain, fetchChar, fetchStudio]);
 
-  const animeList = mediaList
+  const pageData = mainJson?.data?.Page;
+  const directMediaList = pageData?.media || [];
+  const extraMediaList: any[] = [];
+  let isStudioHit = false;
+  let isCharHit = false;
+
+  if (studioJson?.data?.Studio) {
+    const studio = studioJson.data.Studio;
+    if (matchesEntityClient(cleanSearch!, studio.name) && Array.isArray(studio.media?.nodes)) {
+      isStudioHit = true;
+      extraMediaList.push(...studio.media.nodes);
+    }
+  }
+
+  if (charJson?.data?.Character) {
+    const char = charJson.data.Character;
+    const charMatches = matchesEntityClient(cleanSearch!, char.name?.full) || (char.name?.alternative || []).some((alt: string) => matchesEntityClient(cleanSearch!, alt));
+    if (charMatches && Array.isArray(char.media?.nodes)) {
+      isCharHit = true;
+      extraMediaList.push(...char.media.nodes);
+    }
+  }
+
+  const combinedMedia = (isStudioHit || isCharHit)
+    ? [...extraMediaList, ...directMediaList]
+    : directMediaList;
+
+  const seenIds = new Set<number>();
+  const animeList = combinedMedia
+    .filter((item: any) => {
+      const id = item.idMal || item.id;
+      if (!id || seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
+    })
     .map(mapAniListMediaToAnimeItem)
     .filter((item: AnimeItem) => !isNsfwOrAdultClient(item));
 
@@ -181,7 +267,7 @@ export async function fetchAniListAnimeList(options: {
     data: animeList,
     pagination: {
       last_visible_page: pageData?.pageInfo?.lastPage || 1,
-      has_next_page: Boolean(pageData?.pageInfo?.hasNextPage),
+      has_next_page: Boolean(pageData?.pageInfo?.hasNextPage) || animeList.length >= perPage,
       current_page: pageData?.pageInfo?.currentPage || 1,
       items: {
         count: animeList.length,
