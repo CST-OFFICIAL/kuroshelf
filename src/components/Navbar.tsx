@@ -52,9 +52,9 @@ export function Navbar({
   activeTab,
   onTabChange,
   shelfCount,
-  searchQuery,
-  onSearchChange,
-  onSearchSubmit,
+  searchQuery: _searchQuery,
+  onSearchChange: _onSearchChange,
+  onSearchSubmit: _onSearchSubmit,
   currentUser,
   onOpenAuth,
   streakInfo,
@@ -74,6 +74,7 @@ export function Navbar({
 
   const navItems = [
     { id: 'home', label: 'Discover', icon: Compass },
+    { id: 'explore', label: 'Genres', icon: Filter },
     { id: 'seasonal', label: 'This Season', icon: Sparkles },
     { id: 'rankings', label: 'Rankings', icon: Trophy },
     { id: 'advanced', label: 'Catalog', icon: Library },
@@ -86,13 +87,6 @@ export function Navbar({
   const handleNavClick = (tabId: string) => {
     onTabChange(tabId);
     setMobileMenuOpen(false);
-  };
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      onSearchSubmit(searchQuery.trim());
-    }
   };
 
   return (
@@ -145,55 +139,6 @@ export function Navbar({
             );
           })}
         </nav>
-
-        {/* Search Bar */}
-        <div className="hidden sm:flex items-center gap-2 flex-1 max-w-sm md:max-w-md lg:max-w-lg ml-auto">
-          <form onSubmit={handleSearchSubmit} className="relative w-full flex items-center">
-            <button
-              type="submit"
-              id="search-submit-button"
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500 transition-colors"
-              aria-label="Submit search"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-            <input
-              id="global-search-input"
-              type="text"
-              placeholder="Search anime by title..."
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full bg-slate-100/90 dark:bg-neutral-900/90 border border-slate-200 dark:border-neutral-800 rounded-lg pl-9 pr-8 py-2 text-sm text-slate-900 dark:text-neutral-200 placeholder-slate-400 dark:placeholder-neutral-500 focus:outline-none focus:border-rose-500/60 focus:ring-1 focus:ring-rose-500/50 transition-all"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                id="search-clear-button"
-                onClick={() => {
-                  onSearchChange('');
-                  onSearchSubmit('');
-                }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-neutral-300 text-xs p-1 cursor-pointer"
-                aria-label="Clear search"
-              >
-                ✕
-              </button>
-            )}
-          </form>
-          <button
-            type="button"
-            onClick={() => handleNavClick('explore')}
-            className={`shrink-0 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
-              activeTab === 'explore'
-                ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-300'
-                : 'bg-slate-100 dark:bg-neutral-900 border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-neutral-300 hover:bg-slate-200 dark:hover:bg-neutral-800 hover:text-slate-950 dark:hover:text-neutral-200'
-            }`}
-            title="Explore Genres"
-          >
-            <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden lg:inline">Genres</span>
-          </button>
-        </div>
 
         {/* Daily Streak, Appearance & User Account Controls */}
         <div className="hidden sm:flex items-center gap-2">
@@ -358,39 +303,33 @@ export function Navbar({
           </button>
         </div>
 
-        {/* Mobile menu button */}
-        <button
-          id="mobile-menu-toggle"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 rounded-lg text-slate-600 dark:text-neutral-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-900 border border-slate-200 dark:border-neutral-800 cursor-pointer"
-          aria-label="Toggle navigation"
-        >
-          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        {/* Mobile menu & search buttons */}
+        <div className="flex md:hidden items-center gap-1.5">
+          <button
+            id="mobile-search-toggle"
+            type="button"
+            onClick={() => setMobileMenuOpen(prev => !prev)}
+            className="p-2 rounded-lg text-slate-600 dark:text-neutral-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-900 border border-slate-200 dark:border-neutral-800 cursor-pointer flex items-center justify-center"
+            aria-label="Open search"
+            title="Search anime"
+          >
+            <Search className="w-4 h-4 text-rose-500" />
+          </button>
+
+          <button
+            id="mobile-menu-toggle"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-lg text-slate-600 dark:text-neutral-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-900 border border-slate-200 dark:border-neutral-800 cursor-pointer"
+            aria-label="Toggle navigation"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 pt-2 pb-4 space-y-1 transition-colors">
-          {/* Mobile Search Bar */}
-          <div className="mb-4 mt-2">
-            <form onSubmit={(e) => { setMobileMenuOpen(false); handleSearchSubmit(e); }} className="relative w-full flex items-center">
-              <button type="submit" className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 dark:text-neutral-400">
-                <Search className="w-4 h-4" />
-              </button>
-              <input
-                type="text"
-                placeholder="Search anime by title..."
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full bg-slate-100 dark:bg-neutral-900/90 border border-slate-200 dark:border-neutral-800 rounded-lg pl-10 pr-8 py-2.5 text-sm text-slate-900 dark:text-neutral-200 placeholder-slate-400 dark:placeholder-neutral-500 focus:outline-none focus:border-rose-500"
-              />
-              {searchQuery && (
-                <button type="button" onClick={() => { onSearchChange(''); onSearchSubmit(''); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-neutral-400 p-1">✕</button>
-              )}
-            </form>
-          </div>
-
           {/* Mobile Appearance & Theme Button */}
           {onOpenAppearanceModal && (
             <button

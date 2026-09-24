@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { AnimeItem } from '../types';
 import { AnimeCard } from './AnimeCard';
 import { Filter, Sparkles, X, ChevronRight } from 'lucide-react';
+import { searchAnimePaginated } from '../services/jikan';
 
 interface ExploreViewProps {
   onSelectAnime: (anime: AnimeItem) => void;
@@ -76,24 +77,20 @@ export function ExploreView({
   const fetchAnime = useCallback(async (genreVal: number | string | null, pageNum: number) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: '24', page: String(pageNum) });
-      if (genreVal !== null && genreVal !== undefined) {
-        params.set('genres', String(genreVal));
-      } else {
-        params.set('order_by', 'popularity');
-        params.set('sort', 'asc');
-      }
+      const result = await searchAnimePaginated({
+        genres: genreVal !== null && genreVal !== undefined ? String(genreVal) : undefined,
+        orderBy: genreVal !== null && genreVal !== undefined ? undefined : 'popularity',
+        sort: genreVal !== null && genreVal !== undefined ? undefined : 'asc',
+        limit: 24,
+        page: pageNum,
+      });
+
+      const data = result.data || [];
+      if (data.length < 24 && !result.pagination?.has_next_page) setHasMore(false);
+      else setHasMore(true);
       
-      const res = await fetch(`/api/anime/search?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        const data = json.data || [];
-        if (data.length < 24) setHasMore(false);
-        else setHasMore(true);
-        
-        if (pageNum === 1) setResults(data);
-        else setResults(prev => [...prev, ...data]);
-      }
+      if (pageNum === 1) setResults(data);
+      else setResults(prev => [...prev, ...data]);
     } catch (err) {
       console.error('Explore fetch error', err);
     } finally {

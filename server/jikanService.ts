@@ -714,9 +714,41 @@ export async function serverGetTopAnime(
   const endpoint = `/top/anime?${params.toString()}`;
   const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, CATALOG_CACHE_TTL_MS);
 
+  let data = deduplicateByMalId(Array.isArray(res.data) ? res.data : []);
+  let pagination = res.pagination;
+
+  // If Jikan failed or only returned minimal fallback seed data, fail over to live AniList data
+  if (!data || data.length <= 5) {
+    try {
+      let orderBy = 'popularity';
+      let statusStr: string | undefined = undefined;
+      if (filter === 'airing') statusStr = 'airing';
+      else if (filter === 'upcoming') statusStr = 'upcoming';
+      else if (filter === 'favorite') orderBy = 'favorites';
+      else if (filter === 'bypopularity') orderBy = 'popularity';
+
+      const anilistItems = await searchAnilistFallback('', safePage, safeLimit, undefined, 'ANIME', statusStr, orderBy);
+      if (anilistItems && anilistItems.length > 0) {
+        data = anilistItems;
+        pagination = {
+          current_page: safePage,
+          has_next_page: anilistItems.length >= safeLimit,
+          last_visible_page: safePage + (anilistItems.length >= safeLimit ? 1 : 0),
+          items: {
+            count: anilistItems.length,
+            total: 10000,
+            per_page: safeLimit,
+          },
+        };
+      }
+    } catch (anilistErr) {
+      console.warn('[serverGetTopAnime] AniList fallback error:', anilistErr);
+    }
+  }
+
   return {
-    data: deduplicateByMalId(Array.isArray(res.data) ? res.data : []),
-    pagination: res.pagination,
+    data,
+    pagination,
   };
 }
 
@@ -730,9 +762,33 @@ export async function serverGetSeasonalAnime(
   const endpoint = safePage > 1 ? `/seasons/now?page=${safePage}&sfw=true` : `/seasons/now?sfw=true`;
   const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, CATALOG_CACHE_TTL_MS);
 
+  let data = deduplicateByMalId(Array.isArray(res.data) ? res.data : []);
+  let pagination = res.pagination;
+
+  if (!data || data.length <= 5) {
+    try {
+      const anilistItems = await searchAnilistFallback('', safePage, safeLimit, undefined, 'ANIME', 'airing', 'popularity');
+      if (anilistItems && anilistItems.length > 0) {
+        data = anilistItems;
+        pagination = {
+          current_page: safePage,
+          has_next_page: anilistItems.length >= safeLimit,
+          last_visible_page: safePage + (anilistItems.length >= safeLimit ? 1 : 0),
+          items: {
+            count: anilistItems.length,
+            total: 5000,
+            per_page: safeLimit,
+          },
+        };
+      }
+    } catch (anilistErr) {
+      console.warn('[serverGetSeasonalAnime] AniList fallback error:', anilistErr);
+    }
+  }
+
   return {
-    data: deduplicateByMalId(Array.isArray(res.data) ? res.data : []),
-    pagination: res.pagination,
+    data,
+    pagination,
   };
 }
 
@@ -746,9 +802,33 @@ export async function serverGetUpcomingAnime(
   const endpoint = safePage > 1 ? `/seasons/upcoming?page=${safePage}&sfw=true` : `/seasons/upcoming?sfw=true`;
   const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, CATALOG_CACHE_TTL_MS);
 
+  let data = deduplicateByMalId(Array.isArray(res.data) ? res.data : []);
+  let pagination = res.pagination;
+
+  if (!data || data.length <= 5) {
+    try {
+      const anilistItems = await searchAnilistFallback('', safePage, safeLimit, undefined, 'ANIME', 'upcoming', 'popularity');
+      if (anilistItems && anilistItems.length > 0) {
+        data = anilistItems;
+        pagination = {
+          current_page: safePage,
+          has_next_page: anilistItems.length >= safeLimit,
+          last_visible_page: safePage + (anilistItems.length >= safeLimit ? 1 : 0),
+          items: {
+            count: anilistItems.length,
+            total: 5000,
+            per_page: safeLimit,
+          },
+        };
+      }
+    } catch (anilistErr) {
+      console.warn('[serverGetUpcomingAnime] AniList fallback error:', anilistErr);
+    }
+  }
+
   return {
-    data: deduplicateByMalId(Array.isArray(res.data) ? res.data : []),
-    pagination: res.pagination,
+    data,
+    pagination,
   };
 }
 

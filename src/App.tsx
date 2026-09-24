@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { AnimeItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll, AuthUser, DailyStreakInfo, ThemeMode } from './types';
 import { 
@@ -37,6 +37,7 @@ import {
 } from './services/themeService';
 
 import { Navbar } from './components/Navbar';
+import { SearchAndGenreBar } from './components/SearchAndGenreBar';
 import { HeroBanner } from './components/HeroBanner';
 import { ExploreView } from './components/ExploreView';
 import { AdvancedSearchView } from './components/AdvancedSearchView';
@@ -106,8 +107,10 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [searchPage, setSearchPage] = useState(1);
-const [searchHasMore, setSearchHasMore] = useState(false);
-const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
+  const lastExecutedQueryRef = useRef<string>('');
+  const searchSeqRef = useRef<number>(0);
 
   // Fast GPU-friendly instant scroll on tab change to prevent mobile stutter
   useEffect(() => {
@@ -532,27 +535,23 @@ const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
     }
     setLoadingDiscoverGenre(true);
     try {
-      const params = new URLSearchParams({
+      const result = await searchAnimePaginated({
         genres: targetVal,
-        limit: '24',
-        page: String(pageNum),
+        limit: 24,
+        page: pageNum,
       });
-      const res = await fetch(`/api/anime/search?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        const data = json.data || [];
-        if (pageNum === 1) {
-          setDiscoverGenreResults(data);
-          setTimeout(() => {
-            const el = document.getElementById('discover-genre-section');
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 80);
-        } else {
-          setDiscoverGenreResults((prev) => [...prev, ...data]);
-        }
-        setDiscoverGenreHasMore(data.length >= 24);
-        setDiscoverGenrePage(pageNum);
+      const data = result.data || [];
+      if (pageNum === 1) {
+        setDiscoverGenreResults(data);
+        setTimeout(() => {
+          const el = document.getElementById('discover-genre-section');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
+      } else {
+        setDiscoverGenreResults((prev) => [...prev, ...data]);
       }
+      setDiscoverGenreHasMore(Boolean(result.pagination?.has_next_page || data.length >= 24));
+      setDiscoverGenrePage(pageNum);
     } catch (err) {
       console.warn('Discover genre fetch error:', err);
     } finally {
@@ -620,96 +619,106 @@ const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
 
   // Search execution with error handling and empty states
   const executeSearch = useCallback(async (query: string) => {
-  const trimmed = query.trim();
+    const trimmed = query.trim();
 
-  if (!trimmed) {
-    setSearchResults([]);
-    setSearchPage(1);
-    setSearchHasMore(false);
-    setLoadingSearch(false);
+    if (!trimmed) {
+      lastExecutedQueryRef.current = '';
+      setSearchResults([]);
+      setSearchPage(1);
+      setSearchHasMore(false);
+      setLoadingSearch(false);
+      setSearchError(null);
+      return;
+    }
+
+    lastExecutedQueryRef.current = trimmed;
+    const currentSeq = ++searchSeqRef.current;
+    setLoadingSearch(true);
     setSearchError(null);
-    return;
-  }
 
-  setLoadingSearch(true);
-  setSearchError(null);
+    try {
+      const result = await searchAnimePaginated({
+        query: trimmed,
+        page: 1,
+        limit: 24,
+      });
 
-  try {
-    const result = await searchAnimePaginated({
-      query: trimmed,
-      page: 1,
-      limit: 24,
-    });
+      if (currentSeq !== searchSeqRef.current) return;
 
-    setSearchResults(result.data || []);
-    setSearchPage(1);
+      setSearchResults(result.data || []);
+      setSearchPage(1);
 
-    setSearchHasMore(
-      Boolean(
-        result.pagination?.has_next_page ||
-        (result.data?.length ?? 0) === 24
-      )
-    );
-  } catch (err) {
-    console.warn('Search query error:', err);
-    setSearchError(
-      'Search is taking longer than expected. Please try again.'
-    );
-    setSearchResults([]);
-    setSearchHasMore(false);
-  } finally {
-    setLoadingSearch(false);
-  }
-}, []);
+      setSearchHasMore(
+        Boolean(
+          result.pagination?.has_next_page ||
+          (result.data?.length ?? 0) === 24
+        )
+      );
+    } catch (err) {
+      if (currentSeq !== searchSeqRef.current) return;
+      console.warn('Search query error:', err);
+      setSearchError(
+        'Search is taking longer than expected. Please try again.'
+      );
+      setSearchResults([]);
+      setSearchHasMore(false);
+    } finally {
+      if (currentSeq === searchSeqRef.current) {
+        setLoadingSearch(false);
+      }
+    }
+  }, []);
+
   const loadMoreSearchResults = useCallback(async () => {
-  if (loadingMoreSearch || !searchHasMore || !searchQuery.trim()) {
-    return;
-  }
+    if (loadingMoreSearch || !searchHasMore || !searchQuery.trim()) {
+      return;
+    }
 
-  setLoadingMoreSearch(true);
+    setLoadingMoreSearch(true);
 
-  try {
-    const nextPage = searchPage + 1;
+    try {
+      const nextPage = searchPage + 1;
 
-    const result = await searchAnimePaginated({
-      query: searchQuery.trim(),
-      page: nextPage,
-      limit: 24,
-    });
+      const result = await searchAnimePaginated({
+        query: searchQuery.trim(),
+        page: nextPage,
+        limit: 24,
+      });
 
-    const newResults = result.data || [];
+      const newResults = result.data || [];
 
-    setSearchResults((previous) => {
-      const existingIds = new Set(
-        previous.map((anime) => anime.mal_id)
+      setSearchResults((previous) => {
+        const existingIds = new Set(
+          previous.map((anime) => anime.mal_id)
+        );
+
+        const uniqueNewResults = newResults.filter(
+          (anime) => !existingIds.has(anime.mal_id)
+        );
+
+        return [...previous, ...uniqueNewResults];
+      });
+
+      setSearchPage(nextPage);
+
+      setSearchHasMore(
+        Boolean(
+          result.pagination?.has_next_page ||
+          newResults.length === 24
+        )
       );
+    } catch (err) {
+      console.warn('Load more search results failed:', err);
+    } finally {
+      setLoadingMoreSearch(false);
+    }
+  }, [
+    loadingMoreSearch,
+    searchHasMore,
+    searchQuery,
+    searchPage
+  ]);
 
-      const uniqueNewResults = newResults.filter(
-        (anime) => !existingIds.has(anime.mal_id)
-      );
-
-      return [...previous, ...uniqueNewResults];
-    });
-
-    setSearchPage(nextPage);
-
-    setSearchHasMore(
-      Boolean(
-        result.pagination?.has_next_page ||
-        newResults.length === 24
-      )
-    );
-  } catch (err) {
-    console.warn('Load more search results failed:', err);
-  } finally {
-    setLoadingMoreSearch(false);
-  }
-}, [
-  loadingMoreSearch,
-  searchHasMore,
-  searchQuery,
-  searchPage
-]);
   // Debounced search when typing
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -719,9 +728,13 @@ const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
   }, [searchQuery]);
 
   useEffect(() => {
-    if (debouncedQuery.trim()) {
-      executeSearch(debouncedQuery);
+    const trimmed = debouncedQuery.trim();
+    if (trimmed) {
+      if (lastExecutedQueryRef.current !== trimmed) {
+        executeSearch(trimmed);
+      }
     } else {
+      lastExecutedQueryRef.current = '';
       setSearchResults([]);
       setSearchError(null);
     }
@@ -737,6 +750,7 @@ const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
   };
 
   const handleClearSearch = () => {
+    lastExecutedQueryRef.current = '';
     setSearchQuery('');
     setDebouncedQuery('');
     setSearchResults([]);
@@ -1024,7 +1038,27 @@ const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
       <div className="flex-1 w-full flex justify-center py-6 sm:py-8">
         {/* Center Main Stage (Spacious center max-w-6xl / max-w-7xl, leaving clean generous side space) */}
         <main className="flex-1 min-w-0 max-w-6xl xl:max-w-7xl w-full px-4 sm:px-6 lg:px-8 space-y-8 transition-all">
-          <div className="w-full space-y-10">
+          <div className="w-full space-y-8">
+            {/* Search & Genre Bar (Moved from Top Shelf for spacious, high-contrast readability and direct genre access) */}
+            <SearchAndGenreBar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onSearchSubmit={handleSearchSubmit}
+              onClearSearch={handleClearSearch}
+              selectedGenre={discoverGenre}
+              onSelectGenre={(genreVal) => {
+                handleSelectDiscoverGenre(genreVal);
+                if (activeTab !== 'home' && !isSearchActive) {
+                  setActiveTab('home');
+                }
+              }}
+              onOpenExploreGenre={handleOpenGenreInExplore}
+              onOpenAllGenres={() => {
+                setActiveTab('explore');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+
         {/* Error banner if API is down */}
         {apiError && (
           <div className="p-4 rounded-xl bg-red-950/40 border border-red-900/80 flex items-center justify-between gap-4 text-xs text-red-300">

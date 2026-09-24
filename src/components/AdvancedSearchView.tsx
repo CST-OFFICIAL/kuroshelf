@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { AnimeItem, ShelfStatus } from '../types';
 import { AnimeCard } from './AnimeCard';
-import { searchAnimePaginated } from '../services/jikan';
+import { searchAnimePaginated, getTopAnimePaginated } from '../services/jikan';
 
 
 interface AdvancedSearchViewProps {
@@ -40,81 +40,78 @@ export function AdvancedSearchView({
     return () => clearTimeout(timer);
   }, [query]);
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setDebouncedQuery(query.trim());
+  };
+
   const fetchResults = useCallback(async (isLoadMore = false) => {
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    const nextPage = isLoadMore ? page + 1 : 1;
+    try {
+      const nextPage = isLoadMore ? page + 1 : 1;
 
-    const hasFilters =
-      Boolean(debouncedQuery.trim()) ||
-      Boolean(status) ||
-      Boolean(type);
+      const hasFilters =
+        Boolean(debouncedQuery.trim()) ||
+        Boolean(status) ||
+        Boolean(type);
 
-    let result;
+      let result;
 
-    if (!hasFilters) {
-      const response = await fetch(
-        `/api/anime/top?filter=bypopularity&page=${nextPage}&limit=24`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Catalog request failed: ${response.status}`);
+      if (!hasFilters) {
+        result = await getTopAnimePaginated('bypopularity', nextPage, 24);
+      } else {
+        result = await searchAnimePaginated({
+          query: debouncedQuery.trim(),
+          page: nextPage,
+          limit: 24,
+          status: status || undefined,
+          type: type || undefined,
+          orderBy: orderBy || undefined,
+          sort: sort || undefined,
+        });
       }
 
-      result = await response.json();
-    } else {
-      result = await searchAnimePaginated({
-        query: debouncedQuery.trim(),
-        page: nextPage,
-        limit: 24,
-        status: status || undefined,
-        type: type || undefined,
-        orderBy: orderBy || undefined,
-        sort: sort || undefined,
-      });
+      const data = result.data || [];
+
+      if (isLoadMore) {
+        setResults(prev => {
+          const existingIds = new Set(prev.map(item => item.mal_id));
+          const uniqueNewItems = data.filter(
+            (item: AnimeItem) => !existingIds.has(item.mal_id)
+          );
+          return [...prev, ...uniqueNewItems];
+        });
+        setPage(nextPage);
+      } else {
+        setResults(data);
+        setPage(1);
+      }
+
+      setHasMore(
+        Boolean(
+          result.pagination?.has_next_page ||
+          data.length === 24
+        )
+      );
+    } catch (err) {
+      console.error('Catalog fetch failed:', err);
+
+      if (!isLoadMore) {
+        setResults([]);
+        setHasMore(false);
+      }
+    } finally {
+      setLoading(false);
     }
-
-    const data = result.data || [];
-
-    if (isLoadMore) {
-      setResults(prev => {
-        const existingIds = new Set(prev.map(item => item.mal_id));
-        const uniqueNewItems = data.filter(
-          (item: AnimeItem) => !existingIds.has(item.mal_id)
-        );
-        return [...prev, ...uniqueNewItems];
-      });
-      setPage(nextPage);
-    } else {
-      setResults(data);
-      setPage(1);
-    }
-
-    setHasMore(
-      Boolean(
-        result.pagination?.has_next_page ||
-        data.length === 24
-      )
-    );
-  } catch (err) {
-    console.error('Catalog fetch failed:', err);
-
-    if (!isLoadMore) {
-      setResults([]);
-      setHasMore(false);
-    }
-  } finally {
-    setLoading(false);
-  }
-}, [
-  debouncedQuery,
-  status,
-  type,
-  orderBy,
-  sort,
-  page,
-]);
+  }, [
+    debouncedQuery,
+    status,
+    type,
+    orderBy,
+    sort,
+    page,
+  ]);
 
   useEffect(() => {
     setResults([]);
@@ -133,16 +130,45 @@ export function AdvancedSearchView({
       </div>
 
       <div className="bg-neutral-900 rounded-xl p-4 border border-neutral-800 space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search ANY anime, character, or keyword... (e.g. Denji, Chainsaw Man)"
-            className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-rose-500 transition-colors"
-          />
-        </div>
+        <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="relative flex-1">
+            <button
+              type="submit"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-rose-500 transition-colors cursor-pointer"
+              aria-label="Submit search"
+            >
+              <Search className="w-5 h-5" />
+            </button>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search ANY anime, character, or keyword... (e.g. Denji, Chainsaw Man)"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-10 pr-10 py-3 text-sm text-white focus:outline-none focus:border-rose-500 transition-colors"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('');
+                  setDebouncedQuery('');
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white text-sm p-1 cursor-pointer"
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-3 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-semibold text-sm rounded-lg transition-all shadow-md shadow-rose-950/40 cursor-pointer disabled:opacity-50 shrink-0 flex items-center justify-center gap-2"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+            <span>Search Catalog</span>
+          </button>
+        </form>
 
         <div className="flex flex-wrap items-center gap-3">
           <select 

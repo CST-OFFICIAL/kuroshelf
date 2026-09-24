@@ -56,10 +56,12 @@ async function fetchFromApi<T>(
         const json = await res.json();
         const data = (json.data ?? fallbackData) as T;
         const pagination = json.pagination as JikanPagination | undefined;
-        // If the server succeeded but returned an empty array or null, trigger direct Jikan fallback
-        if (!data || (Array.isArray(data) && data.length === 0)) {
+        // If the server succeeded but returned an empty array, null, or only the minimal seed items on list endpoints, trigger direct fallback
+        const isListEndpoint = endpoint.includes('/api/anime/top') || endpoint.includes('/api/anime/search') || endpoint.includes('/api/anime/seasonal') || endpoint.includes('/api/anime/upcoming') || endpoint.includes('/api/manga');
+        const hasMinimalSeedData = isListEndpoint && Array.isArray(data) && data.length <= 5 && !endpoint.includes('limit=5');
+        if (!data || (Array.isArray(data) && data.length === 0) || hasMinimalSeedData) {
           const directResult = await routeToDirectJikan<T>(endpoint);
-          if (directResult && directResult.data && (!Array.isArray(directResult.data) || directResult.data.length > 0)) {
+          if (directResult && directResult.data && (!Array.isArray(directResult.data) || directResult.data.length > 5)) {
             memoryCache.set(cacheKey, { data: directResult.data, pagination: directResult.pagination, timestamp: Date.now() });
             return directResult;
           }
@@ -231,18 +233,38 @@ async function routeToDirectJikan<T>(endpoint: string): Promise<{ data: T; pagin
       console.warn('[Jikan Direct search] Error, trying AniList...', jikanErr);
     }
 
-    if (q) {
+    if (q || params.get('genres') || params.get('status') || params.get('type')) {
       try {
+        let anilistStatus: string | undefined;
+        const statusVal = params.get('status');
+        if (statusVal === 'airing') anilistStatus = 'RELEASING';
+        else if (statusVal === 'complete') anilistStatus = 'FINISHED';
+        else if (statusVal === 'upcoming') anilistStatus = 'NOT_YET_RELEASED';
+
         const anilistRes = await fetchAniListAnimeList({
-          search: q,
+          search: q || undefined,
+          status: anilistStatus,
+          sort: q ? undefined : 'POPULARITY_DESC',
           page,
           perPage: limit,
         });
-        return { data: anilistRes.data as unknown as T, pagination: anilistRes.pagination };
+        if (anilistRes.data) {
+          return { data: anilistRes.data as unknown as T, pagination: anilistRes.pagination };
+        }
       } catch (anilistErr) {
         console.warn('[AniList search] Error:', anilistErr);
       }
     }
+
+    return {
+      data: [] as unknown as T,
+      pagination: {
+        last_visible_page: 1,
+        has_next_page: false,
+        current_page: page,
+        items: { count: 0, total: 0, per_page: limit },
+      },
+    };
   }
 
   // 5. /api/anime/:id/characters

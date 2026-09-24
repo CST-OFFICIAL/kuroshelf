@@ -36,6 +36,47 @@ html.dark {
   --color-text-subtle: #64748b;
 }
 
+/* Universal high-contrast, crisp text & placeholder readability */
+input,
+textarea {
+  color: #0f172a;
+}
+
+html.dark input,
+html.dark textarea,
+.dark input,
+.dark textarea {
+  color: #f8fafc;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #475569 !important;
+  opacity: 1 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder,
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #cbd5e1 !important;
+  opacity: 1 !important;
+}
+
+/* Global search input high-contrast crisp text */
+#global-search-input,
+.main-search-input {
+  font-size: 15px !important;
+  color: #0f172a !important;
+}
+
+html.dark #global-search-input,
+html.dark .main-search-input,
+.dark #global-search-input,
+.dark .main-search-input {
+  color: #ffffff !important;
+}
+
 /* Custom scrollbar adapted to active theme */
 ::-webkit-scrollbar {
   width: 7px;

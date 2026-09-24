@@ -701,16 +701,18 @@ export async function createApp() {
   });
 
   // ---------------- Vite / Static Asset Serving ----------------
+  const isVercel = Boolean(process.env.VERCEL || process.env.NOW_REGION);
+
   if (process.env.NODE_ENV !== 'production') {
-  const { createServer: createViteServer } = await import('vite');
+    const { createServer: createViteServer } = await import('vite');
 
-  const vite = await createViteServer({
-    server: { middlewareMode: true, hmr: false },
-    appType: 'spa',
-  });
+    const vite = await createViteServer({
+      server: { middlewareMode: true, hmr: false },
+      appType: 'spa',
+    });
 
-  app.use(vite.middlewares);
-} else {
+    app.use(vite.middlewares);
+  } else if (!isVercel) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*all', (_req, res) => {
