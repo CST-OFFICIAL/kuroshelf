@@ -1108,9 +1108,11 @@ export const MembershipSupportModal: React.FC<MembershipSupportModalProps> = ({
                       The Supporters Wall recognizes every community contribution.
                     </div>
                   ) : (
-                    donationsList.map((d) => (
+                    Array.from(
+                      new Map(donationsList.map((d, i) => [d.id || `don-${i}`, d])).values()
+                    ).map((d, idx) => (
                       <div
-                        key={d.id}
+                        key={`${d.id || 'don'}-${idx}`}
                         className="p-2.5 rounded-xl bg-slate-50 dark:bg-neutral-950 border border-slate-200 dark:border-neutral-800/80 flex items-center justify-between gap-3 text-[11px]"
                       >
                         <div className="min-w-0">

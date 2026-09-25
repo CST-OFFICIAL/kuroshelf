@@ -708,7 +708,7 @@ export async function createApp() {
   // ---------------- Vite / Static Asset Serving ----------------
   const isVercel = Boolean(process.env.VERCEL || process.env.NOW_REGION);
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && !isVercel) {
     const { createServer: createViteServer } = await import('vite');
 
     const vite = await createViteServer({

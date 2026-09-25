@@ -52,7 +52,7 @@ export async function fetchDirectJikan<T = any>(endpoint: string): Promise<{ dat
 
   const url = `${JIKAN_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   const res = await fetch(url, {
-    signal: AbortSignal.timeout(6000),
+    signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) {
     throw new Error(`Jikan returned ${res.status}`);

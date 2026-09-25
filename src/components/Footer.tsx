@@ -54,34 +54,34 @@ export function Footer({ onNavigateTab, onOpenInfoModal, onOpenMembershipModal, 
                 Platform
               </span>
               <div className="space-y-1.5 flex flex-col items-start">
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('home')}
+                <a
+                  href="/"
+                  onClick={(e) => { e.preventDefault(); handleNavClick('home'); }}
                   className="text-neutral-400 hover:text-white transition-colors text-left"
                 >
                   Discover
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('seasonal')}
+                </a>
+                <a
+                  href="/seasonal"
+                  onClick={(e) => { e.preventDefault(); handleNavClick('seasonal'); }}
                   className="text-neutral-400 hover:text-white transition-colors text-left"
                 >
                   Seasonal Anime
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('rankings')}
+                </a>
+                <a
+                  href="/rankings"
+                  onClick={(e) => { e.preventDefault(); handleNavClick('rankings'); }}
                   className="text-neutral-400 hover:text-white transition-colors text-left"
                 >
                   Top Rankings
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('schedule')}
+                </a>
+                <a
+                  href="/schedule"
+                  onClick={(e) => { e.preventDefault(); handleNavClick('schedule'); }}
                   className="text-neutral-400 hover:text-white transition-colors text-left"
                 >
                   Airing Schedule
-                </button>
+                </a>
               </div>
             </div>
 
@@ -185,48 +185,48 @@ export function Footer({ onNavigateTab, onOpenInfoModal, onOpenMembershipModal, 
                 Legal & Info
               </span>
               <div className="space-y-1.5 flex flex-col items-start">
-                <button
-                  type="button"
-                  onClick={() => onOpenInfoModal('about')}
+                <a
+                  href="/about"
+                  onClick={(e) => { e.preventDefault(); onOpenInfoModal('about'); }}
                   className="text-neutral-400 hover:text-white transition-colors text-left"
                 >
                   About Kuro Shelf
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenInfoModal('privacy')}
+                </a>
+                <a
+                  href="/privacy"
+                  onClick={(e) => { e.preventDefault(); onOpenInfoModal('privacy'); }}
                   className="text-neutral-400 hover:text-white transition-colors text-left"
                 >
                   Privacy Policy
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenInfoModal('terms')}
+                </a>
+                <a
+                  href="/terms"
+                  onClick={(e) => { e.preventDefault(); onOpenInfoModal('terms'); }}
                   className="text-neutral-400 hover:text-white transition-colors text-left"
                 >
                   Terms of Service
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenInfoModal('dmca')}
+                </a>
+                <a
+                  href="/dmca"
+                  onClick={(e) => { e.preventDefault(); onOpenInfoModal('dmca'); }}
                   className="text-neutral-400 hover:text-white transition-colors text-left"
                 >
                   DMCA & Copyright
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenInfoModal('cookies')}
+                </a>
+                <a
+                  href="/cookies"
+                  onClick={(e) => { e.preventDefault(); onOpenInfoModal('cookies'); }}
                   className="text-neutral-400 hover:text-white transition-colors text-left"
                 >
                   Cookie Policy
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenInfoModal('contact')}
+                </a>
+                <a
+                  href="/contact"
+                  onClick={(e) => { e.preventDefault(); onOpenInfoModal('contact'); }}
                   className="text-neutral-400 hover:text-white transition-colors text-left"
                 >
                   Contact & Support
-                </button>
+                </a>
               </div>
             </div>
 

@@ -1207,7 +1207,7 @@ export async function serverGetTop100Anime(options: {
           query ($genre: String, $tag: String, $page: Int, $perPage: Int) {
             Page(page: $page, perPage: $perPage) {
               media(genre: $genre, tag: $tag, sort: [POPULARITY_DESC, SCORE_DESC], isAdult: false, genre_not_in: ["Hentai"], type: ANIME) {
-                idMal id title { romaji english native } coverImage { large } status episodes season seasonYear averageScore popularity synopsis: description(asHtml: false) genres studios(isMain: true) { nodes { name } }
+                idMal id title { romaji english native } coverImage { large } status episodes season seasonYear averageScore stats { scoreDistribution { score amount } } popularity synopsis: description(asHtml: false) genres studios(isMain: true) { nodes { name } }
               }
             }
           }

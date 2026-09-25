@@ -255,7 +255,8 @@ export function getDonations(): DonationEntry[] {
       return [];
     }
     const parsed: DonationEntry[] = JSON.parse(raw);
-    // Filter out only static hardcoded mock/bot donors
+    const seenIds = new Set<string>();
+    // Filter out only static hardcoded mock/bot donors and duplicates
     const genuine = parsed
       .filter((d) => !STATIC_BOT_IDS.has(d.id) && !d.id.startsWith('mock-') && !d.id.match(/^don-[1-9]$/))
       .map((d) => {
@@ -264,6 +265,11 @@ export function getDonations(): DonationEntry[] {
           return { ...d, id: d.id.replace('don-', 'kuro-don-') };
         }
         return d;
+      })
+      .filter((d) => {
+        if (!d.id || seenIds.has(d.id)) return false;
+        seenIds.add(d.id);
+        return true;
       });
 
     if (genuine.length !== parsed.length || parsed.some(d => d.id.startsWith('don-'))) {
@@ -316,20 +322,35 @@ export function getUserDonationRecord(userId?: string): UserDonationSummary {
   try {
     const raw = localStorage.getItem(`${STORAGE_KEYS.USER_DONATIONS_PREFIX}${userId}`);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed: UserDonationSummary = JSON.parse(raw);
+      if (Array.isArray(parsed.history)) {
+        const seen = new Set<string>();
+        parsed.history = parsed.history.filter((item) => {
+          if (!item.id || seen.has(item.id)) return false;
+          seen.add(item.id);
+          return true;
+        });
+      }
+      return parsed;
     }
 
     // Fallback: search global donations list for this user's contributions
     const all = getDonations();
     const userDonations = all.filter(d => d.userId === userId);
     if (userDonations.length > 0) {
-      const total = userDonations.reduce((sum, d) => sum + d.amount, 0);
-      const highestTier = getDonationTierTitle(Math.max(...userDonations.map(d => d.amount)));
+      const seen = new Set<string>();
+      const uniqueDonations = userDonations.filter(d => {
+        if (!d.id || seen.has(d.id)) return false;
+        seen.add(d.id);
+        return true;
+      });
+      const total = uniqueDonations.reduce((sum, d) => sum + d.amount, 0);
+      const highestTier = getDonationTierTitle(Math.max(...uniqueDonations.map(d => d.amount)));
       const summary: UserDonationSummary = {
         totalAmount: Number(total.toFixed(2)),
-        donationCount: userDonations.length,
-        history: userDonations,
-        latestDonationDate: userDonations[0]?.createdAt,
+        donationCount: uniqueDonations.length,
+        history: uniqueDonations,
+        latestDonationDate: uniqueDonations[0]?.createdAt,
         highestTierTitle: highestTier,
       };
       localStorage.setItem(`${STORAGE_KEYS.USER_DONATIONS_PREFIX}${userId}`, JSON.stringify(summary));
@@ -422,7 +443,7 @@ export function submitDonation(donation: {
     expiresAt: nowMs + ONE_MINUTE_MS,
   };
 
-  const updated = [newEntry, ...donations];
+  const updated = [newEntry, ...donations.filter(d => d.id !== newEntry.id)];
   try {
     // 1. Save to global list of donations
     localStorage.setItem(STORAGE_KEYS.DONATIONS, JSON.stringify(updated));
@@ -431,7 +452,7 @@ export function submitDonation(donation: {
     if (donation.userId) {
       const existingRecord = getUserDonationRecord(donation.userId);
       const updatedTotal = Number((existingRecord.totalAmount + validAmount).toFixed(2));
-      const updatedHistory = [newEntry, ...existingRecord.history];
+      const updatedHistory = [newEntry, ...existingRecord.history.filter(d => d.id !== newEntry.id)];
       const highestTier = getDonationTierTitle(Math.max(...updatedHistory.map(d => d.amount)));
 
       const updatedRecord: UserDonationSummary = {

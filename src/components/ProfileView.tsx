@@ -1762,9 +1762,11 @@ export function ProfileView({
                       Recent Contribution Receipts
                     </h4>
                     <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-                      {userDonationRecord.history.map((record) => (
+                      {Array.from(
+                        new Map(userDonationRecord.history.map((r, i) => [r.id || `rec-${i}`, r])).values()
+                      ).map((record, idx) => (
                         <div
-                          key={record.id}
+                          key={`${record.id || 'rec'}-${idx}`}
                           className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#090c14] border border-slate-100 dark:border-[#1e263d] text-xs"
                         >
                           <div className="space-y-0.5 min-w-0 pr-2">

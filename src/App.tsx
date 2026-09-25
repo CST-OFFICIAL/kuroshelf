@@ -4,7 +4,8 @@ import { AnimeItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll, AuthU
 import { 
   getTopAnime,
   getTopAnimePaginated,
-  getSeasonalAnime, 
+  getSeasonalAnime,
+  getSeasonalAnimePaginated, 
   getUpcomingAnime, 
   searchAnime,
   searchAnimePaginated,
@@ -43,6 +44,7 @@ import { ExploreView } from './components/ExploreView';
 import { AdvancedSearchView } from './components/AdvancedSearchView';
 import { AnimeCard } from './components/AnimeCard';
 import { AnimeDetailModal } from './components/AnimeDetailModal';
+import { AnimeFullPage } from './components/AnimeFullPage';
 import { ShelfView, ShelfViewFilterTab } from './components/ShelfView';
 import { PollsView } from './components/PollsView';
 import { MangaSection } from './components/MangaSection';
@@ -78,8 +80,11 @@ import {
   LayoutGrid,
   Compass,
   X,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
+import { parseRoute, getAnimeUrl } from './utils/urlHelper';
+import { AdBanner } from './components/AdBanner';
 
 const DISCOVER_GENRE_PILLS = [
   { name: 'Sports', value: '30' },
@@ -101,10 +106,11 @@ const DISCOVER_GENRE_PILLS = [
 ];
 
 export function App() {
-  // Navigation
-  const [activeTab, setActiveTab] = useState<string>('home');
+  // Navigation & URL Routing
+  const initialRoute = useMemo(() => parseRoute(typeof window !== 'undefined' ? window.location.pathname : '/'), []);
+  const [activeTab, setActiveTab] = useState<string>(() => initialRoute.type === 'tab' ? initialRoute.tab : 'home');
   const [shelfSubTab, setShelfSubTab] = useState<ShelfViewFilterTab>('all');
-  const [infoModalType, setInfoModalType] = useState<InfoModalType>(null);
+  const [infoModalType, setInfoModalType] = useState<InfoModalType>(() => initialRoute.type === 'info' ? (initialRoute.infoType as InfoModalType) : null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [searchPage, setSearchPage] = useState(1);
@@ -112,6 +118,7 @@ export function App() {
   const [loadingMoreSearch, setLoadingMoreSearch] = useState(false);
   const lastExecutedQueryRef = useRef<string>('');
   const searchSeqRef = useRef<number>(0);
+  const isPopStateRef = useRef(false);
 
   // Fast GPU-friendly instant scroll on tab change to prevent mobile stutter
   useEffect(() => {
@@ -130,6 +137,9 @@ export function App() {
   const [spotlightAnime, setSpotlightAnime] = useState<AnimeItem | null>(null);
   const [airingAnime, setAiringAnime] = useState<AnimeItem[]>([]);
   const [seasonalAnime, setSeasonalAnime] = useState<AnimeItem[]>([]);
+  const [seasonalPage, setSeasonalPage] = useState(1);
+  const [loadingMoreSeasonal, setLoadingMoreSeasonal] = useState(false);
+  const [hasMoreSeasonal, setHasMoreSeasonal] = useState(true);
   const [topRankedAnime, setTopRankedAnime] = useState<AnimeItem[]>([]);
   const [upcomingAnime, setUpcomingAnime] = useState<AnimeItem[]>([]);
   const [searchResults, setSearchResults] = useState<AnimeItem[]>([]);
@@ -242,6 +252,110 @@ export function App() {
 
   // Modal detail view
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
+  // Dedicated full page view
+  const [fullPageAnime, setFullPageAnime] = useState<AnimeItem | null>(null);
+
+  // Deep-linking URL routing & browser history synchronization
+  useEffect(() => {
+    if (isPopStateRef.current) {
+      isPopStateRef.current = false;
+      return;
+    }
+
+    let targetUrl = '/';
+    let pageTitle = 'Kuro Shelf – Anime & Manga Discovery and Tracking';
+
+    if (fullPageAnime) {
+      targetUrl = getAnimeUrl(fullPageAnime.mal_id, fullPageAnime.title);
+      const scoreStr = fullPageAnime.score ? ` (★ ${fullPageAnime.score.toFixed(2)})` : '';
+      pageTitle = `${fullPageAnime.title}${scoreStr} – Kuro Shelf`;
+    } else if (selectedAnime) {
+      targetUrl = getAnimeUrl(selectedAnime.mal_id, selectedAnime.title);
+      const scoreStr = selectedAnime.score ? ` (★ ${selectedAnime.score.toFixed(2)})` : '';
+      pageTitle = `${selectedAnime.title}${scoreStr} – Kuro Shelf`;
+    } else if (infoModalType) {
+      targetUrl = `/${infoModalType}`;
+      const titleMap: Record<string, string> = {
+        privacy: 'Privacy Policy',
+        terms: 'Terms of Service',
+        about: 'About Kuro Shelf',
+        dmca: 'DMCA & Copyright Policy',
+        cookies: 'Cookie Policy',
+        faq: 'Frequently Asked Questions',
+        contact: 'Contact & Support',
+      };
+      pageTitle = `${titleMap[infoModalType] || infoModalType} – Kuro Shelf`;
+    } else if (activeTab !== 'home') {
+      targetUrl = `/${activeTab}`;
+      const tabTitleMap: Record<string, string> = {
+        schedule: 'Weekly Anime Airing Schedule – Kuro Shelf',
+        rankings: 'Top Anime Rankings & Hall of Fame – Kuro Shelf',
+        seasonal: 'Seasonal Anime Catalog – Kuro Shelf',
+        explore: 'Explore Anime Genres & Themes – Kuro Shelf',
+        discover: 'Discover Anime & Hidden Gems – Kuro Shelf',
+        manga: 'Manga & Manhwa Explorer – Kuro Shelf',
+        polls: 'Community Predictions & Anime Polls – Kuro Shelf',
+        shelf: 'My Anime & Manga Shelf – Kuro Shelf',
+        profile: 'User Profile & Collection – Kuro Shelf',
+      };
+      pageTitle = tabTitleMap[activeTab] || `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} – Kuro Shelf`;
+    }
+
+    document.title = pageTitle;
+
+    if (window.location.pathname !== targetUrl) {
+      window.history.pushState(null, '', targetUrl);
+    }
+  }, [activeTab, selectedAnime, fullPageAnime, infoModalType]);
+
+  // Handle browser Back/Forward (popstate)
+  useEffect(() => {
+    const handlePopState = async () => {
+      isPopStateRef.current = true;
+      const route = parseRoute(window.location.pathname);
+
+      if (route.type === 'anime') {
+        setInfoModalType(null);
+        if ((!fullPageAnime || fullPageAnime.mal_id !== route.id) && (!selectedAnime || selectedAnime.mal_id !== route.id)) {
+          try {
+            const item = await getAnimeById(route.id);
+            if (item) setFullPageAnime(item);
+          } catch (e) {
+            console.warn('Failed to load anime from URL:', e);
+          }
+        }
+      } else if (route.type === 'info') {
+        setSelectedAnime(null);
+        setFullPageAnime(null);
+        setInfoModalType(route.infoType as InfoModalType);
+      } else if (route.type === 'tab') {
+        setSelectedAnime(null);
+        setFullPageAnime(null);
+        setInfoModalType(null);
+        setActiveTab(route.tab);
+      } else {
+        setSelectedAnime(null);
+        setFullPageAnime(null);
+        setInfoModalType(null);
+        setActiveTab('home');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [selectedAnime]);
+
+  // On initial mount, if URL was an anime path, fetch that anime
+  useEffect(() => {
+    const route = parseRoute(window.location.pathname);
+    if (route.type === 'anime') {
+      getAnimeById(route.id)
+        .then((item) => {
+          if (item) setSelectedAnime(item);
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   // Sub-modals for Characters & Voice Actors explorer
   const [selectedCharacter, setSelectedCharacter] = useState<{ id: number; name: string } | null>(null);
@@ -617,6 +731,32 @@ export function App() {
       }
     }
   };
+
+  const handleLoadMoreSeasonal = useCallback(async () => {
+    if (loadingMoreSeasonal || !hasMoreSeasonal) return;
+    setLoadingMoreSeasonal(true);
+    try {
+      const nextPage = seasonalPage + 1;
+      const res = await getSeasonalAnimePaginated(nextPage, 24);
+      if (res.data && res.data.length > 0) {
+        setSeasonalAnime((prev) => {
+          const existingIds = new Set(prev.map((a) => a.mal_id));
+          const newItems = res.data.filter((a) => !existingIds.has(a.mal_id));
+          return [...prev, ...newItems];
+        });
+        setSeasonalPage(nextPage);
+        if (!res.pagination?.has_next_page) {
+          setHasMoreSeasonal(false);
+        }
+      } else {
+        setHasMoreSeasonal(false);
+      }
+    } catch (err) {
+      console.warn('Failed to load more seasonal anime:', err);
+    } finally {
+      setLoadingMoreSeasonal(false);
+    }
+  }, [seasonalPage, loadingMoreSeasonal, hasMoreSeasonal]);
 
   // Search execution with error handling and empty states
   const executeSearch = useCallback(async (query: string) => {
@@ -1005,15 +1145,19 @@ export function App() {
     <div className="min-h-screen w-full bg-[var(--color-bg-base)] text-[var(--color-text-main)] flex flex-col font-sans selection:bg-rose-500/30 selection:text-rose-400 transition-colors duration-200">
       {/* Top Navigation */}
       <Navbar
-        activeTab={isSearchActive ? '' : activeTab}
+        activeTab={fullPageAnime ? '' : isSearchActive ? '' : activeTab}
         onTabChange={(tab) => {
+          setFullPageAnime(null);
           setActiveTab(tab);
           handleClearSearch();
         }}
         shelfCount={shelf.length}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onSearchSubmit={handleSearchSubmit}
+        onSearchSubmit={(q) => {
+          setFullPageAnime(null);
+          handleSearchSubmit(q);
+        }}
         currentUser={currentUser}
         onOpenAuth={() => setAuthModalOpen(true)}
         streakInfo={streakInfo}
@@ -1035,10 +1179,42 @@ export function App() {
         }}
       />
 
-      {/* Main Content Area centered with spacious side margins (leaving sides open for future ads without cramped layout) */}
-      <div className="flex-1 w-full flex justify-center py-6 sm:py-8">
-        {/* Center Main Stage (Spacious center max-w-6xl / max-w-7xl, leaving clean generous side space) */}
-        <main className="flex-1 min-w-0 max-w-6xl xl:max-w-7xl w-full px-4 sm:px-6 lg:px-8 space-y-8 transition-all">
+      {/* Dedicated AnimeFullPage OR Main Content Area */}
+      {fullPageAnime ? (
+        <AnimeFullPage
+          anime={fullPageAnime}
+          currentUser={currentUser}
+          onOpenAuth={() => setAuthModalOpen(true)}
+          onBack={() => {
+            setFullPageAnime(null);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          shelfStatus={getShelfItem(fullPageAnime.mal_id)?.status}
+          userRating={getShelfItem(fullPageAnime.mal_id)?.userRating}
+          isLiked={getShelfItem(fullPageAnime.mal_id)?.isLiked}
+          onUpdateStatus={handleUpdateShelfStatus}
+          onUpdateRating={handleUpdateRating}
+          onToggleLike={handleToggleLike}
+          onSelectAnime={(newAnime) => {
+            setFullPageAnime(newAnime);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onSelectGenre={(genreName) => {
+            setFullPageAnime(null);
+            handleSelectDiscoverGenre(genreName);
+            setActiveTab('home');
+          }}
+          onSelectStudio={(studioName) => {
+            setFullPageAnime(null);
+            setSearchQuery(studioName);
+            setActiveTab('home');
+          }}
+        />
+      ) : (
+        /* Main Content Area */
+        <div className="flex-1 w-full flex justify-center py-6 sm:py-8 px-2 sm:px-4">
+          {/* Center Main Stage */}
+          <main className="flex-1 min-w-0 max-w-6xl xl:max-w-7xl w-full px-4 sm:px-6 lg:px-8 space-y-8 transition-all">
           <div className="w-full space-y-8">
             {/* Search & Genre Bar (Moved from Top Shelf for spacious, high-contrast readability and direct genre access) */}
             <SearchAndGenreBar
@@ -1239,6 +1415,9 @@ export function App() {
                     isSavedInShelf={Boolean(spotlightAnime && getShelfItem(spotlightAnime.mal_id))}
                     onSelectGenre={(g) => handleSelectDiscoverGenre(g)}
                   />
+
+                  {/* Leaderboard Partner / Ad Slot */}
+                  <AdBanner slot="home-hero-bottom" />
 
                   {/* Discover by Genre & Theme Quick Filter Carousel */}
                   <div
@@ -1650,6 +1829,29 @@ export function App() {
                     );
                   })}
                 </div>
+
+                {hasMoreSeasonal && (
+                  <div className="flex justify-center pt-4 pb-6">
+                    <button
+                      type="button"
+                      onClick={handleLoadMoreSeasonal}
+                      disabled={loadingMoreSeasonal}
+                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-white font-semibold text-sm shadow-md transition-all disabled:opacity-50 cursor-pointer border border-slate-700/50 dark:border-neutral-700 hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      {loadingMoreSeasonal ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-rose-400" />
+                          <span>Loading More Premieres...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 text-rose-400" />
+                          <span>Load More Premieres</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2078,6 +2280,7 @@ export function App() {
           </div>
         </main>
       </div>
+      )}
 
       {/* Detail Modal */}
       <AnimatePresence>
@@ -2087,6 +2290,10 @@ export function App() {
           currentUser={currentUser}
           onOpenAuth={() => setAuthModalOpen(true)}
           onClose={() => setSelectedAnime(null)}
+          onOpenFullPage={(anime) => {
+            setSelectedAnime(null);
+            setFullPageAnime(anime);
+          }}
           shelfStatus={getShelfItem(selectedAnime.mal_id)?.status}
           userRating={getShelfItem(selectedAnime.mal_id)?.userRating}
           isLiked={getShelfItem(selectedAnime.mal_id)?.isLiked}
@@ -2171,9 +2378,13 @@ export function App() {
         />
       )}
 
+      {/* Above-Footer Partner / Ad Slot */}
+      <AdBanner slot="footer-top" />
+
       {/* Footer */}
       <Footer
         onNavigateTab={(tab, subTab) => {
+          setFullPageAnime(null);
           setActiveTab(tab);
           if (subTab) {
             setShelfSubTab(subTab as ShelfViewFilterTab);

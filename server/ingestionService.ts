@@ -24,6 +24,8 @@ async function getAnilistScoresBatch(malIds: number[]): Promise<Record<number, n
            media(idMal_in: $idMals, type: ANIME) {
              idMal
              averageScore
+             meanScore
+             stats { scoreDistribution { score amount } }
            }
          }
        }
@@ -35,11 +37,27 @@ async function getAnilistScoresBatch(malIds: number[]): Promise<Record<number, n
      });
      if (res.ok) {
        const data = await res.json();
-       const map = {};
+       const map: Record<number, number> = {};
        const mediaList = data?.data?.Page?.media || [];
        for (const media of mediaList) {
-         if (media.idMal && media.averageScore) {
-           map[media.idMal] = media.averageScore / 10;
+         if (media.idMal) {
+           if (media.stats?.scoreDistribution && Array.isArray(media.stats.scoreDistribution) && media.stats.scoreDistribution.length > 0) {
+             let totalScore = 0;
+             let totalAmount = 0;
+             for (const d of media.stats.scoreDistribution) {
+               if (d && typeof d.score === 'number' && typeof d.amount === 'number') {
+                 totalScore += d.score * d.amount;
+                 totalAmount += d.amount;
+               }
+             }
+             if (totalAmount > 0) {
+               map[media.idMal] = Number((totalScore / totalAmount / 10).toFixed(2));
+               continue;
+             }
+           }
+           if (media.averageScore) {
+             map[media.idMal] = Number((media.averageScore / 10).toFixed(2));
+           }
          }
        }
        return map;

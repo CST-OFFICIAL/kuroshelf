@@ -21,6 +21,7 @@ import {
   Sparkles,
   Mic,
   Compass,
+  ArrowRight,
 } from 'lucide-react';
 import { AnimeItem, CharacterItem, ShelfStatus, WatchPlatform, RecommendedAnimeItem } from '../types';
 import { getAnimeCharacters, getAnimeById, getAnimeRecommendations } from '../services/jikan';
@@ -38,6 +39,7 @@ interface AnimeDetailModalProps {
   userRating?: number;
   isLiked?: boolean;
   onClose: () => void;
+  onOpenFullPage?: (anime: AnimeItem) => void;
   onUpdateStatus: (anime: AnimeItem, status: ShelfStatus) => void;
   onUpdateRating: (anime: AnimeItem, rating: number) => void;
   onToggleLike: (anime: AnimeItem) => void;
@@ -58,6 +60,7 @@ export function AnimeDetailModal({
   userRating = 0,
   isLiked = false,
   onClose,
+  onOpenFullPage,
   onUpdateStatus,
   onUpdateRating,
   onToggleLike,
@@ -371,16 +374,32 @@ export function AnimeDetailModal({
           </div>
 
           <div className="flex items-center gap-2">
+            {onOpenFullPage && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenFullPage(anime);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                title="Open full page"
+              >
+                <span>More Details</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+
             <button
               onClick={handleCopyLink}
-              className="p-2 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+              className="p-2 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors cursor-pointer"
               title="Copy Link"
             >
               {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+              className="p-2 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+              title="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -389,8 +408,8 @@ export function AnimeDetailModal({
 
         {/* Modal Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 overscroll-contain">
-          {/* Main Top Header Block */}
-          <div className="flex flex-col md:flex-row gap-6 items-start">
+            {/* Main Top Header Block */}
+            <div className="flex flex-col md:flex-row gap-6 items-start">
             {/* Poster Thumbnail */}
             <div className="shrink-0 w-44 sm:w-52 aspect-[2/3] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-800 mx-auto md:mx-0 bg-neutral-900">
               <MediaImage
@@ -753,6 +772,24 @@ export function AnimeDetailModal({
                     </span>
                   )}
                 </div>
+
+                {/* More Details Full Page Option */}
+                {onOpenFullPage && (
+                  <div className="pt-2.5 border-t border-neutral-800/80 flex items-center justify-between gap-3">
+                    <span className="text-[11px] text-neutral-400 font-medium">Looking for the dedicated anime page?</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenFullPage(anime);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                    >
+                      <span>More Details</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1310,7 +1347,6 @@ export function AnimeDetailModal({
               </div>
             </div>
           )}
-
         </div>
       </div>
     </div>

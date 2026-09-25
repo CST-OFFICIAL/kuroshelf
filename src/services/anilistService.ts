@@ -3,6 +3,29 @@ import { isNsfwOrAdultClient } from './directJikanFallback';
 
 const ANILIST_GRAPHQL_URL = 'https://graphql.anilist.co';
 
+function calculateAccurateScore(media: any): number {
+  if (media?.stats?.scoreDistribution && Array.isArray(media.stats.scoreDistribution) && media.stats.scoreDistribution.length > 0) {
+    let totalScore = 0;
+    let totalAmount = 0;
+    for (const d of media.stats.scoreDistribution) {
+      if (d && typeof d.score === 'number' && typeof d.amount === 'number') {
+        totalScore += d.score * d.amount;
+        totalAmount += d.amount;
+      }
+    }
+    if (totalAmount > 0) {
+      return Number((totalScore / totalAmount / 10).toFixed(2));
+    }
+  }
+  if (typeof media?.averageScore === 'number' && media.averageScore > 0) {
+    return Number((media.averageScore / 10).toFixed(2));
+  }
+  if (typeof media?.meanScore === 'number' && media.meanScore > 0) {
+    return Number((media.meanScore / 10).toFixed(2));
+  }
+  return 0;
+}
+
 function mapAniListMediaToAnimeItem(media: any): AnimeItem {
   const images = {
     jpg: {
@@ -57,7 +80,7 @@ function mapAniListMediaToAnimeItem(media: any): AnimeItem {
     airing: media.status === 'RELEASING',
     duration: media.duration ? `${media.duration} min` : undefined,
     rating: media.isAdult ? 'R - 17+ (violence & profanity)' : 'PG-13 - Teens 13 or older',
-    score: media.averageScore ? Number((media.averageScore / 10).toFixed(2)) : 0,
+    score: calculateAccurateScore(media),
     scored_by: media.popularity || 0,
     rank: undefined,
     popularity: media.popularity || 0,
@@ -120,6 +143,13 @@ export async function fetchAniListAnimeList(options: {
     duration
     status
     averageScore
+    meanScore
+    stats {
+      scoreDistribution {
+        score
+        amount
+      }
+    }
     popularity
     favourites
     description
@@ -308,7 +338,7 @@ export async function fetchAniListTop100(
       query ($genre: String, $tag: String, $seasonYear: Int, $status: MediaStatus, $page: Int) {
         Page(page: $page, perPage: 50) {
           media(genre: $genre, tag: $tag, seasonYear: $seasonYear, status: $status, sort: ${sort}, isAdult: false, genre_not_in: ["Hentai"], type: ANIME) {
-            idMal id title { romaji english native } coverImage { large extraLarge } bannerImage status episodes duration averageScore popularity favourites description(asHtml: false) genres studios(isMain: true) { nodes { id name } }
+            idMal id title { romaji english native } coverImage { large extraLarge } bannerImage status episodes duration averageScore meanScore stats { scoreDistribution { score amount } } popularity favourites description(asHtml: false) genres studios(isMain: true) { nodes { id name } }
           }
         }
       }
