@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { AnimeItem } from '../types';
 import { AnimeCard } from './AnimeCard';
 import { Filter, Sparkles, X, ChevronRight } from 'lucide-react';
-import { searchAnimePaginated } from '../services/jikan';
+import { searchAnimePaginated, getTopAnime } from '../services/jikan';
 
 interface ExploreViewProps {
   onSelectAnime: (anime: AnimeItem) => void;
@@ -85,7 +85,19 @@ export function ExploreView({
         page: pageNum,
       });
 
-      const data = result.data || [];
+      let data = result.data || [];
+      // Safety guarantee: If search returned empty on All / Popular tab, immediately fallback to top popular anime
+      if (data.length === 0 && (genreVal === null || genreVal === undefined || genreVal === 'all')) {
+        try {
+          const topList = await getTopAnime('bypopularity', 24, pageNum);
+          if (topList && topList.length > 0) {
+            data = topList;
+          }
+        } catch (topErr) {
+          console.warn('[ExploreView] All/Popular fallback notice:', topErr);
+        }
+      }
+
       if (data.length < 24 && !result.pagination?.has_next_page) setHasMore(false);
       else setHasMore(true);
       

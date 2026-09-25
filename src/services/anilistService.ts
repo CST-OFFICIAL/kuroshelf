@@ -92,6 +92,8 @@ export async function fetchAniListAnimeList(options: {
   seasonYear?: number;
   status?: string;
   search?: string;
+  genre?: string;
+  tag?: string;
   page?: number;
   perPage?: number;
 }): Promise<{ data: AnimeItem[]; pagination: JikanPagination }> {
@@ -145,7 +147,7 @@ export async function fetchAniListAnimeList(options: {
   `;
 
   const query = `
-    query ($page: Int, $perPage: Int, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int, $status: MediaStatus, $search: String) {
+    query ($page: Int, $perPage: Int, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int, $status: MediaStatus, $search: String, $genre: String, $tag: String) {
       Page (page: $page, perPage: $perPage) {
         pageInfo {
           total
@@ -154,7 +156,7 @@ export async function fetchAniListAnimeList(options: {
           hasNextPage
           perPage
         }
-        media (type: ANIME, sort: $sort, season: $season, seasonYear: $seasonYear, status: $status, search: $search, isAdult: false) {
+        media (type: ANIME, sort: $sort, season: $season, seasonYear: $seasonYear, status: $status, search: $search, genre: $genre, tag: $tag, isAdult: false) {
           ${mediaFields}
         }
       }
@@ -171,6 +173,8 @@ export async function fetchAniListAnimeList(options: {
   if (options.seasonYear) variables.seasonYear = options.seasonYear;
   if (options.status) variables.status = options.status.toUpperCase();
   if (cleanSearch) variables.search = cleanSearch;
+  if (options.genre) variables.genre = options.genre;
+  if (options.tag) variables.tag = options.tag;
 
   const fetchMain = fetch(ANILIST_GRAPHQL_URL, {
     method: 'POST',

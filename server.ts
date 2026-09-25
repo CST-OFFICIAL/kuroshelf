@@ -700,6 +700,11 @@ export async function createApp() {
     }
   });
 
+  // Google Search Console Site Verification
+  app.get('/googled3ee4442d0a63b40.html', (_req: Request, res: Response) => {
+    res.type('text/html').send('google-site-verification: googled3ee4442d0a63b40.html');
+  });
+
   // ---------------- Vite / Static Asset Serving ----------------
   const isVercel = Boolean(process.env.VERCEL || process.env.NOW_REGION);
 
