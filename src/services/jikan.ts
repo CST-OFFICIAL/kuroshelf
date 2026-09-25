@@ -10,7 +10,7 @@ import {
   PersonDetail,
 } from '../types';
 import { fetchDirectJikan, isNsfwOrAdultClient } from './directJikanFallback';
-import { fetchAniListAnimeList } from './anilistService';
+import { fetchAniListAnimeList, fetchAniListTop100 } from './anilistService';
 
 // In-memory cache to avoid duplicate calls during session
 const memoryCache = new Map<string, { data: unknown; pagination?: JikanPagination; timestamp: number }>();
@@ -404,9 +404,31 @@ export async function getTopAnime(
   if (limit) params.set('limit', String(limit));
   if (page) params.set('page', String(page));
 
-  const url = `/api/anime/top100?${params.toString()}`;
-  const res = await fetchFromApi<AnimeItem[]>(url, []);
-  return Array.isArray(res.data) ? res.data : [];
+  let results: AnimeItem[] = [];
+  try {
+    const url = `/api/anime/top100?${params.toString()}`;
+    const res = await fetchFromApi<AnimeItem[]>(url, []);
+    if (Array.isArray(res.data) && res.data.length > 0) {
+      results = deduplicateByMalId(res.data);
+    }
+  } catch (err) {
+    console.warn('[getTopAnime] Server endpoint note:', err);
+  }
+
+  // If server returned fewer items than requested (e.g. on narrow genres or Vercel serverless limitations),
+  // supplement or fetch directly from AniList so the rankings view always delivers 100 anime
+  if (results.length < limit && limit >= 50) {
+    try {
+      const directData = await fetchAniListTop100(filter, genre, year, limit);
+      if (directData && directData.length > 0) {
+        results = deduplicateByMalId([...results, ...directData]);
+      }
+    } catch (fallbackErr) {
+      console.warn('[getTopAnime] Client fallback note:', fallbackErr);
+    }
+  }
+
+  return results.slice(0, limit);
 }
 
 export async function getTopAnimePaginated(

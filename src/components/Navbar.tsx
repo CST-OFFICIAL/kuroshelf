@@ -112,63 +112,8 @@ export function Navbar({
           </div>
         </div>
 
-        {/* Daily Streak, Appearance & User Account Controls (Desktop) */}
+        {/* Top Header Utilities: Support, Notices, Day/Night Theme, Account Switcher, Profile */}
         <div className="hidden sm:flex items-center gap-2">
-          {/* Day / Night 1-Click Switch Button */}
-          <button
-            type="button"
-            id="nav-theme-toggle-button"
-            onClick={() => {
-              if (onToggleTheme) {
-                onToggleTheme();
-              } else if (onOpenAppearanceModal) {
-                onOpenAppearanceModal();
-              }
-            }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-neutral-900 hover:bg-slate-200 dark:hover:bg-neutral-800 border border-slate-200 dark:border-neutral-800 text-slate-800 dark:text-neutral-200 text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
-            title={themeMode === 'light' ? 'Click to switch to Night Mode (Dark)' : 'Click to switch to Day Mode (Light)'}
-            aria-label="Toggle Day and Night Mode"
-          >
-            {themeMode === 'light' ? (
-              <>
-                <Sun className="w-4 h-4 text-amber-500 fill-amber-400" />
-                <span className="hidden xl:inline text-[11px] font-bold text-amber-700">Day</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-4 h-4 text-indigo-400 fill-indigo-400/40" />
-                <span className="hidden xl:inline text-[11px] font-bold text-indigo-300">Night</span>
-              </>
-            )}
-          </button>
-
-          {/* Daily Streak Trigger */}
-          {onOpenStreakModal && (
-            <button
-              type="button"
-              id="nav-daily-streak-button"
-              onClick={onOpenStreakModal}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                streakInfo?.checkedInToday
-                  ? 'bg-gradient-to-r from-amber-500/20 to-rose-500/20 border-amber-500/40 text-amber-600 dark:text-amber-300 hover:border-amber-400 shadow-xs'
-                  : 'bg-slate-100 dark:bg-neutral-900 border-slate-200 dark:border-neutral-800 text-slate-700 dark:text-neutral-300 hover:border-amber-500/50 hover:text-amber-600 dark:hover:text-amber-300'
-              }`}
-              title="Daily Activity Streak"
-            >
-              <Flame
-                className={`w-4 h-4 ${
-                  streakInfo?.checkedInToday
-                    ? 'text-amber-500 fill-amber-400/40 animate-pulse'
-                    : 'text-amber-500 animate-bounce'
-                }`}
-              />
-              <span className="font-mono text-xs">{streakInfo?.currentStreak ?? 0}</span>
-              <span className="hidden xl:inline text-[11px] font-medium text-slate-500 dark:text-neutral-400">
-                {streakInfo?.checkedInToday ? 'Streak' : 'Check in!'}
-              </span>
-            </button>
-          )}
-
           {/* Kuro VIP & Support Trigger */}
           {onOpenMembershipModal && (
             <button
@@ -206,6 +151,34 @@ export function Navbar({
               <span className="hidden xl:inline">Notices</span>
             </button>
           )}
+
+          {/* Day / Night 1-Click Switch Button (Positioned between Notices and Account Switch) */}
+          <button
+            type="button"
+            id="nav-theme-toggle-button"
+            onClick={() => {
+              if (onToggleTheme) {
+                onToggleTheme();
+              } else if (onOpenAppearanceModal) {
+                onOpenAppearanceModal();
+              }
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-neutral-900 hover:bg-slate-200 dark:hover:bg-neutral-800 border border-slate-200 dark:border-neutral-800 text-slate-800 dark:text-neutral-200 text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
+            title={themeMode === 'light' ? 'Click to switch to Night Mode (Dark)' : 'Click to switch to Day Mode (Light)'}
+            aria-label="Toggle Day and Night Mode"
+          >
+            {themeMode === 'light' ? (
+              <>
+                <Sun className="w-4 h-4 text-amber-500 fill-amber-400" />
+                <span className="hidden xl:inline text-[11px] font-bold text-amber-700">Day</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-4 h-4 text-indigo-400 fill-indigo-400/40" />
+                <span className="hidden xl:inline text-[11px] font-bold text-indigo-300">Night</span>
+              </>
+            )}
+          </button>
 
           {/* Account Switcher Trigger (if logged in or accounts available) */}
           {currentUser && onOpenAccountSwitcher && (

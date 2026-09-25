@@ -277,3 +277,75 @@ export async function fetchAniListAnimeList(options: {
     },
   };
 }
+
+export async function fetchAniListTop100(
+  filter: string = 'bypopularity',
+  genre?: string,
+  year?: string,
+  limit: number = 100
+): Promise<AnimeItem[]> {
+  try {
+    let sort = '[SCORE_DESC, POPULARITY_DESC]';
+    if (filter === 'bypopularity') sort = '[POPULARITY_DESC]';
+    else if (filter === 'favorite') sort = '[FAVOURITES_DESC]';
+    else if (filter === 'upcoming') sort = '[POPULARITY_DESC]';
+    else if (filter === 'airing') sort = '[POPULARITY_DESC, SCORE_DESC]';
+
+    let statusApi: string | undefined = undefined;
+    if (filter === 'airing') statusApi = 'RELEASING';
+    if (filter === 'upcoming') statusApi = 'NOT_YET_RELEASED';
+
+    const isIsekai = genre?.toLowerCase() === 'isekai';
+    const anilistGenre = isIsekai ? undefined : (genre && genre !== 'all' ? genre : undefined);
+    const anilistTag = isIsekai ? 'Isekai' : undefined;
+    const seasonYear = year && year !== 'all' ? parseInt(year, 10) : undefined;
+
+    const query = `
+      query ($genre: String, $tag: String, $seasonYear: Int, $status: MediaStatus, $page: Int) {
+        Page(page: $page, perPage: 50) {
+          media(genre: $genre, tag: $tag, seasonYear: $seasonYear, status: $status, sort: ${sort}, isAdult: false, genre_not_in: ["Hentai"], type: ANIME) {
+            idMal id title { romaji english native } coverImage { large extraLarge } bannerImage status episodes duration averageScore popularity favourites description(asHtml: false) genres studios(isMain: true) { nodes { id name } }
+          }
+        }
+      }
+    `;
+
+    const pages = limit > 50 ? [1, 2, 3] : [1];
+    const responses = await Promise.all(
+      pages.map(p =>
+        fetch(ANILIST_GRAPHQL_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            query,
+            variables: { genre: anilistGenre, tag: anilistTag, seasonYear, status: statusApi, page: p }
+          })
+        }).then(r => r.ok ? r.json() : null).catch(() => null)
+      )
+    );
+
+    const allMedia: any[] = [];
+    for (const res of responses) {
+      const items = res?.data?.Page?.media;
+      if (Array.isArray(items)) {
+        allMedia.push(...items);
+      }
+    }
+
+    const seenIds = new Set<number>();
+    const animeList = allMedia
+      .filter((m: any) => {
+        const id = m.idMal || m.id;
+        if (!id || seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+      })
+      .map(mapAniListMediaToAnimeItem)
+      .filter((item: AnimeItem) => !isNsfwOrAdultClient(item));
+
+    return animeList.slice(0, limit);
+  } catch (err) {
+    console.warn('[AniListTop100 Client] Fetch note:', err);
+    return [];
+  }
+}
