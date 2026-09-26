@@ -4,7 +4,8 @@
 
 @theme {
   --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-display: "Syne", "Plus Jakarta Sans", sans-serif;
+  --font-display: "Outfit", "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-brand: "Unbounded", "Space Grotesk", sans-serif;
 }
 
 :root {
@@ -17,6 +18,8 @@
   --color-text-main: #0f172a;
   --color-text-muted: #475569;
   --color-text-subtle: #64748b;
+  --color-accent: #f97316;
+  --color-accent-hover: #ea580c;
   --app-scale: 0.82;
 }
 
@@ -24,16 +27,21 @@ html {
   zoom: 82%;
 }
 
+/* OLED Pitch & Akane Sunset Theme (Manga Reader / Warm Vibe) */
 html.dark {
-  --color-bg-base: #0b0d12;
-  --color-bg-card: #13161f;
-  --color-bg-surface: #181c26;
-  --color-bg-subtle: #1e2330;
-  --color-border-subtle: #252b3b;
-  --color-border-medium: #343c52;
+  --color-bg-base: #000000; /* Pure True OLED Pitch Black */
+  --color-bg-card: #0a0d14; /* Deep Obsidian Slate */
+  --color-bg-surface: #10141f; /* Surface card */
+  --color-bg-subtle: #161b26; /* Subtle graphite */
+  --color-border-subtle: #1f2535; /* Crisp dark border */
+  --color-border-medium: #2c3548;
   --color-text-main: #f8fafc;
   --color-text-muted: #94a3b8;
   --color-text-subtle: #64748b;
+  --color-accent: #f97316; /* Akane Sunset Orange */
+  --color-accent-hover: #ea580c;
+  --color-accent-subtle: rgba(249, 115, 22, 0.12);
+  --color-accent-border: rgba(249, 115, 22, 0.28);
 }
 
 /* Universal high-contrast, crisp text & placeholder readability */
@@ -102,12 +110,12 @@ html.dark .main-search-input,
 
 /* Global Accessibility Improvements */
 :focus-visible {
-  outline: 2px solid #f43f5e;
+  outline: 2px solid #f97316;
   outline-offset: 3px;
   border-radius: 4px;
 }
 input:focus-visible, button:focus-visible, a:focus-visible {
-  outline: 2px solid #f43f5e;
+  outline: 2px solid #f97316;
   outline-offset: 2px;
 }
 
@@ -119,6 +127,7 @@ html {
   overflow-x: hidden;
   text-rendering: optimizeLegibility;
   -webkit-text-size-adjust: 100%;
+  zoom: 0.9;
 }
 
 body {
@@ -138,9 +147,15 @@ body {
 }
 
 /* Ensure font-display and heading descenders (g, y, p, q, j) are never clipped at the baseline */
-h1, h2, h3, h4, .font-display {
-  line-height: 1.4;
-  padding-bottom: 0.15em;
+h1, h2, h3, h4, h5, h6, .font-display {
+  line-height: 1.4 !important;
+  overflow: visible !important;
+  padding-bottom: 0.18em;
+}
+
+.font-brand {
+  font-family: var(--font-brand);
+  letter-spacing: -0.035em;
 }
 
 /* GPU-Accelerated Tab Transition for 60 FPS on low-end mobile */

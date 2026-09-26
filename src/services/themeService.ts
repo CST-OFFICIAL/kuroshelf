@@ -2,8 +2,8 @@ import { ThemeMode } from '../types';
 
 const THEME_STORAGE_KEY = 'kuro_theme_mode';
 
-// Permanently locked view scale (80-85% sweet spot)
-export const LOCKED_APP_SCALE = '82%';
+// Application scale set to 90%
+export const LOCKED_APP_SCALE = '90%';
 
 export function getStoredThemeMode(): ThemeMode {
   try {
@@ -27,14 +27,14 @@ export function setStoredThemeMode(mode: ThemeMode): void {
 }
 
 /**
- * Permanently locks application scale at 82% (80-85% range)
+ * Sets application scale at 90%
  */
 export function applyViewScale(): void {
   if (typeof document === 'undefined') return;
   try {
     (document.body.style as unknown as Record<string, string>).zoom = '';
     (document.documentElement.style as unknown as Record<string, string>).zoom = LOCKED_APP_SCALE;
-    document.documentElement.style.setProperty('--app-scale', '0.82');
+    document.documentElement.style.setProperty('--app-scale', '0.90');
   } catch {
     // ignore
   }

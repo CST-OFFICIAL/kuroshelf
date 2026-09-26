@@ -135,6 +135,8 @@ export function App() {
 
   // Data states
   const [spotlightAnime, setSpotlightAnime] = useState<AnimeItem | null>(null);
+  const [spotlightCandidates, setSpotlightCandidates] = useState<AnimeItem[]>([]);
+  const [spotlightIndex, setSpotlightIndex] = useState<number>(0);
   const [airingAnime, setAiringAnime] = useState<AnimeItem[]>([]);
   const [seasonalAnime, setSeasonalAnime] = useState<AnimeItem[]>([]);
   const [seasonalPage, setSeasonalPage] = useState(1);
@@ -585,21 +587,43 @@ export function App() {
 
       if (airing.length > 0) {
         setAiringAnime(airing);
-        setSpotlightAnime((prev) => prev || airing[0]);
       }
 
       if (seasonal.length > 0) {
         setSeasonalAnime(seasonal);
-        setSpotlightAnime((prev) => prev || seasonal[0]);
       }
 
       if (top.length > 0) {
         setTopRankedAnime(top);
-        setSpotlightAnime((prev) => prev || top[0]);
       }
 
       if (upcoming.length > 0) {
         setUpcomingAnime(upcoming);
+      }
+
+      // Pool best anime candidates (high scores & complete visuals) for daily spotlight rotation
+      const seenIds = new Set<number>();
+      const allTopCandidates: AnimeItem[] = [];
+      for (const item of [...top, ...seasonal, ...airing]) {
+        if (!item || !item.mal_id || seenIds.has(item.mal_id)) continue;
+        seenIds.add(item.mal_id);
+        const hasImg = Boolean(item.images?.jpg?.large_image_url || item.images?.webp?.large_image_url || item.images?.jpg?.image_url);
+        if (hasImg) {
+          allTopCandidates.push(item);
+        }
+      }
+
+      if (allTopCandidates.length > 0) {
+        setSpotlightCandidates(allTopCandidates);
+        // Daily deterministic rotation index: changes automatically every day at 00:00 UTC/JST
+        const now = new Date();
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+        const initialIdx = (now.getFullYear() * 365 + dayOfYear) % allTopCandidates.length;
+        setSpotlightIndex(initialIdx);
+        setSpotlightAnime(allTopCandidates[initialIdx]);
+      } else if (airing.length > 0) {
+        setSpotlightAnime(airing[0]);
       }
 
       if (airing.length === 0 && seasonal.length === 0 && top.length === 0) {
@@ -626,6 +650,25 @@ export function App() {
       .catch((err) => console.warn('[Rankings] Notice:', err))
       .finally(() => setLoadingRankings(false));
   }, [rankingFilter, activeTab, rankingGenre, rankingYear]);
+
+  // Spotlight cycling handlers for hero banner
+  const handleNextSpotlight = useCallback(() => {
+    if (spotlightCandidates.length <= 1) return;
+    setSpotlightIndex((prev) => {
+      const nextIdx = (prev + 1) % spotlightCandidates.length;
+      setSpotlightAnime(spotlightCandidates[nextIdx]);
+      return nextIdx;
+    });
+  }, [spotlightCandidates]);
+
+  const handlePrevSpotlight = useCallback(() => {
+    if (spotlightCandidates.length <= 1) return;
+    setSpotlightIndex((prev) => {
+      const prevIdx = (prev - 1 + spotlightCandidates.length) % spotlightCandidates.length;
+      setSpotlightAnime(spotlightCandidates[prevIdx]);
+      return prevIdx;
+    });
+  }, [spotlightCandidates]);
 
   // Discover page genre filtering logic
   const handleSelectDiscoverGenre = useCallback(async (genreVal: string | null, pageNum: number = 1) => {
@@ -1142,7 +1185,7 @@ export function App() {
   const isSearchActive = debouncedQuery.trim().length > 0;
 
   return (
-    <div className="min-h-screen w-full bg-[var(--color-bg-base)] text-[var(--color-text-main)] flex flex-col font-sans selection:bg-rose-500/30 selection:text-rose-400 transition-colors duration-200">
+    <div className="min-h-screen w-full bg-[var(--color-bg-base)] text-[var(--color-text-main)] flex flex-col font-sans selection:bg-orange-500/30 selection:text-orange-400 transition-colors duration-200">
       {/* Top Navigation */}
       <Navbar
         activeTab={fullPageAnime ? '' : isSearchActive ? '' : activeTab}
@@ -1414,6 +1457,10 @@ export function App() {
                     onAddToShelf={handleAddToShelf}
                     isSavedInShelf={Boolean(spotlightAnime && getShelfItem(spotlightAnime.mal_id))}
                     onSelectGenre={(g) => handleSelectDiscoverGenre(g)}
+                    onNextSpotlight={handleNextSpotlight}
+                    onPrevSpotlight={handlePrevSpotlight}
+                    spotlightIndex={spotlightIndex}
+                    totalSpotlights={spotlightCandidates.length}
                   />
 
                   {/* Leaderboard Partner / Ad Slot */}
@@ -1426,10 +1473,10 @@ export function App() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="p-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400">
-                          <Compass className="w-3.5 h-3.5" />
+                        <div className="p-1.5 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400">
+                          <Compass className="w-4 h-4" />
                         </div>
-                        <span className="text-xs font-bold text-slate-800 dark:text-neutral-200 uppercase tracking-wider">
+                        <span className="text-sm sm:text-base font-extrabold text-slate-800 dark:text-neutral-200 uppercase tracking-wider">
                           Discover by Genre & Theme
                         </span>
                       </div>
@@ -1482,20 +1529,20 @@ export function App() {
                   {discoverGenre ? (
                     <section className="flex flex-col gap-4 p-4 rounded-2xl bg-white dark:bg-neutral-900/40 border border-slate-200 dark:border-neutral-800/80 shadow-xs">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-neutral-800/70">
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-3">
                           <div className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-rose-500 dark:text-rose-400">
-                            <Sparkles className="w-4 h-4" />
+                            <Sparkles className="w-5 h-5" />
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
-                              <h2 className="text-lg font-bold text-slate-900 dark:text-white font-display tracking-tight leading-snug">
+                            <div className="flex items-center gap-2.5">
+                              <h2 className="text-xl sm:text-2xl lg:text-[1.75rem] font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug pb-0.5 overflow-visible">
                                 {DISCOVER_GENRE_PILLS.find((p) => p.value === discoverGenre)?.name || 'Genre'} Anime
                               </h2>
-                              <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 font-semibold border border-rose-500/30">
+                              <span className="text-xs px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 font-semibold border border-rose-500/30">
                                 {discoverGenreResults.length} loaded
                               </span>
                             </div>
-                            <span className="text-xs text-slate-500 dark:text-neutral-400">
+                            <span className="text-xs sm:text-sm text-slate-500 dark:text-neutral-400">
                               Curated titles matching this genre from catalog & live index
                             </span>
                           </div>
@@ -1584,9 +1631,9 @@ export function App() {
                   {/* Currently Airing Row */}
                   <section className="flex flex-col gap-4">
                     <div className="flex items-center justify-between pb-2 mb-1">
-                      <div className="flex items-center gap-2.5">
-                        <Flame className="w-5 h-5 text-rose-500 shrink-0" />
-                        <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug">
+                      <div className="flex items-center gap-3">
+                        <Flame className="w-6 h-6 sm:w-7 sm:h-7 text-orange-500 shrink-0" />
+                        <h2 className="text-xl sm:text-2xl lg:text-[1.75rem] font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug pb-1 overflow-visible">
                           Trending Airing Anime
                         </h2>
                       </div>
@@ -1595,10 +1642,10 @@ export function App() {
                           setActiveTab('rankings');
                           setRankingFilter('airing');
                         }}
-                        className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold transition-colors"
+                        className="flex items-center gap-1 text-xs sm:text-sm text-orange-500 hover:text-orange-400 font-semibold transition-colors cursor-pointer"
                       >
                         <span>View All</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>
 
@@ -1626,18 +1673,18 @@ export function App() {
                   {/* Seasonal Highlights Row */}
                   <section className="flex flex-col gap-4">
                     <div className="flex items-center justify-between pb-2 mb-1">
-                      <div className="flex items-center gap-2.5">
-                        <Sparkles className="w-5 h-5 text-rose-500 shrink-0" />
-                        <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug">
+                      <div className="flex items-center gap-3">
+                        <Sparkles className="w-6 h-6 sm:w-7 sm:h-7 text-orange-500 shrink-0" />
+                        <h2 className="text-xl sm:text-2xl lg:text-[1.75rem] font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug pb-1 overflow-visible">
                           This Season&apos;s Highlights
                         </h2>
                       </div>
                       <button
                         onClick={() => setActiveTab('seasonal')}
-                        className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold transition-colors"
+                        className="flex items-center gap-1 text-xs sm:text-sm text-orange-500 hover:text-orange-400 font-semibold transition-colors cursor-pointer"
                       >
                         <span>Explore Season</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>
 
@@ -1665,9 +1712,9 @@ export function App() {
                   {upcomingAnime.length > 0 && (
                     <section className="flex flex-col gap-4">
                       <div className="flex items-center justify-between pb-2 mb-1">
-                        <div className="flex items-center gap-2.5">
-                          <Calendar className="w-5 h-5 text-purple-500 shrink-0" />
-                          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug">
+                        <div className="flex items-center gap-3">
+                          <Calendar className="w-6 h-6 sm:w-7 sm:h-7 text-purple-500 shrink-0" />
+                          <h2 className="text-xl sm:text-2xl lg:text-[1.75rem] font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug pb-1 overflow-visible">
                             Anticipated Upcoming Releases
                           </h2>
                         </div>
@@ -1676,10 +1723,10 @@ export function App() {
                             setActiveTab('rankings');
                             setRankingFilter('upcoming');
                           }}
-                          className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold transition-colors"
+                          className="flex items-center gap-1 text-xs sm:text-sm text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold transition-colors"
                         >
                           <span>View All Upcoming</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
+                          <ArrowRight className="w-4 h-4" />
                         </button>
                       </div>
 
@@ -1711,7 +1758,7 @@ export function App() {
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/25">
                         Community Feature
                       </span>
-                      <h3 className="text-xl font-extrabold text-slate-900 dark:text-white font-display">
+                      <h3 className="text-xl sm:text-2xl lg:text-[1.75rem] font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug pb-1 overflow-visible">
                         Have Your Say in Seasonal Prediction Polls
                       </h3>
                       <p className="text-xs text-slate-600 dark:text-neutral-400 max-w-xl">
@@ -1730,9 +1777,9 @@ export function App() {
                   {/* All-Time Popular Classics */}
                   <section className="flex flex-col gap-4">
                     <div className="flex items-center justify-between pb-2 mb-1">
-                      <div className="flex items-center gap-2.5">
-                        <Trophy className="w-5 h-5 text-amber-500 shrink-0" />
-                        <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug">
+                      <div className="flex items-center gap-3">
+                        <Trophy className="w-6 h-6 sm:w-7 sm:h-7 text-amber-500 shrink-0" />
+                        <h2 className="text-xl sm:text-2xl lg:text-[1.75rem] font-extrabold text-slate-900 dark:text-white font-display tracking-tight leading-snug pb-1 overflow-visible">
                           Most Popular Titles of All Time
                         </h2>
                       </div>
@@ -1741,10 +1788,10 @@ export function App() {
                           setActiveTab('rankings');
                           setRankingFilter('bypopularity');
                         }}
-                        className="flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold transition-colors"
+                        className="flex items-center gap-1 text-xs sm:text-sm text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-semibold transition-colors"
                       >
                         <span>Full Rankings</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>
 

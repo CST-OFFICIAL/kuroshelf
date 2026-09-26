@@ -103,10 +103,10 @@ export function Navbar({
             黒
           </div>
           <div className="flex flex-col">
-            <span className="font-display font-black tracking-tight text-xl text-slate-900 dark:text-white group-hover:text-rose-500 transition-colors flex items-center gap-1">
+            <span className="font-brand font-black tracking-[-0.035em] text-lg sm:text-xl text-slate-900 dark:text-white group-hover:text-rose-500 transition-colors flex items-center">
               KURO<span className="text-rose-500 ml-0.5">SHELF</span>
             </span>
-            <span className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-neutral-400 -mt-0.5 font-semibold">
+            <span className="text-[9.5px] uppercase tracking-widest text-slate-500 dark:text-neutral-400 -mt-0.5 font-semibold">
               Digital Anime Library
             </span>
           </div>
@@ -123,14 +123,14 @@ export function Navbar({
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
                 isPremium
                   ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-300 hover:bg-amber-500/25 shadow-xs'
-                  : 'bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-300'
+                  : 'bg-orange-50 dark:bg-orange-500/10 hover:bg-orange-100 dark:hover:bg-orange-500/20 border-orange-200 dark:border-orange-500/30 text-orange-600 dark:text-orange-300'
               }`}
               title={isPremium ? 'Kuro VIP Active' : 'Help KuroShelf Grow & VIP Membership'}
             >
               {isPremium ? (
                 <Crown className="w-3.5 h-3.5 text-amber-500" />
               ) : (
-                <Heart className="w-3.5 h-3.5 text-rose-500 fill-current" />
+                <Heart className="w-3.5 h-3.5 text-orange-500 fill-current" />
               )}
               <span className="hidden lg:inline">
                 {isPremium ? 'VIP' : 'Support'}

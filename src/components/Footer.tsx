@@ -37,7 +37,7 @@ export function Footer({ onNavigateTab, onOpenInfoModal, onOpenMembershipModal, 
               <span className="w-6 h-6 rounded bg-rose-600 flex items-center justify-center text-white text-xs font-black shadow-sm group-hover:scale-105 transition-transform">
                 黒
               </span>
-              <span className="font-display font-extrabold text-white text-base tracking-tight group-hover:text-rose-400 transition-colors">
+              <span className="font-brand font-black text-white text-base tracking-tight group-hover:text-rose-400 transition-colors">
                 KURO<span className="text-rose-500">SHELF</span>
               </span>
             </div>

@@ -1,6 +1,7 @@
 import { CommentSection } from './CommentSection';
 import { useState, useEffect } from 'react';
 import { cleanSynopsis } from '../utils/textUtils';
+import { formatOverallRank } from '../utils/rankHelper';
 import {
   X,
   Star,
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react';
 import { AnimeItem, CharacterItem, ShelfStatus, WatchPlatform, RecommendedAnimeItem } from '../types';
 import { getAnimeCharacters, getAnimeById, getAnimeRecommendations } from '../services/jikan';
+import { getFranchiseSeasons, FranchiseSeasonItem } from '../services/franchiseService';
 import { siteConfig } from '../config/site';
 
 import { MediaImage } from './MediaImage';
@@ -83,6 +85,21 @@ export function AnimeDetailModal({
   const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
   const [communityScore, setCommunityScore] = useState<{ score: number | null, users: number } | null>(null);
   const [liveSynopsis, setLiveSynopsis] = useState<string | null>(initialAnime?.synopsis || null);
+  const [franchiseSeasons, setFranchiseSeasons] = useState<FranchiseSeasonItem[]>([]);
+  const [loadingSeasons, setLoadingSeasons] = useState(false);
+
+  // Load all franchise seasons (Season 1, Season 2, Sequels, etc.)
+  useEffect(() => {
+    if (!initialAnime?.mal_id) {
+      setFranchiseSeasons([]);
+      return;
+    }
+    setLoadingSeasons(true);
+    getFranchiseSeasons(initialAnime)
+      .then((seasons) => setFranchiseSeasons(seasons))
+      .catch((err) => console.warn('[Modal Franchise Seasons] Notice:', err))
+      .finally(() => setLoadingSeasons(false));
+  }, [initialAnime?.mal_id, initialAnime?.title]);
 
   // Safety check: instantly close if adult or specifically blocked hentai title
   useEffect(() => {
@@ -533,11 +550,9 @@ export function AnimeDetailModal({
                     </div>
                   )}
                 </div>
-                {anime.rank && (
-                  <span className="px-2.5 py-1 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 font-semibold">
-                    Rank #{anime.rank}
-                  </span>
-                )}
+                <span className="px-2.5 py-1 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 font-semibold" title="Overall Global Ranking">
+                  Rank {formatOverallRank(anime)}
+                </span>
                 {anime.popularity && (
                   <span className="px-2.5 py-1 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 font-semibold">
                     Popularity #{anime.popularity}
@@ -1060,12 +1075,81 @@ export function AnimeDetailModal({
           {/* TAB CONTENT: Relations & Sequels */}
           {activeTab === 'relations' && (
             <div className="space-y-4">
+              {/* Franchise Seasons & Sequels List */}
+              {franchiseSeasons.length > 0 && (
+                <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <GitFork className="w-4 h-4 text-orange-400" />
+                      <h4 className="font-bold text-white text-sm">
+                        All Franchise Seasons & Chronological Timeline ({franchiseSeasons.length})
+                      </h4>
+                    </div>
+                    <span className="text-[11px] text-neutral-400 font-medium">Click to switch season</span>
+                  </div>
+
+                  {loadingSeasons ? (
+                    <div className="py-6 text-center text-xs text-neutral-400">Loading franchise seasons...</div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {franchiseSeasons.map((s, idx) => {
+                        const isCurrent = s.mal_id === anime.mal_id;
+                        return (
+                          <div
+                            key={`modal-season-${s.mal_id}`}
+                            className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 transition-all ${
+                              isCurrent
+                                ? 'bg-orange-500/10 border-orange-500/40 ring-1 ring-orange-500/20'
+                                : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <div className="w-9 h-12 rounded-lg overflow-hidden bg-neutral-900 shrink-0">
+                                <img
+                                  src={s.images.jpg.image_url}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 text-[10px]">
+                                  <span className="font-bold text-orange-400">Part {idx + 1}</span>
+                                  {s.year && <span className="text-neutral-500">{s.year}</span>}
+                                  {isCurrent && (
+                                    <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-emerald-500 text-white">
+                                      Current
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs font-semibold text-neutral-200 truncate mt-0.5" title={s.title}>
+                                  {s.title}
+                                </p>
+                              </div>
+                            </div>
+
+                            {!isCurrent && onSelectRelatedAnime && (
+                              <button
+                                type="button"
+                                onClick={() => onSelectRelatedAnime(s.mal_id)}
+                                className="px-2.5 py-1 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition-colors shrink-0 cursor-pointer"
+                              >
+                                View →
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {anime.relations && anime.relations.length > 0 ? (
                 <div className="space-y-4">
                   {anime.relations.map((rel) => (
                     <div key={rel.relation} className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 space-y-2">
                       <div className="flex items-center gap-2 mb-2">
-                        <GitFork className="w-4 h-4 text-rose-400" />
+                        <GitFork className="w-4 h-4 text-orange-400" />
                         <h4 className="font-bold text-white text-sm">{rel.relation}</h4>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">

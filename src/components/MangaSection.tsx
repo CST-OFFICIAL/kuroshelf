@@ -105,7 +105,7 @@ export function MangaSection({
             <BookOpen className="w-4 h-4" />
             <span>Manga & Light Novels</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-display">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white font-display tracking-tight leading-snug pb-0.5 overflow-visible">
             Manga Discovery & Shelf Tracker
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400 mt-1">

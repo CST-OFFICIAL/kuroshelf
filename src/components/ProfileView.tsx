@@ -65,8 +65,6 @@ import {
   demoteFromAdmin
 } from '../services/profileCustomizationService';
 import { AnimeAvatar } from './AnimeAvatar';
-import { AdminDragonBanner } from './AdminDragonBanner';
-import { NormalBannerArt } from './NormalBannerArt';
 import { DailyStreakWidget } from './DailyStreakWidget';
 import { VerifiedMemberBadge } from './VerifiedMemberBadge';
 
@@ -770,12 +768,8 @@ export function ProfileView({
                 : 'rounded-3xl bg-gradient-to-r ' + activeBannerTheme.gradient + ' shadow-2xl'
             }`}
           >
-            {/* If Exclusive Admin Banner: Japanese Dragon / Domain Expansion bursting out */}
-            {activeBannerTheme.isAdminOnly ? (
-              <AdminDragonBanner themeId={activeBannerTheme.id} />
-            ) : (
-              <NormalBannerArt themeId={activeBannerTheme.id} />
-            )}
+            {/* Subtle atmospheric ambient glow - frameless */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-black/50 via-transparent to-white/10 pointer-events-none rounded-3xl" />
 
             {/* Subtle atmospheric ambient glow - frameless */}
             <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none rounded-3xl" />
@@ -2741,8 +2735,8 @@ export function ProfileView({
                             : 'border-neutral-800 hover:border-neutral-700'
                         } bg-gradient-to-r ${theme.gradient}`}
                       >
-                        {/* NormalBannerArt preview in background */}
-                        <NormalBannerArt themeId={theme.id} />
+                        {/* Banner theme gradient overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-white/10 pointer-events-none" />
                         <div className="absolute inset-0 bg-black/25 pointer-events-none" />
                         <div className="relative z-10 flex justify-end">
                           {isSelected && (

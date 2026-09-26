@@ -98,23 +98,23 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({
                 onClick={() => onThemeModeChange('dark')}
                 className={`relative flex flex-col items-center gap-2.5 p-3.5 rounded-xl border text-center transition-all cursor-pointer ${
                   themeMode === 'dark'
-                    ? 'bg-rose-950/20 border-rose-500 ring-2 ring-rose-500/20 shadow-sm text-slate-900 dark:text-slate-100'
+                    ? 'bg-orange-950/20 border-orange-500 ring-2 ring-orange-500/20 shadow-sm text-slate-900 dark:text-slate-100'
                     : 'bg-slate-50/80 dark:bg-[#181c28] border-slate-200 dark:border-[#262c3e] text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-[#38425a]'
                 }`}
               >
                 <div className={`p-2 rounded-xl transition-colors ${
                   themeMode === 'dark' 
-                    ? 'bg-indigo-950 text-indigo-300' 
+                    ? 'bg-orange-950/60 text-orange-400 border border-orange-500/30' 
                     : 'bg-slate-200/70 dark:bg-[#202636] text-slate-600 dark:text-slate-400'
                 }`}>
                   <Moon className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100">Dark</div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Kuro Night</div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100">OLED Dark</div>
+                  <div className="text-[10px] text-orange-400/90 dark:text-orange-400 mt-0.5">Akane Sunset</div>
                 </div>
                 {themeMode === 'dark' && (
-                  <div className="absolute top-2 right-2 p-0.5 rounded-full bg-rose-600 text-white">
+                  <div className="absolute top-2 right-2 p-0.5 rounded-full bg-orange-500 text-white">
                     <Check className="w-3 h-3" />
                   </div>
                 )}

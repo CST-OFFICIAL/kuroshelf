@@ -1299,12 +1299,27 @@ export async function serverGetAiringSchedule(targetDay?: string): Promise<Airin
     return cached.data as AiringScheduleAnime[];
   }
 
-  // 1. Try Jikan /schedules
+  const collectedAnime: AiringScheduleAnime[] = [];
+
+  // 1. Try Jikan /schedules - fetch multiple pages so NO anime releasing on this day are missed
   try {
-    const jikanEndpoint = normalizedDay ? `/schedules?filter=${normalizedDay}&sfw=true` : `/schedules?sfw=true`;
-    const res = await fetchFromJikan<any[]>(jikanEndpoint, 1000 * 60 * 30);
-    if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-      const mapped = res.data.map(item => {
+    const p1Url = normalizedDay ? `/schedules?filter=${normalizedDay}&page=1&limit=25&sfw=true` : `/schedules?page=1&limit=25&sfw=true`;
+    const p2Url = normalizedDay ? `/schedules?filter=${normalizedDay}&page=2&limit=25&sfw=true` : `/schedules?page=2&limit=25&sfw=true`;
+    const p3Url = normalizedDay ? `/schedules?filter=${normalizedDay}&page=3&limit=25&sfw=true` : `/schedules?page=3&limit=25&sfw=true`;
+
+    const [res1, res2, res3] = await Promise.allSettled([
+      fetchFromJikan<any[]>(p1Url, 1000 * 60 * 30),
+      fetchFromJikan<any[]>(p2Url, 1000 * 60 * 30),
+      fetchFromJikan<any[]>(p3Url, 1000 * 60 * 30),
+    ]);
+
+    const allJikanItems: any[] = [];
+    if (res1.status === 'fulfilled' && Array.isArray(res1.value?.data)) allJikanItems.push(...res1.value.data);
+    if (res2.status === 'fulfilled' && Array.isArray(res2.value?.data)) allJikanItems.push(...res2.value.data);
+    if (res3.status === 'fulfilled' && Array.isArray(res3.value?.data)) allJikanItems.push(...res3.value.data);
+
+    if (allJikanItems.length > 0) {
+      const mapped = allJikanItems.map(item => {
         let airing_day = normalizedDay;
         let airing_time = item.broadcast?.time || '';
         if (item.broadcast?.day) {
@@ -1321,19 +1336,17 @@ export async function serverGetAiringSchedule(targetDay?: string): Promise<Airin
           }
         };
       });
-      const unique = deduplicateByMalId(mapped);
-      memoryCache.set(cacheKey, { data: unique, timestamp: Date.now() });
-      return unique;
+      collectedAnime.push(...mapped);
     }
   } catch (jikanErr) {
     console.warn('[Schedule] Jikan fetch notice:', jikanErr);
   }
 
-  // 2. Fallback: AniList GraphQL for Releasing media with nextAiringEpisode
+  // 2. Also enrich from AniList GraphQL with full 100-item page capacity
   try {
     const query = `
-      query {
-        Page(page: 1, perPage: 50) {
+      query ($page: Int) {
+        Page(page: $page, perPage: 50) {
           media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC, isAdult: false) {
             id
             idMal
@@ -1356,17 +1369,30 @@ export async function serverGetAiringSchedule(targetDay?: string): Promise<Airin
       }
     `;
 
-    const res = await fetch('https://graphql.anilist.co', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query }),
-      signal: AbortSignal.timeout(8000)
-    });
+    const [page1Res, page2Res] = await Promise.allSettled([
+      fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables: { page: 1 } }),
+        signal: AbortSignal.timeout(8000)
+      }).then(r => r.json()),
+      fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables: { page: 2 } }),
+        signal: AbortSignal.timeout(8000)
+      }).then(r => r.json())
+    ]);
 
-    if (res.ok) {
-      const json = await res.json();
-      const mediaList = json.data?.Page?.media || [];
+    const mediaList: any[] = [];
+    if (page1Res.status === 'fulfilled' && page1Res.value?.data?.Page?.media) {
+      mediaList.push(...page1Res.value.data.Page.media);
+    }
+    if (page2Res.status === 'fulfilled' && page2Res.value?.data?.Page?.media) {
+      mediaList.push(...page2Res.value.data.Page.media);
+    }
 
+    if (mediaList.length > 0) {
       const mapped: AiringScheduleAnime[] = mediaList.map((m: any) => {
         let airing_day = '';
         let airing_time = '';
@@ -1415,14 +1441,16 @@ export async function serverGetAiringSchedule(targetDay?: string): Promise<Airin
         ? mapped.filter(item => item.airing_schedule?.airing_day === normalizedDay)
         : mapped;
 
-      const unique = deduplicateByMalId(filtered);
-      if (unique.length > 0) {
-        memoryCache.set(cacheKey, { data: unique, timestamp: Date.now() });
-        return unique;
-      }
+      collectedAnime.push(...filtered);
     }
   } catch (anilistErr) {
     console.warn('[Schedule] AniList fallback notice:', anilistErr);
+  }
+
+  const unique = deduplicateByMalId(collectedAnime);
+  if (unique.length > 0) {
+    memoryCache.set(cacheKey, { data: unique, timestamp: Date.now() });
+    return unique;
   }
 
   return [];

@@ -1,5 +1,5 @@
 import { AnimeItem, ShelfStatus } from '../types';
-import { Play, Plus, Check, Star, Calendar, Clock } from 'lucide-react';
+import { Play, Plus, Check, Star, Calendar, Clock, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { MediaImage } from './MediaImage';
 import { cleanSynopsis } from '../utils/textUtils';
@@ -10,9 +10,23 @@ interface HeroBannerProps {
   onAddToShelf: (anime: AnimeItem, status: ShelfStatus) => void;
   isSavedInShelf: boolean;
   onSelectGenre?: (genre: string) => void;
+  onNextSpotlight?: () => void;
+  onPrevSpotlight?: () => void;
+  spotlightIndex?: number;
+  totalSpotlights?: number;
 }
 
-export function HeroBanner({ anime, onSelect, onAddToShelf, isSavedInShelf, onSelectGenre }: HeroBannerProps) {
+export function HeroBanner({
+  anime,
+  onSelect,
+  onAddToShelf,
+  isSavedInShelf,
+  onSelectGenre,
+  onNextSpotlight,
+  onPrevSpotlight,
+  spotlightIndex = 0,
+  totalSpotlights = 1,
+}: HeroBannerProps) {
   const [countdown, setCountdown] = useState<string | null>(null);
 
   useEffect(() => {
@@ -88,42 +102,69 @@ export function HeroBanner({ anime, onSelect, onAddToShelf, isSavedInShelf, onSe
         {/* Text & Meta Details */}
         <div className="flex-1 space-y-3 sm:space-y-4 text-center md:text-left">
           {/* Metadata badges */}
-          <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-xs">
-            <span className="px-2.5 py-1 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold uppercase tracking-wider text-[11px]">
-              Featured Selection
-            </span>
-            {anime.score && (
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">
-                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                {anime.score.toFixed(2)}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-1 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5 shadow-xs">
+                <Sparkles className="w-3.5 h-3.5 text-rose-400" />
+                <span>Daily Spotlight • Best of Anime</span>
               </span>
+              {anime.score && (
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                  {anime.score.toFixed(2)}
+                </span>
+              )}
+              {anime.status && (
+                <span className="px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-300 border border-neutral-700 font-medium">
+                  {anime.status}
+                </span>
+              )}
+              {anime.season && (
+                <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-900 text-neutral-400 border border-neutral-800">
+                  <Calendar className="w-3 h-3 text-neutral-400" />
+                  <span className="capitalize">{anime.season}</span> {anime.year}
+                </span>
+              )}
+              {anime.genres?.slice(0, 3).map((g) => (
+                <button
+                  key={g.name}
+                  type="button"
+                  onClick={() => onSelectGenre?.(g.name)}
+                  className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                    onSelectGenre
+                      ? 'bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-rose-300 border border-neutral-800 cursor-pointer'
+                      : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                  }`}
+                  title={`Explore ${g.name} anime`}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+
+            {onNextSpotlight && totalSpotlights > 1 && (
+              <div className="flex items-center gap-1 ml-auto">
+                <span className="text-[11px] text-neutral-400 font-mono hidden sm:inline mr-1">
+                  {spotlightIndex + 1}/{totalSpotlights}
+                </span>
+                <button
+                  type="button"
+                  onClick={onPrevSpotlight}
+                  className="p-1 rounded-lg bg-neutral-900/80 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 transition-colors cursor-pointer"
+                  title="Previous daily featured anime"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onNextSpotlight}
+                  className="p-1 rounded-lg bg-neutral-900/80 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 transition-colors cursor-pointer"
+                  title="Next daily featured anime"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )}
-            {anime.status && (
-              <span className="px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-300 border border-neutral-700 font-medium">
-                {anime.status}
-              </span>
-            )}
-            {anime.season && (
-              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-900 text-neutral-400 border border-neutral-800">
-                <Calendar className="w-3 h-3 text-neutral-400" />
-                <span className="capitalize">{anime.season}</span> {anime.year}
-              </span>
-            )}
-            {anime.genres?.slice(0, 3).map((g) => (
-              <button
-                key={g.name}
-                type="button"
-                onClick={() => onSelectGenre?.(g.name)}
-                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                  onSelectGenre
-                    ? 'bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-rose-300 border border-neutral-800 cursor-pointer'
-                    : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
-                }`}
-                title={`Explore ${g.name} anime`}
-              >
-                {g.name}
-              </button>
-            ))}
           </div>
 
           {/* Title */}
