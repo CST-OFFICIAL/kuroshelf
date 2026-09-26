@@ -62,7 +62,7 @@ export function AnimeFullPage({
   const [loadingCharacters, setLoadingCharacters] = useState(false);
   const [recommendations, setRecommendations] = useState<RecommendedAnimeItem[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'seasons' | 'characters' | 'relations' | 'where_to_watch' | 'manga' | 'discussion' | 'recommendations'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'characters' | 'relations' | 'where_to_watch' | 'manga' | 'discussion' | 'recommendations'>('overview');
   const [copied, setCopied] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
   const [liveSynopsis, setLiveSynopsis] = useState<string | null>(initialAnime?.synopsis || null);
@@ -391,18 +391,18 @@ export function AnimeFullPage({
 
           <button
             type="button"
-            onClick={() => setActiveTab('seasons')}
+            onClick={() => setActiveTab('relations')}
             className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'seasons'
+              activeTab === 'relations'
                 ? 'bg-orange-600 text-white shadow-xs'
                 : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <GitFork className="w-4 h-4 text-orange-400" />
-            <span>All Seasons</span>
+            <span>Relations & Franchise</span>
             {franchiseSeasons.length > 1 && (
               <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                activeTab === 'seasons' ? 'bg-black/30 text-white' : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                activeTab === 'relations' ? 'bg-black/30 text-white' : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
               }`}>
                 {franchiseSeasons.length}
               </span>
@@ -433,19 +433,6 @@ export function AnimeFullPage({
           >
             <Layers className="w-4 h-4" />
             <span>Characters & Cast</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('relations')}
-            className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'relations'
-                ? 'bg-orange-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <GitFork className="w-4 h-4" />
-            <span>Relations</span>
           </button>
 
           <button
@@ -526,10 +513,10 @@ export function AnimeFullPage({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setActiveTab('seasons')}
+                    onClick={() => setActiveTab('relations')}
                     className="text-xs font-semibold text-orange-500 hover:text-orange-400 transition-colors cursor-pointer"
                   >
-                    View Timeline Order →
+                    View Relations & Timeline →
                   </button>
                 </div>
 
@@ -760,9 +747,16 @@ export function AnimeFullPage({
                         {item.role}
                       </span>
                       {item.voice_actors && item.voice_actors.length > 0 && (
-                        <p className="text-[11px] text-slate-500 dark:text-neutral-400 truncate mt-1">
-                          VA: {item.voice_actors[0].person.name}
-                        </p>
+                        <div className="mt-1 space-y-0.5">
+                          <p className="text-[11px] text-slate-600 dark:text-neutral-300 truncate font-medium">
+                            VA: {item.voice_actors[0].person.name} <span className="text-[10px] text-neutral-400">({item.voice_actors[0].language || 'JP'})</span>
+                          </p>
+                          {item.voice_actors.length > 1 && (
+                            <p className="text-[10px] text-slate-400 dark:text-neutral-500 truncate">
+                              Dub: {item.voice_actors[1].person.name} <span className="text-[9px]">({item.voice_actors[1].language})</span>
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -776,28 +770,28 @@ export function AnimeFullPage({
           </div>
         )}
 
-        {/* TAB CONTENT: All Seasons & Franchise Timeline */}
-        {activeTab === 'seasons' && (
+        {/* TAB CONTENT: Relations & Franchise Timeline */}
+        {activeTab === 'relations' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 rounded-2xl bg-white dark:bg-[#0a0d14] border border-slate-200 dark:border-[#1f2535] shadow-2xs">
               <div>
                 <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <GitFork className="w-5 h-5 text-orange-500" />
-                  <span>All Seasons & Franchise Timeline</span>
+                  <span>Franchise Relations & Timeline</span>
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1">
-                  Chronological release order of all anime seasons, sequels, prequels, movies, and spin-offs in this franchise.
+                  Chronological release order of all anime seasons, sequels, prequels, movies, and related works in this franchise.
                 </p>
               </div>
               <span className="self-start sm:self-auto px-3 py-1 rounded-xl text-xs font-bold bg-orange-500/10 text-orange-500 border border-orange-500/20">
-                {franchiseSeasons.length} Franchise Works
+                {franchiseSeasons.length} Connected Works
               </span>
             </div>
 
             {loadingSeasons ? (
               <div className="py-16 text-center text-slate-500 dark:text-neutral-400">
                 <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <span>Loading all seasons in this franchise...</span>
+                <span>Loading all connected franchise relations...</span>
               </div>
             ) : franchiseSeasons.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -824,7 +818,7 @@ export function AnimeFullPage({
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-orange-500 text-white">
-                              Part {idx + 1}
+                              {season.relationType || `Part ${idx + 1}`}
                             </span>
                             {season.type && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-[#121622] text-slate-700 dark:text-neutral-300">
@@ -888,62 +882,52 @@ export function AnimeFullPage({
                   );
                 })}
               </div>
-            ) : (
-              <div className="p-8 rounded-2xl bg-white dark:bg-[#0a0d14] border border-slate-200 dark:border-[#1f2535] text-center text-slate-500 dark:text-neutral-400 text-sm">
-                No additional seasons found for this franchise.
-              </div>
-            )}
-          </div>
-        )}
+            ) : null}
 
-        {/* TAB CONTENT: Relations */}
-        {activeTab === 'relations' && (
-          <div className="p-6 rounded-2xl bg-white dark:bg-[#0a0d14] border border-slate-200 dark:border-[#1f2535] shadow-2xs space-y-4">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <GitFork className="w-5 h-5 text-orange-500" />
-              <span>Related Works</span>
-            </h2>
+            {/* Direct Jikan / Adaptations (Manga, Light Novel, Spin-offs) */}
+            {anime.relations && anime.relations.length > 0 && (
+              <div className="p-6 rounded-2xl bg-white dark:bg-[#0a0d14] border border-slate-200 dark:border-[#1f2535] shadow-2xs space-y-4">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <GitFork className="w-4 h-4 text-orange-500" />
+                  <span>Other Adaptations & Cross-Media Entries</span>
+                </h3>
 
-            {anime.relations && anime.relations.length > 0 ? (
-              <div className="space-y-4">
-                {anime.relations.map((relation, idx) => (
-                  <div key={`rel-${idx}`} className="space-y-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-orange-500">
-                      {relation.relation}
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      {relation.entry?.map((entry) => (
-                        <button
-                          key={entry.mal_id}
-                          type="button"
-                          onClick={async () => {
-                            if (entry.type === 'anime' && onSelectAnime) {
-                              try {
-                                const relAnime = await getAnimeById(entry.mal_id);
-                                if (relAnime) onSelectAnime(relAnime);
-                              } catch (err) {
-                                console.warn('Failed to load related anime:', err);
+                <div className="space-y-4">
+                  {anime.relations.map((relation, idx) => (
+                    <div key={`rel-${idx}`} className="space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-orange-500">
+                        {relation.relation}
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {relation.entry?.map((entry) => (
+                          <button
+                            key={entry.mal_id}
+                            type="button"
+                            onClick={async () => {
+                              if (entry.type === 'anime' && onSelectAnime) {
+                                try {
+                                  const relAnime = await getAnimeById(entry.mal_id);
+                                  if (relAnime) onSelectAnime(relAnime);
+                                } catch (err) {
+                                  console.warn('Failed to load related anime:', err);
+                                }
                               }
-                            }
-                          }}
-                          className={`px-3 py-2 rounded-xl text-xs font-medium border text-left transition-all ${
-                            entry.type === 'anime' && onSelectAnime
-                              ? 'bg-slate-100 hover:bg-slate-200 dark:bg-[#121622] dark:hover:bg-[#181e2e] text-slate-800 dark:text-white border-slate-200 dark:border-[#222a3a] cursor-pointer'
-                              : 'bg-slate-50 dark:bg-neutral-900 text-slate-600 dark:text-neutral-400 border-slate-200 dark:border-neutral-800'
-                          }`}
-                        >
-                          <span className="font-semibold block">{entry.name}</span>
-                          <span className="text-[10px] text-slate-400 dark:text-neutral-500 uppercase">{entry.type}</span>
-                        </button>
-                      ))}
+                            }}
+                            className={`px-3 py-2 rounded-xl text-xs font-medium border text-left transition-all ${
+                              entry.type === 'anime' && onSelectAnime
+                                ? 'bg-slate-100 hover:bg-slate-200 dark:bg-[#121622] dark:hover:bg-[#181e2e] text-slate-800 dark:text-white border-slate-200 dark:border-[#222a3a] cursor-pointer'
+                                : 'bg-slate-50 dark:bg-neutral-900 text-slate-600 dark:text-neutral-400 border-slate-200 dark:border-neutral-800'
+                            }`}
+                          >
+                            <span className="font-semibold block">{entry.name}</span>
+                            <span className="text-[10px] text-slate-400 dark:text-neutral-500 uppercase">{entry.type}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            ) : (
-              <p className="text-sm text-slate-500 dark:text-neutral-400">
-                No related franchise works listed.
-              </p>
             )}
           </div>
         )}

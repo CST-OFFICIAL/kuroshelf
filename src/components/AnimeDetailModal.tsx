@@ -87,19 +87,21 @@ export function AnimeDetailModal({
   const [liveSynopsis, setLiveSynopsis] = useState<string | null>(initialAnime?.synopsis || null);
   const [franchiseSeasons, setFranchiseSeasons] = useState<FranchiseSeasonItem[]>([]);
   const [loadingSeasons, setLoadingSeasons] = useState(false);
+  const [visibleCharCount, setVisibleCharCount] = useState(36);
 
-  // Load all franchise seasons (Season 1, Season 2, Sequels, etc.)
+  // Load all franchise seasons (Season 1, Season 2, Sequels, Movies, etc.)
   useEffect(() => {
-    if (!initialAnime?.mal_id) {
+    const target = anime || initialAnime;
+    if (!target?.mal_id) {
       setFranchiseSeasons([]);
       return;
     }
     setLoadingSeasons(true);
-    getFranchiseSeasons(initialAnime)
+    getFranchiseSeasons(target)
       .then((seasons) => setFranchiseSeasons(seasons))
       .catch((err) => console.warn('[Modal Franchise Seasons] Notice:', err))
       .finally(() => setLoadingSeasons(false));
-  }, [initialAnime?.mal_id, initialAnime?.title]);
+  }, [anime?.mal_id, anime?.relations, initialAnime?.mal_id]);
 
   // Safety check: instantly close if adult or specifically blocked hentai title
   useEffect(() => {
@@ -194,9 +196,10 @@ export function AnimeDetailModal({
   // Fetch characters when anime opens
   useEffect(() => {
     if (!anime) return;
+    setVisibleCharCount(36);
     setLoadingCharacters(true);
     getAnimeCharacters(anime.mal_id)
-      .then((data) => setCharacters(data.slice(0, 16)))
+      .then((data) => setCharacters(data || []))
       .catch(() => setCharacters([]))
       .finally(() => setLoadingCharacters(false));
   }, [anime?.mal_id]);
@@ -1112,8 +1115,9 @@ export function AnimeDetailModal({
                                 />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5 text-[10px]">
-                                  <span className="font-bold text-orange-400">Part {idx + 1}</span>
+                                <div className="flex items-center gap-1.5 text-[10px] flex-wrap">
+                                  <span className="font-bold text-orange-400">{s.relationType || `Part ${idx + 1}`}</span>
+                                  {s.type && <span className="px-1 py-0.2 rounded text-[9px] font-medium bg-neutral-800 text-neutral-400">{s.type}</span>}
                                   {s.year && <span className="text-neutral-500">{s.year}</span>}
                                   {isCurrent && (
                                     <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-emerald-500 text-white">
@@ -1229,83 +1233,149 @@ export function AnimeDetailModal({
                   No character data available for this title.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {characters.map((char, idx) => {
-                    const primaryVa = char.voice_actors && char.voice_actors.length > 0
-                      ? char.voice_actors.find(v => v.language?.toLowerCase().includes('japanese')) || char.voice_actors[0]
-                      : null;
-
-                    return (
-                      <div
-                        key={`char-${char.character.mal_id}-${char.role}-${idx}`}
-                        className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition-all flex flex-col justify-between space-y-3"
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-xs text-neutral-400 px-1">
+                    <span>Showing {Math.min(visibleCharCount, characters.length)} of {characters.length} characters & voice cast</span>
+                    {characters.length > visibleCharCount && (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCharCount(characters.length)}
+                        className="text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
                       >
-                        {/* Character Top Row */}
-                        <div
-                          onClick={() => onSelectCharacter && onSelectCharacter(char.character.mal_id, char.character.name)}
-                          className="flex items-center gap-3 cursor-pointer group/char"
-                        >
-                          <div className="w-14 h-14 rounded-lg overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800">
-                            <MediaImage
-                              malId={char.character.mal_id}
-                              images={char.character.images}
-                              alt={char.character.name}
-                              title={char.character.name}
-                              mediaType="character"
-                              aspectRatio="aspect-square"
-                              loading="lazy"
-                              className="w-full h-full object-cover group-hover/char:scale-105 transition-transform"
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h5 className="text-xs font-bold text-neutral-200 group-hover/char:text-rose-400 line-clamp-1 transition-colors">
-                              {char.character.name}
-                            </h5>
-                            <span className="text-[10px] text-neutral-400 capitalize block">
-                              {char.role} Role
-                            </span>
-                            <span className="text-[9px] text-rose-400/80 font-medium hover:underline inline-block mt-0.5">
-                              Explore Character →
-                            </span>
-                          </div>
-                        </div>
+                        Show All
+                      </button>
+                    )}
+                  </div>
 
-                        {/* Voice Actor Row if available */}
-                        {primaryVa && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {characters.slice(0, visibleCharCount).map((char, idx) => {
+                      const vas = char.voice_actors || [];
+                      const primaryVa = vas.find(v => v.language?.toLowerCase().includes('japanese')) || vas[0];
+                      const secondaryVa = vas.find(v => v !== primaryVa && (v.language?.toLowerCase().includes('english') || v.language?.toLowerCase().includes('japanese')));
+
+                      return (
+                        <div
+                          key={`char-${char.character.mal_id}-${char.role}-${idx}`}
+                          className="p-3 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition-all flex flex-col justify-between space-y-3"
+                        >
+                          {/* Character Top Row */}
                           <div
-                            onClick={() => onSelectVoiceActor && onSelectVoiceActor(primaryVa.person.mal_id, primaryVa.person.name)}
-                            className="pt-2 border-t border-neutral-800/80 flex items-center justify-between gap-2 p-1.5 rounded-lg bg-neutral-950/60 hover:bg-neutral-950 hover:border-neutral-700 border border-transparent cursor-pointer group/va transition-all"
+                            onClick={() => onSelectCharacter && onSelectCharacter(char.character.mal_id, char.character.name)}
+                            className="flex items-center gap-3 cursor-pointer group/char"
                           >
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                              {primaryVa.person.images?.jpg?.image_url ? (
-                                <img
-                                  src={primaryVa.person.images.jpg.image_url}
-                                  alt={primaryVa.person.name}
-                                  referrerPolicy="no-referrer"
-                                  className="w-7 h-7 rounded-full object-cover bg-neutral-900 shrink-0"
-                                />
-                              ) : (
-                                <div className="w-7 h-7 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
-                                  <Mic className="w-3.5 h-3.5 text-neutral-500" />
+                            <div className="w-14 h-14 rounded-lg overflow-hidden bg-neutral-950 shrink-0 border border-neutral-800">
+                              <MediaImage
+                                malId={char.character.mal_id}
+                                images={char.character.images}
+                                alt={char.character.name}
+                                title={char.character.name}
+                                mediaType="character"
+                                aspectRatio="aspect-square"
+                                loading="lazy"
+                                className="w-full h-full object-cover group-hover/char:scale-105 transition-transform"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h5 className="text-xs font-bold text-neutral-200 group-hover/char:text-rose-400 line-clamp-1 transition-colors">
+                                {char.character.name}
+                              </h5>
+                              <span className="text-[10px] text-neutral-400 capitalize block">
+                                {char.role} Role
+                              </span>
+                              <span className="text-[9px] text-rose-400/80 font-medium hover:underline inline-block mt-0.5">
+                                Explore Character →
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Voice Actor Rows (Both Japanese and Dub if available) */}
+                          {primaryVa ? (
+                            <div className="pt-2 border-t border-neutral-800/80 space-y-1.5">
+                              <div
+                                onClick={() => onSelectVoiceActor && onSelectVoiceActor(primaryVa.person.mal_id, primaryVa.person.name)}
+                                className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-neutral-950/60 hover:bg-neutral-950 hover:border-neutral-700 border border-transparent cursor-pointer group/va transition-all"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  {primaryVa.person.images?.jpg?.image_url ? (
+                                    <img
+                                      src={primaryVa.person.images.jpg.image_url}
+                                      alt={primaryVa.person.name}
+                                      referrerPolicy="no-referrer"
+                                      className="w-7 h-7 rounded-full object-cover bg-neutral-900 shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="w-7 h-7 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
+                                      <Mic className="w-3.5 h-3.5 text-neutral-500" />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-[11px] font-semibold text-neutral-300 group-hover/va:text-rose-400 truncate transition-colors">
+                                      {primaryVa.person.name}
+                                    </div>
+                                    <div className="text-[9px] text-neutral-500">
+                                      {primaryVa.language} Voice
+                                    </div>
+                                  </div>
+                                </div>
+                                <span className="text-[9px] font-medium text-neutral-400 group-hover/va:text-white px-1.5 py-0.5 bg-neutral-800 rounded">
+                                  {primaryVa.language?.slice(0, 2).toUpperCase() || 'VA'}
+                                </span>
+                              </div>
+
+                              {secondaryVa && (
+                                <div
+                                  onClick={() => onSelectVoiceActor && onSelectVoiceActor(secondaryVa.person.mal_id, secondaryVa.person.name)}
+                                  className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-neutral-950/40 hover:bg-neutral-950 hover:border-neutral-700 border border-transparent cursor-pointer group/va transition-all"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    {secondaryVa.person.images?.jpg?.image_url ? (
+                                      <img
+                                        src={secondaryVa.person.images.jpg.image_url}
+                                        alt={secondaryVa.person.name}
+                                        referrerPolicy="no-referrer"
+                                        className="w-6 h-6 rounded-full object-cover bg-neutral-900 shrink-0"
+                                      />
+                                    ) : (
+                                      <div className="w-6 h-6 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
+                                        <Mic className="w-3 h-3 text-neutral-500" />
+                                      </div>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-[10px] font-semibold text-neutral-400 group-hover/va:text-rose-400 truncate transition-colors">
+                                        {secondaryVa.person.name}
+                                      </div>
+                                      <div className="text-[8.5px] text-neutral-500">
+                                        {secondaryVa.language} Voice
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <span className="text-[8.5px] font-medium text-neutral-400 group-hover/va:text-white px-1 py-0.5 bg-neutral-800 rounded">
+                                    {secondaryVa.language?.slice(0, 2).toUpperCase() || 'VA'}
+                                  </span>
                                 </div>
                               )}
-                              <div className="min-w-0 flex-1">
-                                <div className="text-[11px] font-semibold text-neutral-300 group-hover/va:text-rose-400 truncate transition-colors">
-                                  {primaryVa.person.name}
-                                </div>
-                                <div className="text-[9px] text-neutral-500">
-                                  {primaryVa.language} Seiyuu
-                                </div>
-                              </div>
                             </div>
-                            <span className="text-[9px] font-medium text-neutral-400 group-hover/va:text-white px-1.5 py-0.5 bg-neutral-800 rounded">
-                              VA
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                          ) : (
+                            <div className="pt-2 border-t border-neutral-800/80 text-[10px] text-neutral-500 italic">
+                              No voice actor credited
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {characters.length > visibleCharCount && (
+                    <div className="pt-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setVisibleCharCount((prev) => prev + 36)}
+                        className="px-5 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-200 hover:text-white text-xs font-semibold border border-neutral-800 hover:border-neutral-700 transition-colors cursor-pointer"
+                      >
+                        Show More Characters & Cast ({characters.length - visibleCharCount} remaining)
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

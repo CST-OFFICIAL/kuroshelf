@@ -289,12 +289,101 @@ async function routeToDirectJikan<T>(endpoint: string): Promise<{ data: T; pagin
     };
   }
 
+async function fetchAniListCharactersClient(malId: number): Promise<CharacterItem[]> {
+  const query = `
+    query ($idMal: Int) {
+      Media(idMal: $idMal, type: ANIME) {
+        characters(sort: [ROLE, FAVOURITES_DESC], perPage: 50) {
+          edges {
+            role
+            node {
+              id
+              name { full native userPreferred }
+              image { large medium }
+              siteUrl
+            }
+            voiceActors(sort: [FAVOURITES_DESC]) {
+              id
+              name { full native userPreferred }
+              languageV2
+              image { large medium }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query, variables: { idMal: malId } }),
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const edges = json.data?.Media?.characters?.edges || [];
+    return edges.map((edge: any) => {
+      const node = edge.node;
+      const vas = (edge.voiceActors || []).map((va: any) => ({
+        person: {
+          mal_id: va.id,
+          name: va.name?.full || va.name?.userPreferred || 'Unknown',
+          images: {
+            jpg: {
+              image_url: va.image?.large || va.image?.medium || ''
+            }
+          }
+        },
+        language: va.languageV2 || 'Japanese'
+      }));
+
+      return {
+        character: {
+          mal_id: node.id,
+          url: node.siteUrl || `https://anilist.co/character/${node.id}`,
+          images: {
+            jpg: {
+              image_url: node.image?.large || node.image?.medium || '',
+              large_image_url: node.image?.large || node.image?.medium || ''
+            }
+          },
+          name: node.name?.full || node.name?.userPreferred || 'Character'
+        },
+        role: edge.role === 'MAIN' ? 'Main' : 'Supporting',
+        voice_actors: vas
+      };
+    }).filter((c: any) => c.character?.name);
+  } catch (err) {
+    console.warn('[AniList characters client fallback error]:', err);
+    return [];
+  }
+}
+
   // 5. /api/anime/:id/characters
   const charMatch = path.match(/^\/api\/anime\/(\d+)\/characters$/);
   if (charMatch) {
-    const malId = charMatch[1];
-    const res = await fetchDirectJikan<CharacterItem[]>(`/anime/${malId}/characters`);
-    return { data: res.data as unknown as T };
+    const malId = Number(charMatch[1]);
+    try {
+      const res = await fetchDirectJikan<CharacterItem[]>(`/anime/${malId}/characters`);
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        return { data: res.data as unknown as T };
+      }
+    } catch (jikanErr) {
+      console.warn(`[Jikan Direct characters] Error for ${malId}:`, jikanErr);
+    }
+
+    try {
+      const anilistChars = await fetchAniListCharactersClient(malId);
+      if (anilistChars && anilistChars.length > 0) {
+        return { data: anilistChars as unknown as T };
+      }
+    } catch (anilistErr) {
+      console.warn(`[AniList client characters fallback] Error for ${malId}:`, anilistErr);
+    }
+
+    return { data: [] as unknown as T };
   }
 
   // 6. /api/anime/:id/recommendations

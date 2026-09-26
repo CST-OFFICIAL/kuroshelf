@@ -24,7 +24,7 @@ export function HeroBanner({
   onSelectGenre,
   onNextSpotlight,
   onPrevSpotlight,
-  spotlightIndex = 0,
+  spotlightIndex: _spotlightIndex = 0,
   totalSpotlights = 1,
 }: HeroBannerProps) {
   const [countdown, setCountdown] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export function HeroBanner({
   }
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 shadow-2xl">
+    <div className="relative w-full rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 shadow-2xl min-h-[460px] md:min-h-[400px] flex flex-col justify-center">
       {/* Background Image with layered gradient overlays */}
       <div className="absolute inset-0 z-0">
         <MediaImage
@@ -76,12 +76,12 @@ export function HeroBanner({
         <div className="absolute inset-0 bg-gradient-to-r from-neutral-950 via-neutral-950/90 to-transparent" />
       </div>
 
-      {/* Content Container */}
-      <div className="relative z-10 p-6 sm:p-8 md:p-10 flex flex-col md:flex-row items-center md:items-end gap-6 sm:gap-8">
+      {/* Content Container with fixed padding so content doesn't collide with corner switchers */}
+      <div className="relative z-10 p-5 sm:p-7 md:px-14 md:py-8 flex flex-col md:flex-row items-center md:items-end gap-5 sm:gap-7 pb-16 sm:pb-16 md:pb-8">
         {/* Poster thumbnail */}
         <div 
           onClick={() => onSelect(anime)}
-          className="shrink-0 w-36 sm:w-44 md:w-52 aspect-[2/3] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-700/60 cursor-pointer group relative"
+          className="shrink-0 w-36 sm:w-44 md:w-52 aspect-[2/3] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-700/60 cursor-pointer group relative select-none"
         >
           <MediaImage
             malId={anime.mal_id}
@@ -92,7 +92,7 @@ export function HeroBanner({
             aspectRatio="aspect-[2/3]"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
             <span className="bg-rose-600/90 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-lg">
               Quick View
             </span>
@@ -100,71 +100,45 @@ export function HeroBanner({
         </div>
 
         {/* Text & Meta Details */}
-        <div className="flex-1 space-y-3 sm:space-y-4 text-center md:text-left">
+        <div className="flex-1 space-y-3 sm:space-y-3.5 text-center md:text-left min-w-0">
           {/* Metadata badges */}
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2.5 py-1 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5 shadow-xs">
-                <Sparkles className="w-3.5 h-3.5 text-rose-400" />
-                <span>Daily Spotlight • Best of Anime</span>
+          <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-xs">
+            <span className="px-2.5 py-1 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5 shadow-xs">
+              <Sparkles className="w-3.5 h-3.5 text-rose-400" />
+              <span>Daily Spotlight • Best of Anime</span>
+            </span>
+            {anime.score && (
+              <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                {anime.score.toFixed(2)}
               </span>
-              {anime.score && (
-                <span className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">
-                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                  {anime.score.toFixed(2)}
-                </span>
-              )}
-              {anime.status && (
-                <span className="px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-300 border border-neutral-700 font-medium">
-                  {anime.status}
-                </span>
-              )}
-              {anime.season && (
-                <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-900 text-neutral-400 border border-neutral-800">
-                  <Calendar className="w-3 h-3 text-neutral-400" />
-                  <span className="capitalize">{anime.season}</span> {anime.year}
-                </span>
-              )}
-              {anime.genres?.slice(0, 3).map((g) => (
-                <button
-                  key={g.name}
-                  type="button"
-                  onClick={() => onSelectGenre?.(g.name)}
-                  className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                    onSelectGenre
-                      ? 'bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-rose-300 border border-neutral-800 cursor-pointer'
-                      : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
-                  }`}
-                  title={`Explore ${g.name} anime`}
-                >
-                  {g.name}
-                </button>
-              ))}
-            </div>
-
-            {onNextSpotlight && totalSpotlights > 1 && (
-              <div className="flex items-center gap-1 ml-auto">
-                <span className="text-[11px] text-neutral-400 font-mono hidden sm:inline mr-1">
-                  {spotlightIndex + 1}/{totalSpotlights}
-                </span>
-                <button
-                  type="button"
-                  onClick={onPrevSpotlight}
-                  className="p-1 rounded-lg bg-neutral-900/80 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 transition-colors cursor-pointer"
-                  title="Previous daily featured anime"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={onNextSpotlight}
-                  className="p-1 rounded-lg bg-neutral-900/80 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 transition-colors cursor-pointer"
-                  title="Next daily featured anime"
-                >
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
             )}
+            {anime.status && (
+              <span className="px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-300 border border-neutral-700 font-medium">
+                {anime.status}
+              </span>
+            )}
+            {anime.season && (
+              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-900 text-neutral-400 border border-neutral-800">
+                <Calendar className="w-3 h-3 text-neutral-400" />
+                <span className="capitalize">{anime.season}</span> {anime.year}
+              </span>
+            )}
+            {anime.genres?.slice(0, 3).map((g) => (
+              <button
+                key={g.name}
+                type="button"
+                onClick={() => onSelectGenre?.(g.name)}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  onSelectGenre
+                    ? 'bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-rose-300 border border-neutral-800 cursor-pointer'
+                    : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
+                }`}
+                title={`Explore ${g.name} anime`}
+              >
+                {g.name}
+              </button>
+            ))}
           </div>
 
           {/* Title */}
@@ -239,6 +213,31 @@ export function HeroBanner({
           </div>
         </div>
       </div>
+
+      {/* Spotlight Switcher Buttons: anchored on both sides at the bottom inside the banner */}
+      {onNextSpotlight && onPrevSpotlight && totalSpotlights > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={onPrevSpotlight}
+            className="absolute left-3 sm:left-4 bottom-3 sm:bottom-4 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-900/90 hover:bg-rose-600 text-neutral-200 hover:text-white border border-neutral-700/80 hover:border-rose-500 shadow-xl flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-90"
+            title="Previous featured anime"
+            aria-label="Previous anime"
+          >
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+
+          <button
+            type="button"
+            onClick={onNextSpotlight}
+            className="absolute right-3 sm:right-4 bottom-3 sm:bottom-4 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-900/90 hover:bg-rose-600 text-neutral-200 hover:text-white border border-neutral-700/80 hover:border-rose-500 shadow-xl flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-90"
+            title="Next featured anime"
+            aria-label="Next anime"
+          >
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+        </>
+      )}
     </div>
   );
 }
