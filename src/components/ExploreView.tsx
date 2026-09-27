@@ -3,6 +3,7 @@ import { AnimeItem } from '../types';
 import { AnimeCard } from './AnimeCard';
 import { Filter, Sparkles, X, ChevronRight } from 'lucide-react';
 import { searchAnimePaginated, getTopAnime } from '../services/jikan';
+import { usePaginationCounts } from '../utils/paginationHelper';
 
 interface ExploreViewProps {
   onSelectAnime: (anime: AnimeItem) => void;
@@ -62,10 +63,17 @@ export function ExploreView({
 }: ExploreViewProps) {
   const [selectedGenre, setSelectedGenre] = useState<number | string | null>(initialGenre);
   const [activeCategory, setActiveCategory] = useState<'all' | 'genre' | 'theme' | 'demographic'>('all');
+  const { initialCount, loadMoreCount } = usePaginationCounts();
   const [results, setResults] = useState<AnimeItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(initialCount);
+
+  // Keep visibleCount in sync when initialCount changes (e.g. mobile resize)
+  useEffect(() => {
+    setVisibleCount((prev) => (prev <= 16 ? initialCount : prev));
+  }, [initialCount]);
 
   // Sync if initialGenre changes from parent
   useEffect(() => {
@@ -74,14 +82,15 @@ export function ExploreView({
     }
   }, [initialGenre]);
 
-  const fetchAnime = useCallback(async (genreVal: number | string | null, pageNum: number) => {
+  const fetchAnime = useCallback(async (genreVal: number | string | null, pageNum: number, append: boolean = false) => {
     setLoading(true);
     try {
+      const fetchLimit = 25;
       const result = await searchAnimePaginated({
         genres: genreVal !== null && genreVal !== undefined ? String(genreVal) : undefined,
         orderBy: genreVal !== null && genreVal !== undefined ? undefined : 'popularity',
         sort: genreVal !== null && genreVal !== undefined ? undefined : 'asc',
-        limit: 24,
+        limit: fetchLimit,
         page: pageNum,
       });
 
@@ -89,7 +98,7 @@ export function ExploreView({
       // Safety guarantee: If search returned empty on All / Popular tab, immediately fallback to top popular anime
       if (data.length === 0 && (genreVal === null || genreVal === undefined || genreVal === 'all')) {
         try {
-          const topList = await getTopAnime('bypopularity', 24, pageNum);
+          const topList = await getTopAnime('bypopularity', fetchLimit, pageNum);
           if (topList && topList.length > 0) {
             data = topList;
           }
@@ -98,11 +107,17 @@ export function ExploreView({
         }
       }
 
-      if (data.length < 24 && !result.pagination?.has_next_page) setHasMore(false);
+      if (data.length < fetchLimit && !result.pagination?.has_next_page) setHasMore(false);
       else setHasMore(true);
       
-      if (pageNum === 1) setResults(data);
-      else setResults(prev => [...prev, ...data]);
+      if (!append || pageNum === 1) setResults(data);
+      else {
+        setResults(prev => {
+          const existingIds = new Set(prev.map(a => a.mal_id));
+          const fresh = data.filter(a => !existingIds.has(a.mal_id));
+          return [...prev, ...fresh];
+        });
+      }
     } catch (err) {
       console.error('Explore fetch error', err);
     } finally {
@@ -112,14 +127,20 @@ export function ExploreView({
 
   useEffect(() => {
     setPage(1);
+    setVisibleCount(initialCount);
     setHasMore(true);
-    fetchAnime(selectedGenre, 1);
-  }, [selectedGenre, fetchAnime]);
+    fetchAnime(selectedGenre, 1, false);
+  }, [selectedGenre, fetchAnime, initialCount]);
 
-  const loadMore = () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchAnime(selectedGenre, nextPage);
+  const loadMore = async () => {
+    const nextVisible = visibleCount + loadMoreCount;
+    setVisibleCount(nextVisible);
+
+    if (results.length < nextVisible && hasMore && !loading) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      await fetchAnime(selectedGenre, nextPage, true);
+    }
   };
 
   const [showAllPills, setShowAllPills] = useState(false);
@@ -263,7 +284,7 @@ export function ExploreView({
         </div>
       ) : (
         <div className={cardGridClass}>
-          {results.map((anime, idx) => (
+          {results.slice(0, visibleCount).map((anime, idx) => (
             <AnimeCard
               key={`explore-${anime.mal_id}-${idx}`}
               anime={anime}
@@ -279,7 +300,7 @@ export function ExploreView({
       )}
 
       {/* Load More Button */}
-      {hasMore && results.length > 0 && (
+      {(hasMore || visibleCount < results.length) && results.length > 0 && (
         <div className="flex justify-center pt-8 pb-4">
           <button
             id="explore-load-more-btn"
@@ -294,7 +315,7 @@ export function ExploreView({
               </>
             ) : (
               <>
-                <span>Load More {currentGenreObj ? currentGenreObj.name : ''} Anime</span>
+                <span>Load More {currentGenreObj ? currentGenreObj.name : ''} Anime (+{loadMoreCount})</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </>
             )}

@@ -945,15 +945,217 @@ export async function serverGetUpcomingAnime(
   };
 }
 
+async function fetchAniListRelationsServer(malId: number): Promise<any[]> {
+  const query = `
+    query ($idMal: Int) {
+      Media(idMal: $idMal, type: ANIME) {
+        relations {
+          edges {
+            relationType
+            node {
+              id
+              idMal
+              title { romaji english }
+              format
+              type
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query, variables: { idMal: malId } }),
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const edges = json.data?.Media?.relations?.edges || [];
+    const relationMap = new Map<string, any[]>();
+
+    const typeMapping: Record<string, string> = {
+      PREQUEL: 'Prequel',
+      SEQUEL: 'Sequel',
+      PARENT: 'Parent story',
+      SIDE_STORY: 'Side story',
+      ALTERNATIVE: 'Alternative version',
+      SPIN_OFF: 'Spin-off',
+      SUMMARY: 'Summary',
+      ADAPTATION: 'Adaptation',
+      OTHER: 'Other',
+    };
+
+    for (const edge of edges) {
+      const relType = typeMapping[edge.relationType] || 'Other';
+      const node = edge.node;
+      const mal_id = node.idMal || node.id;
+      const name = node.title?.english || node.title?.romaji || 'Related Work';
+      const mediaType = node.type === 'MANGA' ? 'manga' : 'anime';
+
+      if (!relationMap.has(relType)) {
+        relationMap.set(relType, []);
+      }
+      relationMap.get(relType)!.push({
+        mal_id,
+        type: mediaType,
+        name,
+        url: `https://myanimelist.net/${mediaType}/${mal_id}`,
+      });
+    }
+
+    return Array.from(relationMap.entries()).map(([relation, entry]) => ({
+      relation,
+      entry,
+    }));
+  } catch (err) {
+    console.warn('[AniList relations server fallback error]:', err);
+    return [];
+  }
+}
+
+async function fetchAniListDetailsServer(malId: number): Promise<BaseJikanAnime | null> {
+  const query = `
+    query ($idMal: Int) {
+      Media(idMal: $idMal, type: ANIME) {
+        id
+        idMal
+        title { romaji english native }
+        format
+        status
+        episodes
+        duration
+        seasonYear
+        season
+        description
+        averageScore
+        popularity
+        coverImage { large extraLarge }
+        genres
+        studios { nodes { id name isAnimationStudio } }
+        relations {
+          edges {
+            relationType
+            node { id idMal title { romaji english } format type }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query, variables: { idMal: malId } }),
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const media = json.data?.Media;
+    if (!media) return null;
+
+    const relationMap = new Map<string, any[]>();
+    const typeMapping: Record<string, string> = {
+      PREQUEL: 'Prequel',
+      SEQUEL: 'Sequel',
+      PARENT: 'Parent story',
+      SIDE_STORY: 'Side story',
+      ALTERNATIVE: 'Alternative version',
+      SPIN_OFF: 'Spin-off',
+      SUMMARY: 'Summary',
+      ADAPTATION: 'Adaptation',
+      OTHER: 'Other',
+    };
+
+    for (const edge of media.relations?.edges || []) {
+      const relType = typeMapping[edge.relationType] || 'Other';
+      const node = edge.node;
+      const id = node.idMal || node.id;
+      const name = node.title?.english || node.title?.romaji || 'Related Work';
+      const mediaType = node.type === 'MANGA' ? 'manga' : 'anime';
+
+      if (!relationMap.has(relType)) {
+        relationMap.set(relType, []);
+      }
+      relationMap.get(relType)!.push({
+        mal_id: id,
+        type: mediaType,
+        name,
+        url: `https://myanimelist.net/${mediaType}/${id}`,
+      });
+    }
+
+    const relations = Array.from(relationMap.entries()).map(([relation, entry]) => ({
+      relation,
+      entry,
+    }));
+
+    const studios = (media.studios?.nodes || [])
+      .filter((s: any) => s.isAnimationStudio)
+      .map((s: any) => ({ mal_id: s.id, name: s.name }));
+
+    return {
+      mal_id: media.idMal || media.id,
+      title: media.title?.english || media.title?.romaji || 'Unknown Title',
+      title_english: media.title?.english,
+      title_japanese: media.title?.native,
+      type: media.format === 'MOVIE' ? 'Movie' : media.format === 'OVA' ? 'OVA' : 'TV',
+      status: media.status === 'RELEASING' ? 'Currently Airing' : media.status === 'FINISHED' ? 'Finished Airing' : 'Not yet aired',
+      episodes: media.episodes,
+      duration: media.duration ? `${media.duration} min` : undefined,
+      score: media.averageScore ? Number((media.averageScore / 10).toFixed(2)) : undefined,
+      popularity: media.popularity,
+      season: media.season ? media.season.toLowerCase() : undefined,
+      year: media.seasonYear,
+      synopsis: media.description?.replace(/<[^>]*>/g, '') || '',
+      images: {
+        jpg: {
+          image_url: media.coverImage?.large || '',
+          large_image_url: media.coverImage?.extraLarge || media.coverImage?.large || '',
+        },
+        webp: {
+          image_url: media.coverImage?.large || '',
+          large_image_url: media.coverImage?.extraLarge || media.coverImage?.large || '',
+        },
+      },
+      genres: (media.genres || []).map((g: string, i: number) => ({ mal_id: i + 1, name: g })),
+      studios,
+      relations,
+    } as any;
+  } catch (err) {
+    console.warn('[AniList details server fallback error]:', err);
+    return null;
+  }
+}
+
 export async function serverGetAnimeDetails(id: number): Promise<BaseJikanAnime | null> {
   if (id === 34246) return null;
   const endpoint = `/anime/${id}/full`;
   const res = await fetchFromJikan<BaseJikanAnime>(endpoint, DETAIL_CACHE_TTL_MS);
-  if (!res.data || isNsfwOrAdult(res.data)) return null;
-  if (res.data.synopsis) {
-    res.data.synopsis = cleanOfficialText(res.data.synopsis) || res.data.synopsis;
+  let data = res.data;
+
+  if (!data || !data.relations || data.relations.length === 0) {
+    try {
+      const anilistFallback = await fetchAniListDetailsServer(id);
+      if (anilistFallback) {
+        if (!data) {
+          data = anilistFallback;
+        } else if (!data.relations || data.relations.length === 0) {
+          data.relations = anilistFallback.relations;
+        }
+      }
+    } catch {}
   }
-  return res.data;
+
+  if (!data || isNsfwOrAdult(data)) return null;
+  if (data.synopsis) {
+    data.synopsis = cleanOfficialText(data.synopsis) || data.synopsis;
+  }
+  return data;
 }
 
 async function fetchAniListCharactersServer(malId: number): Promise<any[]> {

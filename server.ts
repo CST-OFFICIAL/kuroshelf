@@ -5,7 +5,9 @@ import cookieParser from 'cookie-parser';
 import { getUserBookmarks, upsertBookmark, deleteBookmark, getUserLikes, toggleLike, getUserRatings, setRating, removeRating, getPolls, votePoll } from './server/db';
 import {
   searchCatalogAnime,
-  getCatalogAnimeById, updateAnimeSynopsis
+  getCatalogAnimeById,
+  getCatalogTopAnime,
+  updateAnimeSynopsis
 } from './server/catalogService';
 import { resolveOfficialSynopsis } from './server/officialSynopsisService';
 import { runIngestionJob } from './server/ingestionService';
@@ -537,9 +539,15 @@ export async function createApp() {
     try {
       const result = await getCatalogTopAnime('upcoming', page, limit);
       res.json({ success: true, data: result.data, pagination: result.pagination });
-    } catch (err) {
-      // console.warn('[API /api/anime/upcoming] Fetch unavailable:', err.message || err);
-      res.status(500).json({ success: false, data: [], error: 'Failed to fetch upcoming anime' });
+    } catch (err: any) {
+      console.warn('[API /api/anime/upcoming] Catalog top error, trying serverGetUpcomingAnime directly:', err?.message || err);
+      try {
+        const directResult = await serverGetUpcomingAnime(page, limit);
+        res.json({ success: true, data: directResult.data, pagination: directResult.pagination });
+      } catch (fallbackErr: any) {
+        console.error('[API /api/anime/upcoming] Direct fallback also failed:', fallbackErr?.message || fallbackErr);
+        res.status(500).json({ success: false, data: [], error: 'Failed to fetch upcoming anime' });
+      }
     }
   });
 

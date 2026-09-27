@@ -67,6 +67,7 @@ import { DonationTickerMarquee } from './components/DonationTickerMarquee';
 import { NoticeTickerMarquee } from './components/NoticeTickerMarquee';
 import { AnnouncementsModal } from './components/AnnouncementsModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { usePaginationCounts } from './utils/paginationHelper';
 import { 
   Flame, 
   Sparkles, 
@@ -146,7 +147,20 @@ export function App() {
   const [upcomingAnime, setUpcomingAnime] = useState<AnimeItem[]>([]);
   const [searchResults, setSearchResults] = useState<AnimeItem[]>([]);
 
-  // Rankings filter
+  // Rankings & Pagination counts
+  const { isPhone, initialCount, loadMoreCount } = usePaginationCounts();
+  const discoverHeadingLimit = isPhone ? 12 : 20;
+  const [visibleSeasonalCount, setVisibleSeasonalCount] = useState(initialCount);
+  const [visibleSearchCount, setVisibleSearchCount] = useState(initialCount);
+  const [visibleDiscoverGenreCount, setVisibleDiscoverGenreCount] = useState(initialCount);
+
+  // Sync visible count with initialCount on screen size change if within initial page
+  useEffect(() => {
+    setVisibleSeasonalCount((prev) => (prev <= 16 ? initialCount : prev));
+    setVisibleSearchCount((prev) => (prev <= 16 ? initialCount : prev));
+    setVisibleDiscoverGenreCount((prev) => (prev <= 16 ? initialCount : prev));
+  }, [initialCount]);
+
   const [rankingFilter, setRankingFilter] = useState<'bypopularity' | 'airing' | 'favorite' | 'upcoming' | 'top100'>('bypopularity');
   const [rankingGenre, setRankingGenre] = useState<string>('all');
   const [rankingYear, setRankingYear] = useState<string>('all');
@@ -574,10 +588,10 @@ export function App() {
       // Fetch in parallel using Promise.allSettled so if any single endpoint is slow or throttled,
       // all other sections (airing, seasonal, top, upcoming) still render smoothly!
       const [airingRes, seasonalRes, topRes, upcomingRes] = await Promise.allSettled([
-        getTopAnime('airing', 24),
-        getSeasonalAnime(24),
-        getTopAnimePaginated('bypopularity', 1, 24).then((res) => res.data),
-        getUpcomingAnime(24),
+        getTopAnime('airing', 25),
+        getSeasonalAnime(25),
+        getTopAnimePaginated('bypopularity', 1, 25).then((res) => res.data),
+        getUpcomingAnime(25),
       ]);
 
       const airing = airingRes.status === 'fulfilled' ? airingRes.value : [];
@@ -700,6 +714,7 @@ export function App() {
       });
       const data = result.data || [];
       if (pageNum === 1) {
+        setVisibleDiscoverGenreCount(initialCount);
         setDiscoverGenreResults(data);
         setTimeout(() => {
           const el = document.getElementById('discover-genre-section');
@@ -715,11 +730,15 @@ export function App() {
     } finally {
       setLoadingDiscoverGenre(false);
     }
-  }, []);
+  }, [initialCount]);
 
   const loadMoreDiscoverGenre = () => {
     if (!discoverGenre || loadingDiscoverGenre) return;
-    handleSelectDiscoverGenre(discoverGenre, discoverGenrePage + 1);
+    const nextVisible = visibleDiscoverGenreCount + loadMoreCount;
+    setVisibleDiscoverGenreCount(nextVisible);
+    if (discoverGenreResults.length < nextVisible && discoverGenreHasMore) {
+      handleSelectDiscoverGenre(discoverGenre, discoverGenrePage + 1);
+    }
   };
 
   const handleOpenGenreInExplore = (genre: string | number) => {
@@ -776,30 +795,35 @@ export function App() {
   };
 
   const handleLoadMoreSeasonal = useCallback(async () => {
-    if (loadingMoreSeasonal || !hasMoreSeasonal) return;
-    setLoadingMoreSeasonal(true);
-    try {
-      const nextPage = seasonalPage + 1;
-      const res = await getSeasonalAnimePaginated(nextPage, 24);
-      if (res.data && res.data.length > 0) {
-        setSeasonalAnime((prev) => {
-          const existingIds = new Set(prev.map((a) => a.mal_id));
-          const newItems = res.data.filter((a) => !existingIds.has(a.mal_id));
-          return [...prev, ...newItems];
-        });
-        setSeasonalPage(nextPage);
-        if (!res.pagination?.has_next_page) {
+    if (loadingMoreSeasonal) return;
+    const nextVisible = visibleSeasonalCount + loadMoreCount;
+    setVisibleSeasonalCount(nextVisible);
+
+    if (seasonalAnime.length < nextVisible && hasMoreSeasonal) {
+      setLoadingMoreSeasonal(true);
+      try {
+        const nextPage = seasonalPage + 1;
+        const res = await getSeasonalAnimePaginated(nextPage, 25);
+        if (res.data && res.data.length > 0) {
+          setSeasonalAnime((prev) => {
+            const existingIds = new Set(prev.map((a) => a.mal_id));
+            const newItems = res.data.filter((a) => !existingIds.has(a.mal_id));
+            return [...prev, ...newItems];
+          });
+          setSeasonalPage(nextPage);
+          if (!res.pagination?.has_next_page) {
+            setHasMoreSeasonal(false);
+          }
+        } else {
           setHasMoreSeasonal(false);
         }
-      } else {
-        setHasMoreSeasonal(false);
+      } catch (err) {
+        console.warn('Failed to load more seasonal anime:', err);
+      } finally {
+        setLoadingMoreSeasonal(false);
       }
-    } catch (err) {
-      console.warn('Failed to load more seasonal anime:', err);
-    } finally {
-      setLoadingMoreSeasonal(false);
     }
-  }, [seasonalPage, loadingMoreSeasonal, hasMoreSeasonal]);
+  }, [seasonalPage, loadingMoreSeasonal, hasMoreSeasonal, visibleSeasonalCount, loadMoreCount, seasonalAnime.length]);
 
   // Search execution with error handling and empty states
   const executeSearch = useCallback(async (query: string) => {
@@ -824,18 +848,19 @@ export function App() {
       const result = await searchAnimePaginated({
         query: trimmed,
         page: 1,
-        limit: 24,
+        limit: 25,
       });
 
       if (currentSeq !== searchSeqRef.current) return;
 
+      setVisibleSearchCount(initialCount);
       setSearchResults(result.data || []);
       setSearchPage(1);
 
       setSearchHasMore(
         Boolean(
           result.pagination?.has_next_page ||
-          (result.data?.length ?? 0) === 24
+          (result.data?.length ?? 0) === 25
         )
       );
     } catch (err) {
@@ -851,57 +876,57 @@ export function App() {
         setLoadingSearch(false);
       }
     }
-  }, []);
+  }, [initialCount]);
 
   const loadMoreSearchResults = useCallback(async () => {
-    if (loadingMoreSearch || !searchHasMore || !searchQuery.trim()) {
+    if (loadingMoreSearch || !searchQuery.trim()) {
       return;
     }
 
-    setLoadingMoreSearch(true);
+    const nextVisible = visibleSearchCount + loadMoreCount;
+    setVisibleSearchCount(nextVisible);
 
-    try {
-      const nextPage = searchPage + 1;
+    if (searchResults.length < nextVisible && searchHasMore) {
+      setLoadingMoreSearch(true);
 
-      const result = await searchAnimePaginated({
-        query: searchQuery.trim(),
-        page: nextPage,
-        limit: 24,
-      });
+      try {
+        const nextPage = searchPage + 1;
 
-      const newResults = result.data || [];
+        const result = await searchAnimePaginated({
+          query: searchQuery.trim(),
+          page: nextPage,
+          limit: 25,
+        });
 
-      setSearchResults((previous) => {
-        const existingIds = new Set(
-          previous.map((anime) => anime.mal_id)
+        const newResults = result.data || [];
+
+        setSearchResults((previous) => {
+          const existingIds = new Set(
+            previous.map((anime) => anime.mal_id)
+          );
+
+          const uniqueNewResults = newResults.filter(
+            (anime) => !existingIds.has(anime.mal_id)
+          );
+
+          return [...previous, ...uniqueNewResults];
+        });
+
+        setSearchPage(nextPage);
+
+        setSearchHasMore(
+          Boolean(
+            result.pagination?.has_next_page ||
+            newResults.length === 25
+          )
         );
-
-        const uniqueNewResults = newResults.filter(
-          (anime) => !existingIds.has(anime.mal_id)
-        );
-
-        return [...previous, ...uniqueNewResults];
-      });
-
-      setSearchPage(nextPage);
-
-      setSearchHasMore(
-        Boolean(
-          result.pagination?.has_next_page ||
-          newResults.length === 24
-        )
-      );
-    } catch (err) {
-      console.warn('Load more search results failed:', err);
-    } finally {
-      setLoadingMoreSearch(false);
+      } catch (err) {
+        console.warn('Load more search results failed:', err);
+      } finally {
+        setLoadingMoreSearch(false);
+      }
     }
-  }, [
-    loadingMoreSearch,
-    searchHasMore,
-    searchQuery,
-    searchPage
-  ]);
+  }, [loadingMoreSearch, searchHasMore, searchQuery, searchPage, visibleSearchCount, loadMoreCount, searchResults.length]);
 
   // Debounced search when typing
   useEffect(() => {
@@ -1260,24 +1285,26 @@ export function App() {
           <main className="flex-1 min-w-0 max-w-6xl xl:max-w-7xl w-full px-4 sm:px-6 lg:px-8 space-y-8 transition-all">
           <div className="w-full space-y-8">
             {/* Search & Genre Bar (Moved from Top Shelf for spacious, high-contrast readability and direct genre access) */}
-            <SearchAndGenreBar
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              onSearchSubmit={handleSearchSubmit}
-              onClearSearch={handleClearSearch}
-              selectedGenre={discoverGenre}
-              onSelectGenre={(genreVal) => {
-                handleSelectDiscoverGenre(genreVal);
-                if (activeTab !== 'home' && !isSearchActive) {
-                  setActiveTab('home');
-                }
-              }}
-              onOpenExploreGenre={handleOpenGenreInExplore}
-              onOpenAllGenres={() => {
-                setActiveTab('explore');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            />
+            {!['profile', 'advanced', 'manga', 'polls', 'admin'].includes(activeTab) && (
+              <SearchAndGenreBar
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                onSearchSubmit={handleSearchSubmit}
+                onClearSearch={handleClearSearch}
+                selectedGenre={discoverGenre}
+                onSelectGenre={(genreVal) => {
+                  handleSelectDiscoverGenre(genreVal);
+                  if (activeTab !== 'home' && !isSearchActive) {
+                    setActiveTab('home');
+                  }
+                }}
+                onOpenExploreGenre={handleOpenGenreInExplore}
+                onOpenAllGenres={() => {
+                  setActiveTab('explore');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              />
+            )}
 
         {/* Error banner if API is down */}
         {apiError && (
@@ -1358,12 +1385,10 @@ export function App() {
             ) : (
               <>
               <div className={cardGridClass}>
-                {searchResults.map((anime, idx) => {
-                   
-                   
-                        const shelfItem = getShelfItem(anime.mal_id);
-                        return (
-                          <AnimeCard
+                {searchResults.slice(0, visibleSearchCount).map((anime, idx) => {
+                  const shelfItem = getShelfItem(anime.mal_id);
+                  return (
+                    <AnimeCard
                       key={`search-${anime.mal_id}-${idx}`}
                       anime={anime}
                       onSelect={setSelectedAnime}
@@ -1376,14 +1401,14 @@ export function App() {
                 })}
               </div>
 
-              {!loadingSearch && searchResults.length > 0 && searchHasMore && (
+              {!loadingSearch && searchResults.length > 0 && (searchHasMore || visibleSearchCount < searchResults.length) && (
                 <div className="flex justify-center pt-4">
                   <button
                     onClick={loadMoreSearchResults}
                     disabled={loadingMoreSearch}
-                    className="px-6 py-3 bg-neutral-900 hover:bg-neutral-800 text-white font-semibold rounded-lg border border-neutral-800 transition-colors disabled:opacity-50"
+                    className="px-6 py-3 bg-neutral-900 hover:bg-neutral-800 text-white font-semibold rounded-lg border border-neutral-800 transition-colors disabled:opacity-50 cursor-pointer"
                   >
-                    {loadingMoreSearch ? 'Loading...' : 'Load More'}
+                    {loadingMoreSearch ? 'Loading...' : `Load More (+${loadMoreCount})`}
                   </button>
                 </div>
               )}
@@ -1585,7 +1610,7 @@ export function App() {
                       ) : (
                         <>
                           <div className={cardGridClass}>
-                            {discoverGenreResults.map((anime, idx) => {
+                            {discoverGenreResults.slice(0, visibleDiscoverGenreCount).map((anime, idx) => {
                               const shelfItem = getShelfItem(anime.mal_id);
                               return (
                                 <AnimeCard
@@ -1602,7 +1627,7 @@ export function App() {
                             })}
                           </div>
 
-                          {discoverGenreHasMore && (
+                          {(discoverGenreHasMore || visibleDiscoverGenreCount < discoverGenreResults.length) && (
                             <div className="flex justify-center pt-4">
                               <button
                                 onClick={loadMoreDiscoverGenre}
@@ -1616,7 +1641,7 @@ export function App() {
                                   </>
                                 ) : (
                                   <>
-                                    <span>Load More {DISCOVER_GENRE_PILLS.find((p) => p.value === discoverGenre)?.name || ''} Anime</span>
+                                    <span>Load More {DISCOVER_GENRE_PILLS.find((p) => p.value === discoverGenre)?.name || ''} Anime (+{loadMoreCount})</span>
                                     <ChevronRight className="w-3.5 h-3.5" />
                                   </>
                                 )}
@@ -1650,7 +1675,7 @@ export function App() {
                     </div>
 
                     <div className={cardGridClass}>
-                      {airingAnime.slice(0, 18).map((anime, idx) => {
+                      {airingAnime.slice(0, discoverHeadingLimit).map((anime, idx) => {
                          
                          
                         const shelfItem = getShelfItem(anime.mal_id);
@@ -1689,7 +1714,7 @@ export function App() {
                     </div>
 
                     <div className={cardGridClass}>
-                      {seasonalAnime.slice(0, 18).map((anime, idx) => {
+                      {seasonalAnime.slice(0, discoverHeadingLimit).map((anime, idx) => {
                          
                          
                         const shelfItem = getShelfItem(anime.mal_id);
@@ -1731,7 +1756,7 @@ export function App() {
                       </div>
 
                       <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-                        {upcomingAnime.slice(0, 18).map((anime, idx) => {
+                        {upcomingAnime.slice(0, discoverHeadingLimit).map((anime, idx) => {
                            
                            
                         const shelfItem = getShelfItem(anime.mal_id);
@@ -1796,7 +1821,7 @@ export function App() {
                     </div>
 
                     <div className={cardGridClass}>
-                      {topRankedAnime.slice(0, 18).map((anime, idx) => {
+                      {topRankedAnime.slice(0, discoverHeadingLimit).map((anime, idx) => {
                          
                          
                         const shelfItem = getShelfItem(anime.mal_id);
@@ -1859,12 +1884,10 @@ export function App() {
                 </div>
 
                 <div className={cardGridClass}>
-                  {seasonalAnime.map((anime, idx) => {
-                     
-                     
-                        const shelfItem = getShelfItem(anime.mal_id);
-                        return (
-                          <AnimeCard
+                  {seasonalAnime.slice(0, visibleSeasonalCount).map((anime, idx) => {
+                    const shelfItem = getShelfItem(anime.mal_id);
+                    return (
+                      <AnimeCard
                         key={`season-page-${anime.mal_id}-${idx}`}
                         anime={anime}
                         onSelect={setSelectedAnime}
@@ -1877,7 +1900,7 @@ export function App() {
                   })}
                 </div>
 
-                {hasMoreSeasonal && (
+                {(hasMoreSeasonal || visibleSeasonalCount < seasonalAnime.length) && (
                   <div className="flex justify-center pt-4 pb-6">
                     <button
                       type="button"
@@ -1893,7 +1916,7 @@ export function App() {
                       ) : (
                         <>
                           <Sparkles className="w-4 h-4 text-rose-400" />
-                          <span>Load More Premieres</span>
+                          <span>Load More Premieres (+{loadMoreCount})</span>
                         </>
                       )}
                     </button>
@@ -2120,7 +2143,7 @@ export function App() {
                                 {anime.genres && anime.genres.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-1">
                                     {anime.genres.slice(0, 4).map((g, i) => (
-                                      <span key={g.name || i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800/80 text-slate-600 dark:text-neutral-400 border border-slate-200 dark:border-neutral-800">
+                                      <span key={`rank-card-genre-${g.name || i}-${i}`} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800/80 text-slate-600 dark:text-neutral-400 border border-slate-200 dark:border-neutral-800">
                                         {g.name}
                                       </span>
                                     ))}

@@ -52,9 +52,9 @@ export function Navbar({
   activeTab,
   onTabChange,
   shelfCount,
-  searchQuery: _searchQuery,
-  onSearchChange: _onSearchChange,
-  onSearchSubmit: _onSearchSubmit,
+  searchQuery = '',
+  onSearchChange,
+  onSearchSubmit,
   currentUser,
   onOpenAuth,
   streakInfo,
@@ -71,6 +71,16 @@ export function Navbar({
 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const effectiveIsDonor = isDonor ?? (currentUser ? isUserDonor(currentUser.id) : isUserDonor());
+
+  const handleMobileSearchClick = () => {
+    const input = document.getElementById('global-search-input') as HTMLInputElement | null;
+    if (input) {
+      input.focus();
+      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      setMobileMenuOpen(true);
+    }
+  };
 
   const navItems = [
     { id: 'home', label: 'Discover', icon: Compass },
@@ -250,16 +260,18 @@ export function Navbar({
 
         {/* Mobile menu & search buttons */}
         <div className="flex md:hidden items-center gap-1.5">
-          <button
-            id="mobile-search-toggle"
-            type="button"
-            onClick={() => setMobileMenuOpen(prev => !prev)}
-            className="p-2 rounded-lg text-slate-600 dark:text-neutral-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-900 border border-slate-200 dark:border-neutral-800 cursor-pointer flex items-center justify-center"
-            aria-label="Open search"
-            title="Search anime"
-          >
-            <Search className="w-4 h-4 text-rose-500" />
-          </button>
+          {!['profile', 'advanced', 'manga', 'polls', 'admin'].includes(activeTab) && (
+            <button
+              id="mobile-search-toggle"
+              type="button"
+              onClick={handleMobileSearchClick}
+              className="p-2 rounded-lg text-slate-600 dark:text-neutral-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-900 border border-slate-200 dark:border-neutral-800 cursor-pointer flex items-center justify-center"
+              aria-label="Open search"
+              title="Search anime"
+            >
+              <Search className="w-4 h-4 text-rose-500" />
+            </button>
+          )}
 
           <button
             id="mobile-menu-toggle"
@@ -314,7 +326,35 @@ export function Navbar({
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 pt-2 pb-4 space-y-1 transition-colors">
+        <div className="md:hidden border-b border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 pt-3 pb-4 space-y-2 transition-colors">
+          {/* Mobile Direct Search Bar */}
+          {!['profile', 'advanced', 'manga', 'polls', 'admin'].includes(activeTab) && onSearchSubmit && onSearchChange && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (searchQuery.trim()) {
+                  onSearchSubmit(searchQuery.trim());
+                  setMobileMenuOpen(false);
+                }
+              }}
+              className="relative flex items-center mb-2"
+            >
+              <Search className="absolute left-3 w-4 h-4 text-rose-500 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="Search anime by title, character..."
+                className="w-full h-10 pl-9 pr-20 rounded-lg bg-slate-100 dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+              />
+              <button
+                type="submit"
+                className="absolute right-1.5 px-3 py-1 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white rounded-md text-xs font-bold transition-transform cursor-pointer"
+              >
+                Search
+              </button>
+            </form>
+          )}
           {/* Mobile Appearance & Theme Button */}
           {onOpenAppearanceModal && (
             <button

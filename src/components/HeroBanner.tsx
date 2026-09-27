@@ -77,11 +77,11 @@ export function HeroBanner({
       </div>
 
       {/* Content Container with fixed padding so content doesn't collide with corner switchers */}
-      <div className="relative z-10 p-5 sm:p-7 md:px-14 md:py-8 flex flex-col md:flex-row items-center md:items-end gap-5 sm:gap-7 pb-16 sm:pb-16 md:pb-8">
-        {/* Poster thumbnail */}
+      <div className="relative z-10 px-8 sm:px-16 py-6 md:py-8 flex flex-col md:flex-row items-center md:items-center gap-5 sm:gap-7 w-full">
+        {/* Poster thumbnail - locked dimensions so cover size never changes */}
         <div 
           onClick={() => onSelect(anime)}
-          className="shrink-0 w-36 sm:w-44 md:w-52 aspect-[2/3] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-700/60 cursor-pointer group relative select-none"
+          className="shrink-0 w-36 h-52 sm:w-44 sm:h-64 md:w-48 md:h-[270px] rounded-xl overflow-hidden shadow-2xl border-2 border-neutral-700/60 cursor-pointer group relative select-none"
         >
           <MediaImage
             malId={anime.mal_id}
@@ -214,27 +214,27 @@ export function HeroBanner({
         </div>
       </div>
 
-      {/* Spotlight Switcher Buttons: anchored on both sides at the bottom inside the banner */}
+      {/* Spotlight Switcher Buttons: anchored at rock-solid fixed vertical centers on left & right */}
       {onNextSpotlight && onPrevSpotlight && totalSpotlights > 1 && (
         <>
           <button
             type="button"
             onClick={onPrevSpotlight}
-            className="absolute left-3 sm:left-4 bottom-3 sm:bottom-4 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-900/90 hover:bg-rose-600 text-neutral-200 hover:text-white border border-neutral-700/80 hover:border-rose-500 shadow-xl flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-90"
+            className="absolute left-2 sm:left-3.5 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-neutral-900/95 hover:bg-rose-600 text-neutral-200 hover:text-white border border-neutral-700/80 hover:border-rose-500 shadow-2xl flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-95"
             title="Previous featured anime"
             aria-label="Previous anime"
           >
-            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
           <button
             type="button"
             onClick={onNextSpotlight}
-            className="absolute right-3 sm:right-4 bottom-3 sm:bottom-4 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-900/90 hover:bg-rose-600 text-neutral-200 hover:text-white border border-neutral-700/80 hover:border-rose-500 shadow-xl flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-90"
+            className="absolute right-2 sm:right-3.5 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-neutral-900/95 hover:bg-rose-600 text-neutral-200 hover:text-white border border-neutral-700/80 hover:border-rose-500 shadow-2xl flex items-center justify-center transition-all cursor-pointer backdrop-blur-md active:scale-95"
             title="Next featured anime"
             aria-label="Next anime"
           >
-            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </>
       )}

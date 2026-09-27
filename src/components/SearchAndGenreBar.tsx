@@ -91,11 +91,11 @@ export function SearchAndGenreBar({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search anime by title, English/Japanese name, character, or studio..."
-            className="main-search-input w-full h-11 sm:h-12 pl-11 pr-24 sm:pr-28 rounded-xl bg-slate-100/90 dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700/80 text-base font-semibold text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-300 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/30 transition-all shadow-inner"
+            className="main-search-input w-full h-11 sm:h-12 pl-11 pr-28 sm:pr-36 rounded-xl bg-slate-100/90 dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700/80 text-sm sm:text-base font-semibold text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-300 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/30 transition-all shadow-inner"
           />
 
           {/* Quick Clear Button inside input */}
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+          <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10">
             {searchQuery && (
               <button
                 type="button"
@@ -113,7 +113,11 @@ export function SearchAndGenreBar({
             <button
               type="submit"
               id="search-action-button"
-              className="h-8 sm:h-9 px-3.5 sm:px-4 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSubmit(e);
+              }}
+              className="h-8 sm:h-9 px-3 sm:px-4 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
               aria-label="Search anime"
             >
               <Search className="w-3.5 h-3.5" />

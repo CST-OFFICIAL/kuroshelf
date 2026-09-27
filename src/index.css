@@ -146,8 +146,14 @@ body {
   min-height: 100vh;
 }
 
-/* Ensure font-display and heading descenders (g, y, p, q, j) are never clipped at the baseline */
-h1, h2, h3, h4, h5, h6, .font-display {
+/* Ensure font-display and heading descenders (g, y, p, q, j) are never clipped at the baseline, while allowing truncate/line-clamp to constrain overflow */
+h1:not(.truncate):not([class*="line-clamp-"]),
+h2:not(.truncate):not([class*="line-clamp-"]),
+h3:not(.truncate):not([class*="line-clamp-"]),
+h4:not(.truncate):not([class*="line-clamp-"]),
+h5:not(.truncate):not([class*="line-clamp-"]),
+h6:not(.truncate):not([class*="line-clamp-"]),
+.font-display:not(.truncate):not([class*="line-clamp-"]) {
   line-height: 1.4 !important;
   overflow: visible !important;
   padding-bottom: 0.18em;

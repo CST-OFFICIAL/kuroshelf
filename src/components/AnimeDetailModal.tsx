@@ -466,7 +466,7 @@ export function AnimeDetailModal({
                 <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                   {anime.demographics?.map((d, i) => (
                     <button
-                      key={`modal-top-demo-${d.name || i}`}
+                      key={`modal-top-demo-${d.name || i}-${i}`}
                       type="button"
                       onClick={() => {
                         if (onSelectGenre && d.name) {
@@ -486,7 +486,7 @@ export function AnimeDetailModal({
                   ))}
                   {anime.genres?.map((g, i) => (
                     <button
-                      key={`modal-top-genre-${g.name || i}`}
+                      key={`modal-top-genre-${g.name || i}-${i}`}
                       type="button"
                       onClick={() => {
                         if (onSelectGenre && g.name) {
@@ -506,7 +506,7 @@ export function AnimeDetailModal({
                   ))}
                   {anime.themes?.slice(0, 4).map((t, i) => (
                     <button
-                      key={`modal-top-theme-${t.name || i}`}
+                      key={`modal-top-theme-${t.name || i}-${i}`}
                       type="button"
                       onClick={() => {
                         if (onSelectGenre && t.name) {
@@ -608,7 +608,7 @@ export function AnimeDetailModal({
                   <div className="flex flex-wrap gap-1 mt-0.5">
                     {anime.studios && anime.studios.length > 0 ? (
                       anime.studios.map((s, idx) => (
-                        <span key={s.mal_id || s.name || idx}>
+                        <span key={`modal-studio-${s.mal_id || s.name || 'studio'}-${idx}`}>
                           <button
                             type="button"
                             onClick={() => {
@@ -649,7 +649,7 @@ export function AnimeDetailModal({
                     <div className="flex flex-wrap items-center gap-1.5">
                       {anime.demographics?.map((d, i) => (
                         <button
-                          key={`meta-demo-${d.name || i}`}
+                          key={`meta-demo-${d.name || i}-${i}`}
                           type="button"
                           onClick={() => {
                             if (onSelectGenre && d.name) {
@@ -668,7 +668,7 @@ export function AnimeDetailModal({
                       ))}
                       {anime.genres?.map((g, i) => (
                         <button
-                          key={`meta-genre-${g.name || i}`}
+                          key={`meta-genre-${g.name || i}-${i}`}
                           type="button"
                           onClick={() => {
                             if (onSelectGenre && g.name) {
@@ -895,7 +895,7 @@ export function AnimeDetailModal({
                   <div className="flex flex-wrap items-center gap-2">
                     {anime.demographics?.map((d, i) => (
                       <button
-                        key={`tab-demo-${d.name || i}`}
+                        key={`tab-demo-${d.name || i}-${i}`}
                         type="button"
                         onClick={() => {
                           if (onSelectGenre && d.name) {
@@ -916,7 +916,7 @@ export function AnimeDetailModal({
                     ))}
                     {anime.genres?.map((g, i) => (
                       <button
-                        key={`tab-genre-${g.name || i}`}
+                        key={`tab-genre-${g.name || i}-${i}`}
                         type="button"
                         onClick={() => {
                           if (onSelectGenre && g.name) {
@@ -936,7 +936,7 @@ export function AnimeDetailModal({
                     ))}
                     {anime.themes?.map((t, i) => (
                       <button
-                        key={`tab-theme-${t.name || i}`}
+                        key={`tab-theme-${t.name || i}-${i}`}
                         type="button"
                         onClick={() => {
                           if (onSelectGenre && t.name) {
@@ -1006,8 +1006,8 @@ export function AnimeDetailModal({
                       Official streaming links reported for this title by the catalog:
                     </p>
                     <div className="divide-y divide-neutral-800">
-                      {directStreamingLinks.map((provider) => (
-                        <div key={provider.name} className="py-2.5 flex items-center justify-between gap-4">
+                      {directStreamingLinks.map((provider, pIdx) => (
+                        <div key={`modal-stream-${provider.name}-${pIdx}`} className="py-2.5 flex items-center justify-between gap-4">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-white text-sm">{provider.name}</span>
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800/60">
@@ -1042,9 +1042,9 @@ export function AnimeDetailModal({
                 </p>
 
                 <div className="divide-y divide-neutral-800">
-                  {searchPlatforms.map((platform) => (
+                  {searchPlatforms.map((platform, pIdx) => (
                     <div
-                      key={platform.name}
+                      key={`modal-search-plat-${platform.name}-${pIdx}`}
                       className="py-3 flex items-center justify-between gap-4"
                     >
                       <div>
@@ -1099,7 +1099,7 @@ export function AnimeDetailModal({
                         const isCurrent = s.mal_id === anime.mal_id;
                         return (
                           <div
-                            key={`modal-season-${s.mal_id}`}
+                            key={`modal-season-${s.mal_id}-${idx}`}
                             className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 transition-all ${
                               isCurrent
                                 ? 'bg-orange-500/10 border-orange-500/40 ring-1 ring-orange-500/20'
@@ -1150,18 +1150,18 @@ export function AnimeDetailModal({
 
               {anime.relations && anime.relations.length > 0 ? (
                 <div className="space-y-4">
-                  {anime.relations.map((rel) => (
-                    <div key={rel.relation} className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 space-y-2">
+                  {anime.relations.map((rel, relIdx) => (
+                    <div key={`modal-rel-${rel.relation}-${relIdx}`} className="p-4 rounded-xl bg-neutral-900 border border-neutral-800 space-y-2">
                       <div className="flex items-center gap-2 mb-2">
                         <GitFork className="w-4 h-4 text-orange-400" />
                         <h4 className="font-bold text-white text-sm">{rel.relation}</h4>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                        {rel.entry.map((ent) => {
+                        {rel.entry.map((ent, entIdx) => {
                           const isAnime = ent.type === 'anime';
                           return (
                             <div
-                              key={`${ent.type}-${ent.mal_id}`}
+                              key={`modal-rel-ent-${ent.type}-${ent.mal_id}-${entIdx}`}
                               className="p-3 rounded-lg bg-neutral-950 border border-neutral-800 flex items-center justify-between gap-2"
                             >
                               <div className="min-w-0 flex-1">
@@ -1406,9 +1406,9 @@ export function AnimeDetailModal({
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {recommendations.map((rec) => (
+                  {recommendations.map((rec, recIdx) => (
                     <div
-                      key={`rec-${rec.mal_id}`}
+                      key={`modal-rec-${rec.mal_id}-${recIdx}`}
                       onClick={() => onSelectRelatedAnime && onSelectRelatedAnime(rec.mal_id)}
                       className="group bg-neutral-900 border border-neutral-800 hover:border-rose-500/50 rounded-xl overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5"
                     >

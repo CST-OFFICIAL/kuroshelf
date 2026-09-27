@@ -252,28 +252,30 @@ export async function getCatalogAnimeById(id: number): Promise<{ data: AnimeItem
   if (data) {
     if (isNsfwOrAdult(data)) return { data: null };
     let mapped = mapDbToAnime(data);
-    // If genres or streaming are missing, fetch live from Jikan to backfill
-    if (!mapped.genres || mapped.genres.length === 0 || !mapped.streaming || mapped.streaming.length === 0) {
-      try {
-        const jikanRes = await jikanGetById(id);
-        if (jikanRes && !isNsfwOrAdult(jikanRes)) {
-          if ((!mapped.genres || mapped.genres.length === 0) && jikanRes.genres && jikanRes.genres.length > 0) {
-            mapped.genres = jikanRes.genres as unknown as AnimeItem['genres'];
-          }
-          if (jikanRes.themes && jikanRes.themes.length > 0) {
-            mapped.themes = jikanRes.themes as unknown as AnimeItem['themes'];
-          }
-          if (jikanRes.demographics && jikanRes.demographics.length > 0) {
-            mapped.demographics = jikanRes.demographics as unknown as AnimeItem['demographics'];
-          }
-          if (jikanRes.streaming && jikanRes.streaming.length > 0) {
-            mapped.streaming = jikanRes.streaming;
-          }
-          // Fire and forget ingestion update
-          ingestAnimeList([jikanRes] as any).catch(() => {});
+    // Fetch live from Jikan to backfill relations, streaming, or genres
+    try {
+      const jikanRes = await jikanGetById(id);
+      if (jikanRes && !isNsfwOrAdult(jikanRes)) {
+        if (jikanRes.relations && Array.isArray(jikanRes.relations)) {
+          mapped.relations = jikanRes.relations;
         }
-      } catch (e) {}
-    }
+        if ((!mapped.genres || mapped.genres.length === 0) && jikanRes.genres && jikanRes.genres.length > 0) {
+          mapped.genres = jikanRes.genres as unknown as AnimeItem['genres'];
+        }
+        if (jikanRes.themes && jikanRes.themes.length > 0) {
+          mapped.themes = jikanRes.themes as unknown as AnimeItem['themes'];
+        }
+        if (jikanRes.demographics && jikanRes.demographics.length > 0) {
+          mapped.demographics = jikanRes.demographics as unknown as AnimeItem['demographics'];
+        }
+        if (jikanRes.streaming && jikanRes.streaming.length > 0) {
+          mapped.streaming = jikanRes.streaming;
+        }
+        // Fire and forget ingestion update
+        ingestAnimeList([jikanRes] as any).catch(() => {});
+      }
+    } catch (e) {}
+
     return { data: mapped as any };
   }
 

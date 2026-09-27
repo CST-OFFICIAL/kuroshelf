@@ -56,14 +56,18 @@ async function fetchFromApi<T>(
         const json = await res.json();
         const data = (json.data ?? fallbackData) as T;
         const pagination = json.pagination as JikanPagination | undefined;
-        // If the server succeeded but returned an empty array, null, or only the minimal seed items on list endpoints, trigger direct fallback
-        const isListEndpoint = endpoint.includes('/api/anime/top') || endpoint.includes('/api/anime/search') || endpoint.includes('/api/anime/seasonal') || endpoint.includes('/api/anime/upcoming') || endpoint.includes('/api/manga');
+        const isSearch = endpoint.includes('/api/anime/search');
+        const isListEndpoint = endpoint.includes('/api/anime/top') || endpoint.includes('/api/anime/seasonal') || endpoint.includes('/api/anime/upcoming') || endpoint.includes('/api/manga');
         const hasMinimalSeedData = isListEndpoint && Array.isArray(data) && data.length <= 5 && !endpoint.includes('limit=5');
         if (!data || (Array.isArray(data) && data.length === 0) || hasMinimalSeedData) {
           const directResult = await routeToDirectJikan<T>(endpoint);
-          if (directResult && directResult.data && (!Array.isArray(directResult.data) || directResult.data.length > 5)) {
-            memoryCache.set(cacheKey, { data: directResult.data, pagination: directResult.pagination, timestamp: Date.now() });
-            return directResult;
+          if (directResult && directResult.data) {
+            const resultCount = Array.isArray(directResult.data) ? directResult.data.length : 1;
+            // For search, any > 0 results are immediately valid; for large list endpoints require > 5 or more than server
+            if (resultCount > 0 && (isSearch || !Array.isArray(directResult.data) || resultCount > 5 || resultCount >= (Array.isArray(data) ? data.length : 0))) {
+              memoryCache.set(cacheKey, { data: directResult.data, pagination: directResult.pagination, timestamp: Date.now() });
+              return directResult;
+            }
           }
         }
         memoryCache.set(cacheKey, { data, pagination, timestamp: Date.now() });

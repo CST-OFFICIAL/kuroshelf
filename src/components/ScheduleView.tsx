@@ -293,7 +293,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 key={item.mal_id}
                 id={`schedule-card-${item.mal_id}`}
                 onClick={() => onSelectAnime(item)}
-                className="group relative bg-white dark:bg-[#0a0d14] border border-slate-200 dark:border-[#1f2535] hover:border-orange-500/60 rounded-2xl overflow-hidden flex flex-col cursor-pointer transition-all duration-300 shadow-xs hover:shadow-xl hover:shadow-orange-600/10 dark:hover:shadow-orange-950/20 hover:-translate-y-1"
+                className="group relative bg-white dark:bg-[#0a0d14] border border-slate-200 dark:border-[#1f2535] hover:border-orange-500/60 rounded-2xl overflow-hidden flex flex-col cursor-pointer transition-all duration-300 shadow-xs hover:shadow-xl hover:shadow-orange-600/10 dark:hover:shadow-orange-950/20 hover:-translate-y-1 min-w-0 w-full"
               >
                 {/* Poster & Badges */}
                 <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100 dark:bg-neutral-950">
@@ -343,13 +343,23 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 </div>
 
                 {/* Card Content */}
-                <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between space-y-3">
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white line-clamp-1 group-hover:text-orange-500 transition-colors">
+                <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between space-y-3 min-w-0 overflow-hidden w-full">
+                  <div className="space-y-1 min-w-0 w-full overflow-hidden">
+                    <h3 
+                      className="font-bold text-sm sm:text-base text-slate-900 dark:text-white block w-full truncate group-hover:text-orange-500 transition-colors"
+                      style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      title={item.title}
+                    >
                       {item.title}
                     </h3>
                     {item.title_english && item.title_english !== item.title && (
-                      <p className="text-xs text-slate-500 dark:text-neutral-400 line-clamp-1">{item.title_english}</p>
+                      <p 
+                        className="text-xs text-slate-500 dark:text-neutral-400 block w-full truncate"
+                        style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        title={item.title_english}
+                      >
+                        {item.title_english}
+                      </p>
                     )}
                   </div>
 

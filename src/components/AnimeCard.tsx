@@ -38,7 +38,7 @@ export const AnimeCard = React.memo(function AnimeCard({
   return (
     <div className="group flex flex-col rounded-xl overflow-hidden bg-white dark:bg-[#13161f] border border-slate-200/90 dark:border-[#252b3b] hover:border-slate-300 dark:hover:border-[#3a445c] shadow-xs hover:shadow-md transition-all duration-200">
       {/* Poster Image Container */}
-      <div className="relative aspect-[3/4] w-full bg-slate-100 dark:bg-[#0b0d12] overflow-hidden">
+      <div className="relative aspect-[3/4] w-full shrink-0 bg-slate-100 dark:bg-[#0b0d12] overflow-hidden isolate">
         <a 
           href={getAnimeUrl(anime.mal_id, anime.title)}
           onClick={(e) => {
@@ -55,6 +55,7 @@ export const AnimeCard = React.memo(function AnimeCard({
             title={anime.title}
             mediaType="anime"
             aspectRatio="aspect-[3/4]"
+            showFallbackTitle={false}
             loading="lazy"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
@@ -170,8 +171,8 @@ export const AnimeCard = React.memo(function AnimeCard({
       </div>
 
       {/* Card Info Area */}
-      <div className="p-3 flex flex-col flex-1 justify-between gap-2">
-        <div>
+      <div className="p-3 flex flex-col flex-1 justify-between gap-2 relative z-10 bg-white dark:bg-[#13161f] min-w-0">
+        <div className="min-w-0">
           <a
             href={getAnimeUrl(anime.mal_id, anime.title)}
             onClick={(e) => {
@@ -181,14 +182,14 @@ export const AnimeCard = React.memo(function AnimeCard({
             className="block"
           >
             <h3 
-              className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug min-h-[2.4rem] group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors cursor-pointer"
+              className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug min-h-[2.4rem] group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors cursor-pointer break-words"
               title={anime.title}
             >
               {anime.title}
             </h3>
           </a>
           {anime.title_english && anime.title_english !== anime.title && (
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5" title={anime.title_english}>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5 break-words" title={anime.title_english}>
               {anime.title_english}
             </p>
           )}
@@ -204,7 +205,7 @@ export const AnimeCard = React.memo(function AnimeCard({
           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
             {(anime.genres || []).slice(0, 2).map((g, i) => (
               <button
-                key={g.name || `genre-${i}`}
+                key={`anime-card-genre-${g.name || i}-${i}`}
                 type="button"
                 onClick={(e) => {
                   if (onSelectGenre && g.name) {

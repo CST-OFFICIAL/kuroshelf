@@ -470,7 +470,7 @@ export function AnimeFullPage({
               <div className="flex flex-wrap items-center gap-2">
                 {anime.demographics?.map((d, i) => (
                   <button
-                    key={`demo-${d.name || i}`}
+                    key={`full-demo-${d.name || i}-${i}`}
                     type="button"
                     onClick={() => onSelectGenre?.(d.name)}
                     className="px-3 py-1.5 text-xs rounded-xl font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 transition-all cursor-pointer"
@@ -480,7 +480,7 @@ export function AnimeFullPage({
                 ))}
                 {anime.genres?.map((g, i) => (
                   <button
-                    key={`genre-${g.name || i}`}
+                    key={`full-genre-${g.name || i}-${i}`}
                     type="button"
                     onClick={() => onSelectGenre?.(g.name)}
                     className="px-3 py-1.5 text-xs rounded-xl font-semibold bg-orange-500/10 text-orange-500 border border-orange-500/20 hover:bg-orange-500/20 transition-all cursor-pointer"
@@ -490,7 +490,7 @@ export function AnimeFullPage({
                 ))}
                 {anime.themes?.map((t, i) => (
                   <button
-                    key={`theme-${t.name || i}`}
+                    key={`full-theme-${t.name || i}-${i}`}
                     type="button"
                     onClick={() => onSelectGenre?.(t.name)}
                     className="px-3 py-1.5 text-xs rounded-xl font-medium bg-slate-100 dark:bg-[#121622] text-slate-700 dark:text-neutral-300 border border-slate-200 dark:border-[#222a3a] hover:border-orange-500/50 transition-all cursor-pointer"
@@ -525,7 +525,7 @@ export function AnimeFullPage({
                     const isCurrent = s.mal_id === anime.mal_id;
                     return (
                       <button
-                        key={`quick-season-${s.mal_id}`}
+                        key={`quick-season-${s.mal_id}-${idx}`}
                         type="button"
                         onClick={async () => {
                           if (isCurrent) return;
@@ -591,9 +591,9 @@ export function AnimeFullPage({
                 </span>
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {anime.studios && anime.studios.length > 0 ? (
-                    anime.studios.map((s) => (
+                    anime.studios.map((s, idx) => (
                       <button
-                        key={s.mal_id || s.name}
+                        key={`full-studio-${s.mal_id || s.name}-${idx}`}
                         type="button"
                         onClick={() => onSelectStudio?.(s.name)}
                         className="text-sm font-semibold text-slate-800 dark:text-neutral-200 hover:text-rose-500 transition-colors cursor-pointer"
@@ -665,8 +665,8 @@ export function AnimeFullPage({
 
               {directStreamingLinks.length > 0 ? (
                 <div className="divide-y divide-slate-100 dark:divide-neutral-800">
-                  {directStreamingLinks.map((provider) => (
-                    <div key={provider.name} className="py-3 flex items-center justify-between gap-4">
+                  {directStreamingLinks.map((provider, pIdx) => (
+                    <div key={`full-streaming-${provider.name}-${pIdx}`} className="py-3 flex items-center justify-between gap-4">
                       <div>
                         <span className="font-semibold text-slate-900 dark:text-white text-sm">{provider.name}</span>
                         <span className="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
@@ -698,8 +698,8 @@ export function AnimeFullPage({
                 Platform Search Directories
               </h3>
               <div className="divide-y divide-slate-100 dark:divide-neutral-800">
-                {searchPlatforms.map((platform) => (
-                  <div key={platform.name} className="py-3 flex items-center justify-between gap-4">
+                {searchPlatforms.map((platform, pIdx) => (
+                  <div key={`full-search-${platform.name}-${pIdx}`} className="py-3 flex items-center justify-between gap-4">
                     <div>
                       <span className="font-semibold text-slate-900 dark:text-white text-sm block">{platform.name}</span>
                       <span className="text-xs text-slate-500 dark:text-neutral-400">{platform.type} • {platform.region}</span>
@@ -799,7 +799,7 @@ export function AnimeFullPage({
                   const isCurrent = season.mal_id === anime.mal_id;
                   return (
                     <div
-                      key={`season-card-${season.mal_id}`}
+                      key={`season-card-${season.mal_id}-${idx}`}
                       className={`group relative p-3.5 rounded-2xl border transition-all flex gap-3.5 ${
                         isCurrent
                           ? 'bg-orange-500/10 border-orange-500 ring-2 ring-orange-500/20 shadow-md'
@@ -899,9 +899,9 @@ export function AnimeFullPage({
                         {relation.relation}
                       </span>
                       <div className="flex flex-wrap gap-2">
-                        {relation.entry?.map((entry) => (
+                        {relation.entry?.map((entry, eIdx) => (
                           <button
-                            key={entry.mal_id}
+                            key={`full-rel-ent-${entry.mal_id}-${entry.type || ''}-${eIdx}`}
                             type="button"
                             onClick={async () => {
                               if (entry.type === 'anime' && onSelectAnime) {
