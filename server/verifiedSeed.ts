@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { AnimeItem, MangaItem } from '../src/types';
+import type { AnimeItem, MangaItem } from '../src/types';
 
 // This is genuinely static, verified data from Jikan.
 export const VERIFIED_SEED_ANIME: AnimeItem[] = [

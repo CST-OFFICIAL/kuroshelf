@@ -91,7 +91,7 @@ export function subscribeMembership(options: {
 }): MembershipInfo {
   const isYearly = options.cycle === 'yearly';
   const durationMs = isYearly ? THREE_SIXTY_FIVE_DAYS_MS : THIRTY_DAYS_MS;
-  const pricePaid = isYearly ? 41.90 : 4.99;
+  const pricePaid = isYearly ? 28.99 : 2.99;
   const tier = options.tier || 'vip';
 
   const info: MembershipInfo = {

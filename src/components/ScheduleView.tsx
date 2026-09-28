@@ -218,7 +218,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={`Search ${filteredItems.length} episodes scheduled for ${selectedDay !== 'all' ? selectedDay : 'this week'}...`}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-[#121622] border border-slate-200 dark:border-[#222a3a] rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors"
+              className="w-full min-w-0 pl-10 pr-4 py-2 bg-slate-50 dark:bg-[#121622] border border-slate-200 dark:border-[#222a3a] rounded-lg text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition-colors truncate placeholder:truncate"
             />
           </div>
           <span className="hidden md:inline-block px-3 py-1.5 rounded-lg bg-orange-500/10 text-orange-500 border border-orange-500/20 text-xs font-bold shrink-0">

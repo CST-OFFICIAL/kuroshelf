@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShelfEntry, ShelfStatus, UserActivity } from '../types';
+import { AuthUser, ShelfEntry, ShelfStatus, UserActivity } from '../types';
 import { 
   Bookmark, 
   Heart, 
@@ -12,7 +12,9 @@ import {
   BarChart2,
   Clock,
   BarChart3,
-  Download
+  Download,
+  CheckCircle2,
+  Sparkles
 } from 'lucide-react';
 import { MediaImage } from './MediaImage';
 
@@ -22,6 +24,8 @@ interface ShelfViewProps {
   shelf: ShelfEntry[];
   activities: UserActivity[];
   activeSubTab?: ShelfViewFilterTab;
+  currentUser?: AuthUser | null;
+  onOpenAuthModal?: () => void;
   onSelectMedia: (id: number) => void;
   onUpdateStatus: (id: number, mediaType: 'anime' | 'manga', status: ShelfStatus) => void;
   onUpdateRating: (id: number, mediaType: 'anime' | 'manga', rating: number) => void;
@@ -37,6 +41,8 @@ export function ShelfView({
   shelf,
   activities,
   activeSubTab,
+  currentUser,
+  onOpenAuthModal,
   onSelectMedia,
   onUpdateStatus,
   onUpdateProgress,
@@ -56,6 +62,66 @@ export function ShelfView({
       setFilterTab(activeSubTab);
     }
   }, [activeSubTab]);
+
+  if (!currentUser) {
+    return (
+      <div className="max-w-2xl mx-auto py-12 px-4 text-center space-y-6 animate-in fade-in">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-500/20 via-rose-500/10 to-amber-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-500 shadow-lg shadow-rose-950/20">
+          <Bookmark className="w-8 h-8" />
+        </div>
+        <div className="space-y-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs font-bold uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5" />
+            Library Account Required
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-bold font-display text-slate-900 dark:text-white">
+            Open Your Account to Start Making Your Library
+          </h2>
+          <p className="text-sm text-slate-600 dark:text-neutral-300 max-w-md mx-auto leading-relaxed">
+            To start adding anime and manga to your personal library, tracking your episode progress, and syncing across your devices, you need to open an account.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onOpenAuthModal}
+            className="w-full sm:w-auto px-7 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-sm transition-all shadow-md shadow-rose-950/30 cursor-pointer"
+          >
+            Open Free Account / Sign In
+          </button>
+        </div>
+        <div className="pt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-neutral-900/60 border border-slate-200 dark:border-neutral-800 space-y-1">
+            <span className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+              Progress Tracking
+            </span>
+            <p className="text-[11px] text-slate-500 dark:text-neutral-400">
+              Never lose your place across watching and reading lists.
+            </p>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-neutral-900/60 border border-slate-200 dark:border-neutral-800 space-y-1">
+            <span className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+              Cloud Sync
+            </span>
+            <p className="text-[11px] text-slate-500 dark:text-neutral-400">
+              Access your watchlist from your phone, tablet, and PC.
+            </p>
+          </div>
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-neutral-900/60 border border-slate-200 dark:border-neutral-800 space-y-1">
+            <span className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+              Personalized Stats
+            </span>
+            <p className="text-[11px] text-slate-500 dark:text-neutral-400">
+              Unlock watch hours, ratings breakdown, and otaku badges.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleTabClick = (tab: ShelfViewFilterTab) => {
     setFilterTab(tab);

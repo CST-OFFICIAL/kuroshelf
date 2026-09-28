@@ -8,13 +8,21 @@ interface AuthModalProps {
   currentUser: AuthUser | null;
   onClose: () => void;
   onAuthSuccess: (user: AuthUser | null) => void;
+  initialTab?: AuthTab;
+  reason?: string | null;
 }
 
 type AuthTab = 'login' | 'register' | 'setup_profile';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProps) {
+export function AuthModal({
+  currentUser,
+  onClose,
+  onAuthSuccess,
+  initialTab = 'login',
+  reason,
+}: AuthModalProps) {
   // Lock body and html scroll
   useEffect(() => {
     const prevBody = document.body.style.overflow;
@@ -27,7 +35,13 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
     };
   }, []);
 
-  const [tab, setTab] = useState<AuthTab>('login');
+  const [tab, setTab] = useState<AuthTab>(initialTab || 'login');
+
+  useEffect(() => {
+    if (initialTab) {
+      setTab(initialTab);
+    }
+  }, [initialTab]);
   // All inputs strictly start empty - no pre-filled boxes as requested
   const [identifier, setIdentifier] = useState('');
   const [email, setEmail] = useState('');
@@ -358,6 +372,13 @@ export function AuthModal({ currentUser, onClose, onAuthSuccess }: AuthModalProp
             </div>
           ) : (
             <div className="space-y-6">
+              {reason && (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span className="font-semibold leading-relaxed">{reason}</span>
+                </div>
+              )}
+
               {/* Tab Nav */}
               <div className="flex items-center gap-1 p-1 rounded-xl bg-neutral-900 border border-neutral-800">
                 <button

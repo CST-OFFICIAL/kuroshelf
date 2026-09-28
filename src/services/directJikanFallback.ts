@@ -39,6 +39,17 @@ export function deduplicateAnime<T extends { mal_id?: number; id?: number }>(ite
   });
 }
 
+// Jikan circuit breaker to fail-over instantly when Jikan is down (e.g. 504 MAL gateway error)
+let jikanDegradedUntil = 0;
+
+export function isJikanHealthy(): boolean {
+  return Date.now() > jikanDegradedUntil;
+}
+
+export function markJikanDegraded(durationMs: number = 60000): void {
+  jikanDegradedUntil = Date.now() + durationMs;
+}
+
 // Simple rate-limit friendly direct requester with caching
 const clientDirectCache = new Map<string, { data: any; pagination?: any; ts: number }>();
 const CLIENT_CACHE_TTL = 1000 * 60 * 20; // 20 minutes
@@ -50,15 +61,39 @@ export async function fetchDirectJikan<T = any>(endpoint: string): Promise<{ dat
     return { data: cached.data as T, pagination: cached.pagination };
   }
 
+  if (!isJikanHealthy()) {
+    throw new Error('Jikan API upstream is temporarily degraded (failing over to AniList)');
+  }
+
+  const isSearch = endpoint.includes('/anime?') && endpoint.includes('q=');
+  const timeoutMs = isSearch ? 2500 : 8000;
+
   const url = `${JIKAN_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-  const res = await fetch(url, {
-    signal: AbortSignal.timeout(8000),
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err: any) {
+    if (isSearch) {
+      markJikanDegraded(60000);
+    }
+    throw err;
+  }
+
+  if (res.status === 504 || res.status === 502 || res.status === 503 || res.status === 429) {
+    markJikanDegraded(60000);
+    throw new Error(`Jikan returned ${res.status}`);
+  }
+
   if (!res.ok) {
     throw new Error(`Jikan returned ${res.status}`);
   }
   const json = await res.json();
   if (json.status && json.status >= 400) {
+    if (json.status === 504 || json.status === 429) {
+      markJikanDegraded(60000);
+    }
     throw new Error(`Jikan error ${json.status}: ${json.message || 'Error'}`);
   }
   const rawData = json.data as T;

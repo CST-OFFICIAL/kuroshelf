@@ -21,6 +21,7 @@ interface PollsViewProps {
   isPremium?: boolean;
   onOpenCreatePoll: () => void;
   onOpenMembershipModal: () => void;
+  onOpenAuthModal?: () => void;
 }
 
 export function PollsView({
@@ -32,6 +33,7 @@ export function PollsView({
   isPremium = false,
   onOpenCreatePoll,
   onOpenMembershipModal,
+  onOpenAuthModal,
 }: PollsViewProps) {
   const [filterMode, setFilterMode] = useState<'all' | 'voted' | 'active'>('all');
   const quota = getWeeklyPollStatus(currentUser?.id, isPremium);
@@ -68,7 +70,13 @@ export function PollsView({
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={onOpenCreatePoll}
+              onClick={() => {
+                if (!currentUser) {
+                  onOpenAuthModal?.();
+                  return;
+                }
+                onOpenCreatePoll();
+              }}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-all shadow-md shadow-rose-950/40 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
@@ -76,6 +84,26 @@ export function PollsView({
             </button>
           </div>
         </div>
+
+        {/* Guest Banner if not signed in */}
+        {!currentUser && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-rose-500/10 border border-rose-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-in fade-in">
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="w-5 h-5 text-rose-400 shrink-0" />
+              <div>
+                <p className="font-bold text-white text-xs">Account Required to Participate in Predictions</p>
+                <p className="text-[11px] text-neutral-300">Open an account or sign in to vote in weekly matchups and make your own predictions!</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenAuthModal}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs transition-all shadow-md shadow-rose-950/40 cursor-pointer shrink-0"
+            >
+              Open Account / Sign In
+            </button>
+          </div>
+        )}
 
         {/* Weekly Quota Card & VIP Perks */}
         <div className="p-4 rounded-2xl bg-neutral-900/90 border border-neutral-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
@@ -102,7 +130,7 @@ export function PollsView({
             </div>
             <p className="text-[11px] text-neutral-400">
               Free members receive <strong>1 poll creation per week</strong>. Kuro VIP members receive{' '}
-              <strong>7 poll creations per week</strong>. Everyone can participate and vote on unlimited polls!
+              <strong>7 poll creations per week</strong>. Open an account to participate and vote on unlimited prediction polls!
             </p>
           </div>
 
@@ -278,7 +306,13 @@ export function PollsView({
                       <button
                         key={opt.id}
                         disabled={hasVoted}
-                        onClick={() => onVote(poll.id, opt.id)}
+                        onClick={() => {
+                          if (!currentUser) {
+                            onOpenAuthModal?.();
+                            return;
+                          }
+                          onVote(poll.id, opt.id);
+                        }}
                         className={`relative w-full text-left p-3.5 rounded-xl border transition-all overflow-hidden ${
                           isSelected
                             ? 'border-rose-500 bg-rose-950/20 shadow-sm'
@@ -340,10 +374,14 @@ export function PollsView({
                   {hasVoted ? (
                     <span className="text-emerald-400 flex items-center gap-1 font-medium">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      Vote registered! Anyone can vote freely on all prediction polls.
+                      Vote registered! You have participated in this prediction.
                     </span>
                   ) : (
-                    <span>Click any option to cast your prediction vote.</span>
+                    <span>
+                      {!currentUser
+                        ? 'Open an account to participate and cast your prediction vote.'
+                        : 'Click any option to cast your prediction vote.'}
+                    </span>
                   )}
                   <span>Closes {new Date(poll.endsAt).toLocaleDateString()}</span>
                 </div>

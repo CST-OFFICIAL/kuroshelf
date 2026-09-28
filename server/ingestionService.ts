@@ -2,7 +2,7 @@
 import { supabase, isSupabaseConfigured } from './supabase';
 import { fetchFromJikan, isNsfwOrAdult, GENRE_NAME_TO_MAL_ID } from './jikanService';
 import { cleanOfficialText } from './officialSynopsisService';
-import { BaseJikanAnime } from '../src/types';
+import type { BaseJikanAnime } from '../src/types';
 
 const SLEEP_MS = 1000;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

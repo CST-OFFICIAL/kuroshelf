@@ -98,17 +98,6 @@ function mapAniListMediaToAnimeItem(media: any): AnimeItem {
   };
 }
 
-function matchesEntityClient(search: string, entityName?: string): boolean {
-  if (!search || !entityName) return false;
-  const s = search.toLowerCase().trim();
-  const e = entityName.toLowerCase().trim();
-  if (e === s) return true;
-  const words = e.split(/[\s\-_\/]+/);
-  if (words.some(w => w === s || (s.length >= 3 && w.startsWith(s)))) return true;
-  if (e.startsWith(s) || (s.length >= 4 && s.startsWith(e))) return true;
-  return false;
-}
-
 export async function fetchAniListAnimeList(options: {
   sort?: string;
   season?: string;
@@ -206,58 +195,23 @@ export async function fetchAniListAnimeList(options: {
   if (options.genre) variables.genre = options.genre;
   if (options.tag) variables.tag = options.tag;
 
-  const fetchMain = fetch(ANILIST_GRAPHQL_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({ query, variables }),
-  }).then(async (r) => (r.ok ? r.json() : null)).catch(() => null);
-
-  let fetchChar: Promise<any> = Promise.resolve(null);
-  let fetchStudio: Promise<any> = Promise.resolve(null);
-
-  if (cleanSearch && cleanSearch.length >= 2) {
-    const charGql = `
-      query ($search: String) {
-        Character(search: $search) {
-          name { full alternative }
-          media(sort: [POPULARITY_DESC], perPage: 10) {
-            nodes {
-              ${mediaFields}
-            }
-          }
-        }
-      }
-    `;
-    const studioGql = `
-      query ($search: String) {
-        Studio(search: $search) {
-          name
-          media(sort: [POPULARITY_DESC], perPage: 12) {
-            nodes {
-              ${mediaFields}
-            }
-          }
-        }
-      }
-    `;
-
-    fetchChar = fetch(ANILIST_GRAPHQL_URL, {
+  let mainJson: any = null;
+  try {
+    const res = await fetch(ANILIST_GRAPHQL_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ query: charGql, variables: { search: cleanSearch } }),
-    }).then(async (r) => (r.ok ? r.json() : null)).catch(() => null);
-
-    fetchStudio = fetch(ANILIST_GRAPHQL_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ query: studioGql, variables: { search: cleanSearch } }),
-    }).then(async (r) => (r.ok ? r.json() : null)).catch(() => null);
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ query, variables }),
+      signal: AbortSignal.timeout(6000),
+    });
+    if (res.ok) {
+      mainJson = await res.json();
+    }
+  } catch (err) {
+    console.warn('[AniList] Main media query failed:', err);
   }
-
-  const [mainJson, charJson, studioJson] = await Promise.all([fetchMain, fetchChar, fetchStudio]);
 
   const pageData = mainJson?.data?.Page;
   const directMediaList = pageData?.media || [];
@@ -265,21 +219,36 @@ export async function fetchAniListAnimeList(options: {
   let isStudioHit = false;
   let isCharHit = false;
 
-  if (studioJson?.data?.Studio) {
-    const studio = studioJson.data.Studio;
-    if (matchesEntityClient(cleanSearch!, studio.name) && Array.isArray(studio.media?.nodes)) {
-      isStudioHit = true;
-      extraMediaList.push(...studio.media.nodes);
-    }
-  }
-
-  if (charJson?.data?.Character) {
-    const char = charJson.data.Character;
-    const charMatches = matchesEntityClient(cleanSearch!, char.name?.full) || (char.name?.alternative || []).some((alt: string) => matchesEntityClient(cleanSearch!, alt));
-    if (charMatches && Array.isArray(char.media?.nodes)) {
-      isCharHit = true;
-      extraMediaList.push(...char.media.nodes);
-    }
+  // If no direct title match and search is >= 3 chars, check character search as a fallback
+  if (directMediaList.length === 0 && cleanSearch && cleanSearch.length >= 3) {
+    try {
+      const charGql = `
+        query ($search: String) {
+          Character(search: $search) {
+            name { full alternative }
+            media(sort: [POPULARITY_DESC], perPage: 12) {
+              nodes {
+                ${mediaFields}
+              }
+            }
+          }
+        }
+      `;
+      const charRes = await fetch(ANILIST_GRAPHQL_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ query: charGql, variables: { search: cleanSearch } }),
+        signal: AbortSignal.timeout(4000),
+      });
+      if (charRes.ok) {
+        const charJson = await charRes.json();
+        const char = charJson?.data?.Character;
+        if (char && Array.isArray(char.media?.nodes)) {
+          isCharHit = true;
+          extraMediaList.push(...char.media.nodes);
+        }
+      }
+    } catch {}
   }
 
   const combinedMedia = (isStudioHit || isCharHit)

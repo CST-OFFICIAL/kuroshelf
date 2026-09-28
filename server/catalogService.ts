@@ -1,6 +1,6 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
-import { AnimeItem, JikanPagination } from '../src/types';
+import type { AnimeItem, JikanPagination } from '../src/types';
 import { serverSearchAnime as jikanSearch, serverGetAnimeDetails as jikanGetById, serverGetTopAnime, serverGetSeasonalAnime, serverGetUpcomingAnime, isNsfwOrAdult, resolveGenreInfo } from './jikanService';
 import { ingestAnimeList } from './ingestionService';
 import { cleanOfficialText } from './officialSynopsisService';

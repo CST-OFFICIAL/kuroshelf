@@ -176,10 +176,18 @@ export function App() {
   // Shelf & User state
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalReason, setAuthModalReason] = useState<string | null>(null);
+  const [authModalInitialTab, setAuthModalInitialTab] = useState<'login' | 'register'>('login');
   const [shelf, setShelf] = useState<ShelfEntry[]>([]);
   const [activities, setActivities] = useState<UserActivity[]>([]);
   const [polls, setPolls] = useState<PredictionPoll[]>([]);
   const [userVotes, setUserVotes] = useState<Record<string, string>>({});
+
+  const openAuthWithReason = (reason: string, initialTab: 'login' | 'register' = 'register') => {
+    setAuthModalReason(reason);
+    setAuthModalInitialTab(initialTab);
+    setAuthModalOpen(true);
+  };
 
   // Daily Otaku Streak state
   const [streakInfo, setStreakInfo] = useState<DailyStreakInfo>(() => getStreakInfo(currentUser?.id));
@@ -954,6 +962,9 @@ export function App() {
     setSearchQuery(trimmed);
     setDebouncedQuery(trimmed);
     if (trimmed) {
+      if (['profile', 'advanced', 'manga', 'polls', 'admin'].includes(activeTab)) {
+        setActiveTab('home');
+      }
       executeSearch(trimmed);
     }
   };
@@ -968,6 +979,10 @@ export function App() {
 
   // Shelf handlers
   const handleAddToShelf = async (anime: AnimeItem, status: ShelfStatus) => {
+    if (!currentUser) {
+      openAuthWithReason('Please open an account or sign in to start making your personal library!');
+      return;
+    }
     triggerAutoStreakCheckIn(currentUser?.id);
     const poster =
       anime.images.webp?.large_image_url ||
@@ -1010,6 +1025,10 @@ export function App() {
   };
 
   const handleToggleLike = async (anime: AnimeItem) => {
+    if (!currentUser) {
+      openAuthWithReason('Please open an account or sign in to save anime to your favorites library!');
+      return;
+    }
     triggerAutoStreakCheckIn(currentUser?.id);
     const poster =
       anime.images.webp?.large_image_url ||
@@ -1036,6 +1055,10 @@ export function App() {
   };
 
   const handleUpdateRating = async (anime: AnimeItem, rating: number) => {
+    if (!currentUser) {
+      openAuthWithReason('Please open an account or sign in to rate anime in your library!');
+      return;
+    }
     triggerAutoStreakCheckIn(currentUser?.id);
     const poster =
       anime.images.webp?.large_image_url ||
@@ -1063,6 +1086,10 @@ export function App() {
   };
 
   const handleUpdateProgress = async (id: number, mediaType: "anime" | "manga", progress: number) => {
+    if (!currentUser) {
+      openAuthWithReason('Please open an account or sign in to track progress in your library!');
+      return;
+    }
     triggerAutoStreakCheckIn(currentUser?.id);
     const updated = updateShelfProgress(id, mediaType, progress);
     setShelf(updated);
@@ -1126,6 +1153,10 @@ export function App() {
   };
 
   const handleVotePoll = async (pollId: string, optionId: string) => {
+    if (!currentUser) {
+      openAuthWithReason('Please open an account or sign in to participate in prediction matchups!');
+      return;
+    }
     triggerAutoStreakCheckIn(currentUser?.id);
     const numPollId = Number(pollId);
     const numOptId = Number(optionId);
@@ -1326,24 +1357,23 @@ export function App() {
         {/* 1. SEARCH RESULTS VIEW */}
         {isSearchActive ? (
           <div className="space-y-6">
-            <div className="flex items-center justify-between border-b border-neutral-800 pb-4">
-              <div className="flex items-center gap-2.5 text-white">
-                <Search className="w-5 h-5 text-rose-500" />
-                <div>
-                  <h2 className="text-xl font-bold font-display">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-4 gap-3">
+              <div className="flex items-center gap-2.5 text-white min-w-0 flex-1">
+                <Search className="w-5 h-5 text-rose-500 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg sm:text-xl font-bold font-display truncate" title={`Search Results for "${debouncedQuery || searchQuery}"`}>
                     Search Results for &ldquo;{debouncedQuery || searchQuery}&rdquo;
                   </h2>
                   {!loadingSearch && !searchError && (
-                    <p className="text-xs text-neutral-400 mt-0.5">
+                    <p className="text-xs text-neutral-400 mt-0.5 truncate">
                       {searchResults.length} {searchResults.length === 1 ? 'title found' : 'titles found'}
                     </p>
                   )}
-
                 </div>
               </div>
               <button
                 onClick={handleClearSearch}
-                className="text-xs text-neutral-400 hover:text-white px-3 py-1 rounded-md hover:bg-neutral-900 border border-neutral-800 transition-colors"
+                className="shrink-0 text-xs text-neutral-400 hover:text-white px-2.5 sm:px-3 py-1 rounded-md hover:bg-neutral-900 border border-neutral-800 transition-colors"
               >
                 Clear Search
               </button>
@@ -2196,6 +2226,10 @@ export function App() {
                 shelf={shelf}
                 isPremium={isPremium}
                 onAddToShelf={(manga, status) => {
+                  if (!currentUser) {
+                    openAuthWithReason('Please open an account or sign in to start making your manga library!');
+                    return;
+                  }
                   const poster =
                     manga.images.webp?.large_image_url ||
                     manga.images.jpg.large_image_url ||
@@ -2216,6 +2250,10 @@ export function App() {
                   setActivities(getStoredActivities());
                 }}
                 onToggleLike={(id, mediaType, title, image) => {
+                  if (!currentUser) {
+                    openAuthWithReason('Please open an account or sign in to save manga to your favorites library!');
+                    return;
+                  }
                   const updated = toggleShelfLike(id, mediaType, title, image);
                   setShelf(updated);
                   setActivities(getStoredActivities());
@@ -2243,11 +2281,18 @@ export function App() {
                 onSelectAnime={handleSelectPollAnime}
                 currentUser={currentUser}
                 isPremium={isPremium}
-                onOpenCreatePoll={() => setCreatePollModalOpen(true)}
+                onOpenCreatePoll={() => {
+                  if (!currentUser) {
+                    openAuthWithReason('Please open an account or sign in to create community prediction polls!');
+                    return;
+                  }
+                  setCreatePollModalOpen(true);
+                }}
                 onOpenMembershipModal={() => {
                   setMembershipModalInitialTab('membership');
                   setMembershipModalOpen(true);
                 }}
+                onOpenAuthModal={() => openAuthWithReason('Please open an account to participate in predictions!')}
               />
             )}
 
@@ -2287,6 +2332,8 @@ export function App() {
                 shelf={shelf}
                 activities={activities}
                 activeSubTab={shelfSubTab}
+                currentUser={currentUser}
+                onOpenAuthModal={() => openAuthWithReason('Please open an account to start making your personal library!')}
                 onTabChange={(tab) => setShelfSubTab(tab)}
                 onOpenStats={() => setStatsModalOpen(true)}
                 onOpenImportExport={() => setImportExportModalOpen(true)}
@@ -2484,9 +2531,15 @@ export function App() {
       {authModalOpen && (
         <AuthModal
           currentUser={currentUser}
-          onClose={() => setAuthModalOpen(false)}
+          reason={authModalReason}
+          initialTab={authModalInitialTab}
+          onClose={() => {
+            setAuthModalOpen(false);
+            setAuthModalReason(null);
+          }}
           onAuthSuccess={(user) => {
             setCurrentUser(user);
+            setAuthModalReason(null);
             if (user) {
               syncUserData(user);
             }

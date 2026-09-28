@@ -143,8 +143,8 @@ export function AdvancedSearchView({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search ANY anime, character, or keyword... (e.g. Denji, Chainsaw Man)"
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg pl-10 pr-10 py-3 text-sm text-white focus:outline-none focus:border-rose-500 transition-colors"
+              placeholder="Search anime, character, or keyword..."
+              className="w-full min-w-0 bg-neutral-950 border border-neutral-800 rounded-lg pl-10 pr-10 py-3 text-sm text-white focus:outline-none focus:border-rose-500 transition-colors truncate text-ellipsis overflow-hidden placeholder:truncate placeholder:text-ellipsis"
             />
             {query && (
               <button

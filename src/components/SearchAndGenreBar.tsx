@@ -40,8 +40,15 @@ export function SearchAndGenreBar({
   onOpenAllGenres,
 }: SearchAndGenreBarProps) {
   const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -78,7 +85,7 @@ export function SearchAndGenreBar({
         {/* Search Input Container */}
         <form 
           onSubmit={handleSubmit} 
-          className="relative flex-1 flex items-center min-w-0"
+          className="relative flex-1 flex items-center min-w-0 max-w-full"
         >
           <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-rose-500">
             <Search className="w-5 h-5" />
@@ -90,18 +97,18 @@ export function SearchAndGenreBar({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search anime by title, English/Japanese name, character, or studio..."
-            className="main-search-input w-full h-11 sm:h-12 pl-11 pr-28 sm:pr-36 rounded-xl bg-slate-100/90 dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700/80 text-sm sm:text-base font-semibold text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-300 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/30 transition-all shadow-inner"
+            placeholder={isMobile ? "Search anime..." : "Search anime by title, character, or studio..."}
+            className="main-search-input w-full min-w-0 h-11 sm:h-12 pl-10 sm:pl-11 pr-20 sm:pr-36 rounded-xl bg-slate-100/90 dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700/80 text-sm sm:text-base font-semibold text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/30 transition-all shadow-inner truncate text-ellipsis overflow-hidden placeholder:truncate placeholder:text-ellipsis"
           />
 
           {/* Quick Clear Button inside input */}
-          <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10">
+          <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10 shrink-0">
             {searchQuery && (
               <button
                 type="button"
                 id="search-clear-button"
                 onClick={onClearSearch}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-neutral-800 text-xs font-bold transition-colors cursor-pointer"
+                className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-neutral-800 text-xs font-bold transition-colors cursor-pointer shrink-0"
                 aria-label="Clear search input"
                 title="Clear"
               >
@@ -113,26 +120,22 @@ export function SearchAndGenreBar({
             <button
               type="submit"
               id="search-action-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSubmit(e);
-              }}
-              className="h-8 sm:h-9 px-3 sm:px-4 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+              className="h-8 sm:h-9 px-2.5 sm:px-4 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
               aria-label="Search anime"
             >
-              <Search className="w-3.5 h-3.5" />
-              <span>Search</span>
+              <Search className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline">Search</span>
             </button>
           </div>
         </form>
 
         {/* Genre Selector Dropdown Button (Moved from Top Shelf) */}
-        <div ref={dropdownRef} className="relative shrink-0 flex items-center gap-2">
+        <div ref={dropdownRef} className="relative shrink-0 flex items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
             id="genre-dropdown-trigger"
             onClick={() => setGenreDropdownOpen(!genreDropdownOpen)}
-            className={`h-11 sm:h-12 px-3.5 sm:px-4 rounded-xl border text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-xs ${
+            className={`w-full sm:w-auto h-11 sm:h-12 px-3.5 sm:px-4 rounded-xl border text-sm font-semibold flex items-center justify-between sm:justify-start gap-2 transition-all cursor-pointer shadow-xs ${
               selectedGenre
                 ? 'bg-rose-50 dark:bg-rose-500/15 border-rose-300 dark:border-rose-500/40 text-rose-600 dark:text-rose-300'
                 : 'bg-slate-100/90 dark:bg-neutral-900 border-slate-300 dark:border-neutral-700/80 text-slate-800 dark:text-neutral-200 hover:bg-slate-200 dark:hover:bg-neutral-800'
@@ -140,11 +143,13 @@ export function SearchAndGenreBar({
             title="Filter anime by genre"
             aria-expanded={genreDropdownOpen}
           >
-            <Filter className="w-4 h-4 text-rose-500" />
-            <span className="truncate max-w-[130px] sm:max-w-[160px]">
-              {currentGenreName ? `Genre: ${currentGenreName}` : 'All Genres'}
-            </span>
-            <ChevronDown className={`w-4 h-4 transition-transform ${genreDropdownOpen ? 'rotate-180 text-rose-500' : 'text-slate-400'}`} />
+            <div className="flex items-center gap-2 min-w-0 truncate">
+              <Filter className="w-4 h-4 text-rose-500 shrink-0" />
+              <span className="truncate max-w-[200px] sm:max-w-[160px]">
+                {currentGenreName ? `Genre: ${currentGenreName}` : 'All Genres'}
+              </span>
+            </div>
+            <ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${genreDropdownOpen ? 'rotate-180 text-rose-500' : 'text-slate-400'}`} />
           </button>
 
           {/* Quick Explore Link Button */}

@@ -344,8 +344,8 @@ export function Navbar({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Search anime by title, character..."
-                className="w-full h-10 pl-9 pr-20 rounded-lg bg-slate-100 dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                placeholder="Search anime..."
+                className="w-full min-w-0 h-10 pl-9 pr-20 rounded-lg bg-slate-100 dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 truncate text-ellipsis overflow-hidden placeholder:truncate placeholder:text-ellipsis"
               />
               <button
                 type="submit"

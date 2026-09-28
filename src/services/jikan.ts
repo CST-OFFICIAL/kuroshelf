@@ -9,7 +9,7 @@ import {
   CharacterDetail,
   PersonDetail,
 } from '../types';
-import { fetchDirectJikan, isNsfwOrAdultClient } from './directJikanFallback';
+import { fetchDirectJikan, isNsfwOrAdultClient, isJikanHealthy } from './directJikanFallback';
 import { fetchAniListAnimeList, fetchAniListTop100 } from './anilistService';
 
 // In-memory cache to avoid duplicate calls during session
@@ -41,10 +41,14 @@ async function fetchFromApi<T>(
   endpoint: string,
   fallbackData?: T
 ): Promise<{ data: T; pagination?: JikanPagination }> {
+  const isSearch = endpoint.includes('/api/anime/search');
   const cacheKey = endpoint;
   const mem = memoryCache.get(cacheKey);
+  // Never serve stale empty results for search queries
   if (mem && Date.now() - mem.timestamp < CACHE_TTL_MS) {
-    return { data: mem.data as T, pagination: mem.pagination };
+    if (!isSearch || (Array.isArray(mem.data) && mem.data.length > 0)) {
+      return { data: mem.data as T, pagination: mem.pagination };
+    }
   }
 
   try {
@@ -56,7 +60,6 @@ async function fetchFromApi<T>(
         const json = await res.json();
         const data = (json.data ?? fallbackData) as T;
         const pagination = json.pagination as JikanPagination | undefined;
-        const isSearch = endpoint.includes('/api/anime/search');
         const isListEndpoint = endpoint.includes('/api/anime/top') || endpoint.includes('/api/anime/seasonal') || endpoint.includes('/api/anime/upcoming') || endpoint.includes('/api/manga');
         const hasMinimalSeedData = isListEndpoint && Array.isArray(data) && data.length <= 5 && !endpoint.includes('limit=5');
         if (!data || (Array.isArray(data) && data.length === 0) || hasMinimalSeedData) {
@@ -70,7 +73,9 @@ async function fetchFromApi<T>(
             }
           }
         }
-        memoryCache.set(cacheKey, { data, pagination, timestamp: Date.now() });
+        if (!isSearch || (Array.isArray(data) && data.length > 0)) {
+          memoryCache.set(cacheKey, { data, pagination, timestamp: Date.now() });
+        }
         return { data, pagination };
       }
     }
@@ -81,7 +86,9 @@ async function fetchFromApi<T>(
     try {
       const directResult = await routeToDirectJikan<T>(endpoint);
       if (directResult) {
-        memoryCache.set(cacheKey, { data: directResult.data, pagination: directResult.pagination, timestamp: Date.now() });
+        if (!isSearch || (Array.isArray(directResult.data) && directResult.data.length > 0)) {
+          memoryCache.set(cacheKey, { data: directResult.data, pagination: directResult.pagination, timestamp: Date.now() });
+        }
         return directResult;
       }
     } catch (fallbackErr) {
@@ -213,59 +220,83 @@ async function routeToDirectJikan<T>(endpoint: string): Promise<{ data: T; pagin
 
   // 4. /api/anime/search
   if (path === '/api/anime/search') {
-    const searchParams = new URLSearchParams();
     const q = params.get('q');
     const page = Number(params.get('page')) || 1;
     const limit = Number(params.get('limit')) || 24;
-    if (q) searchParams.set('q', q);
-    searchParams.set('page', String(page));
-    searchParams.set('limit', String(limit));
-    if (params.get('type') && params.get('type') !== 'all') searchParams.set('type', params.get('type')!);
-    if (params.get('status') && params.get('status') !== 'all') searchParams.set('status', params.get('status')!);
-    if (params.get('genres') && params.get('genres') !== 'all') searchParams.set('genres', params.get('genres')!);
-    if (params.get('order_by')) searchParams.set('order_by', params.get('order_by')!);
-    if (params.get('sort')) searchParams.set('sort', params.get('sort')!);
 
-    // Safe default to sfw
-    searchParams.set('sfw', 'true');
-    try {
-      const res = await fetchDirectJikan<AnimeItem[]>(`/anime?${searchParams.toString()}`);
-      if (res.data && res.data.length > 0) {
-        return { data: res.data as unknown as T, pagination: res.pagination };
+    // Helper for AniList status and genre resolution
+    let anilistStatus: string | undefined;
+    const statusVal = params.get('status');
+    if (statusVal === 'airing') anilistStatus = 'RELEASING';
+    else if (statusVal === 'complete') anilistStatus = 'FINISHED';
+    else if (statusVal === 'upcoming') anilistStatus = 'NOT_YET_RELEASED';
+
+    let anilistGenre: string | undefined;
+    let anilistTag: string | undefined;
+    const genreParam = params.get('genres');
+    if (genreParam && genreParam !== 'all') {
+      const genreMap: Record<string, string> = {
+        '1': 'Action', '2': 'Adventure', '4': 'Comedy', '8': 'Drama', '10': 'Fantasy',
+        '14': 'Horror', '7': 'Mystery', '22': 'Romance', '24': 'Sci-Fi', '36': 'Slice of Life',
+        '30': 'Sports', '37': 'Supernatural', '41': 'Suspense', '18': 'Mecha', '19': 'Music',
+        '40': 'Psychological', '27': 'Shounen', '42': 'Seinen', '25': 'Shoujo', '62': 'Isekai',
+        '17': 'Martial Arts', '38': 'Military', '23': 'School', '31': 'Super Power',
+        '46': 'Award Winning', '47': 'Gourmet', '78': 'Time Travel'
+      };
+      const raw = genreParam.split(',')[0].trim();
+      const resolved = genreMap[raw] || raw;
+      if (resolved.toLowerCase() === 'isekai') {
+        anilistTag = 'Isekai';
+      } else {
+        anilistGenre = resolved;
       }
-    } catch (jikanErr) {
-      console.warn('[Jikan Direct search] Error, trying AniList...', jikanErr);
     }
 
-    try {
-      let anilistStatus: string | undefined;
-      const statusVal = params.get('status');
-      if (statusVal === 'airing') anilistStatus = 'RELEASING';
-      else if (statusVal === 'complete') anilistStatus = 'FINISHED';
-      else if (statusVal === 'upcoming') anilistStatus = 'NOT_YET_RELEASED';
-
-      // Resolve numeric genre ID or name for AniList
-      let anilistGenre: string | undefined;
-      let anilistTag: string | undefined;
-      const genreParam = params.get('genres');
-      if (genreParam && genreParam !== 'all') {
-        const genreMap: Record<string, string> = {
-          '1': 'Action', '2': 'Adventure', '4': 'Comedy', '8': 'Drama', '10': 'Fantasy',
-          '14': 'Horror', '7': 'Mystery', '22': 'Romance', '24': 'Sci-Fi', '36': 'Slice of Life',
-          '30': 'Sports', '37': 'Supernatural', '41': 'Suspense', '18': 'Mecha', '19': 'Music',
-          '40': 'Psychological', '27': 'Shounen', '42': 'Seinen', '25': 'Shoujo', '62': 'Isekai',
-          '17': 'Martial Arts', '38': 'Military', '23': 'School', '31': 'Super Power',
-          '46': 'Award Winning', '47': 'Gourmet', '78': 'Time Travel'
-        };
-        const raw = genreParam.split(',')[0].trim();
-        const resolved = genreMap[raw] || raw;
-        if (resolved.toLowerCase() === 'isekai') {
-          anilistTag = 'Isekai';
-        } else {
-          anilistGenre = resolved;
+    // Fast path: When a user is typing a text query, AniList provides sub-200ms responses
+    // without Jikan 504 timeouts or MAL gateway failures.
+    if (q && q.trim()) {
+      try {
+        const anilistRes = await fetchAniListAnimeList({
+          search: q.trim(),
+          genre: anilistGenre,
+          tag: anilistTag,
+          status: anilistStatus,
+          page,
+          perPage: limit,
+        });
+        if (anilistRes.data && anilistRes.data.length > 0) {
+          return { data: anilistRes.data as unknown as T, pagination: anilistRes.pagination };
         }
+      } catch (anilistErr) {
+        console.warn('[AniList direct search] Error, trying Jikan fallback...', anilistErr);
       }
+    }
 
+    // Try Jikan if healthy
+    if (isJikanHealthy()) {
+      const searchParams = new URLSearchParams();
+      if (q) searchParams.set('q', q);
+      searchParams.set('page', String(page));
+      searchParams.set('limit', String(limit));
+      if (params.get('type') && params.get('type') !== 'all') searchParams.set('type', params.get('type')!);
+      if (params.get('status') && params.get('status') !== 'all') searchParams.set('status', params.get('status')!);
+      if (params.get('genres') && params.get('genres') !== 'all') searchParams.set('genres', params.get('genres')!);
+      if (params.get('order_by')) searchParams.set('order_by', params.get('order_by')!);
+      if (params.get('sort')) searchParams.set('sort', params.get('sort')!);
+      searchParams.set('sfw', 'true');
+
+      try {
+        const res = await fetchDirectJikan<AnimeItem[]>(`/anime?${searchParams.toString()}`);
+        if (res.data && res.data.length > 0) {
+          return { data: res.data as unknown as T, pagination: res.pagination };
+        }
+      } catch (jikanErr) {
+        console.warn('[Jikan Direct search] Error, trying AniList...', jikanErr);
+      }
+    }
+
+    // Secondary AniList attempt for genre/status filters or if text search fallback needed
+    try {
       const anilistRes = await fetchAniListAnimeList({
         search: q || undefined,
         genre: anilistGenre,
@@ -279,7 +310,7 @@ async function routeToDirectJikan<T>(endpoint: string): Promise<{ data: T; pagin
         return { data: anilistRes.data as unknown as T, pagination: anilistRes.pagination };
       }
     } catch (anilistErr) {
-      console.warn('[AniList search] Error:', anilistErr);
+      console.warn('[AniList search fallback] Error:', anilistErr);
     }
 
     return {

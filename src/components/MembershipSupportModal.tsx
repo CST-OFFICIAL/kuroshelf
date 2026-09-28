@@ -182,9 +182,9 @@ export const MembershipSupportModal: React.FC<MembershipSupportModalProps> = ({
     setDonationSuccess(newDonation);
   };
 
-  const monthlyPrice = 4.99;
-  const yearlyRegular = monthlyPrice * 12; // 59.88
-  const yearlyDiscounted = 41.90; // 30% discount (~3.49/mo)
+  const monthlyPrice = 2.99;
+  const yearlyRegular = 35.88; // 12 months @ $2.99/mo
+  const yearlyDiscounted = 28.99; // Year plan at just $28.99 for 12 months (3 months free)
   const yearlySavings = (yearlyRegular - yearlyDiscounted).toFixed(2);
 
   return (
@@ -402,13 +402,13 @@ export const MembershipSupportModal: React.FC<MembershipSupportModalProps> = ({
                         </span>
                         <VerifiedMemberBadge size="xs" />
                         {selectedCycle === 'yearly' && (
-                          <span className="px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
-                            30% OFF
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
+                            3 MONTHS FREE
                           </span>
                         )}
                       </div>
                       <p className="text-[11px] text-slate-600 dark:text-neutral-300">
-                        Duration: {selectedCycle === 'yearly' ? '365 Days (1 Year)' : '30 Days (1 Month)'} • Includes Blue Member Badge
+                        Duration: {selectedCycle === 'yearly' ? '12 Months (365 Days • 3 Months Free)' : '1 Month (30 Days)'} • Includes Blue Member Badge
                       </p>
                     </div>
 
@@ -418,12 +418,12 @@ export const MembershipSupportModal: React.FC<MembershipSupportModalProps> = ({
                           <span className="text-xs text-slate-400 line-through mr-1.5">${yearlyRegular.toFixed(2)}</span>
                           <span className="text-lg font-black text-amber-600 dark:text-amber-400">${yearlyDiscounted.toFixed(2)}</span>
                           <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-bold">
-                            Save ${yearlySavings}
+                            Save ${yearlySavings} (3 Mos Free)
                           </span>
                         </>
                       ) : (
                         <>
-                          <span className="text-lg font-black text-amber-600 dark:text-amber-400">${monthlyPrice}</span>
+                          <span className="text-lg font-black text-amber-600 dark:text-amber-400">${monthlyPrice.toFixed(2)}</span>
                           <span className="text-[10px] text-slate-500 dark:text-neutral-400 block">/month</span>
                         </>
                       )}
@@ -767,7 +767,7 @@ export const MembershipSupportModal: React.FC<MembershipSupportModalProps> = ({
                           >
                             <div>Monthly</div>
                             <div className="text-amber-600 dark:text-amber-400 font-extrabold text-[11px]">
-                              ${monthlyPrice}/mo
+                              ${monthlyPrice.toFixed(2)}/mo
                             </div>
                           </button>
 
@@ -780,20 +780,23 @@ export const MembershipSupportModal: React.FC<MembershipSupportModalProps> = ({
                                 : 'text-slate-500 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
                             }`}
                           >
-                            <span className="absolute -top-2 right-1 px-1.5 py-0.2 rounded-full bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider shadow-xs animate-pulse">
-                              Save 30%
+                            <span className="absolute -top-2 right-1 px-1.5 py-0.5 rounded-full bg-emerald-500 text-white text-[8px] font-black uppercase tracking-wider shadow-xs animate-pulse">
+                              3 Months Free
                             </span>
-                            <div>Yearly</div>
+                            <div>Yearly (12 Mos)</div>
                             <div className="text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px]">
-                              ${yearlyDiscounted}/yr
+                              ${yearlyDiscounted.toFixed(2)}/yr
                             </div>
                           </button>
                         </div>
 
                         {/* Yearly Discount Banner */}
                         {selectedCycle === 'yearly' && (
-                          <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold text-center">
-                            Save 30% by purchasing a yearly membership! (~$3.49/mo)
+                          <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold text-center space-y-0.5">
+                            <span className="block font-black text-emerald-600 dark:text-emerald-400">🎁 3 Months Free Included!</span>
+                            <span className="text-[10px] font-medium text-slate-600 dark:text-neutral-300 block">
+                              Year plan at just $28.99 for 12 months (with 3 months free, ~$2.41/mo). You save ${yearlySavings}!
+                            </span>
                           </div>
                         )}
 
@@ -834,8 +837,8 @@ export const MembershipSupportModal: React.FC<MembershipSupportModalProps> = ({
                         <Crown className="w-4 h-4 text-amber-200" />
                         <span>
                           {selectedCycle === 'yearly'
-                            ? `Upgrade Yearly ($${yearlyDiscounted}/yr • Save 30%)`
-                            : `Upgrade Monthly ($${monthlyPrice}/mo)`}
+                            ? `Upgrade Yearly ($${yearlyDiscounted.toFixed(2)}/yr • 3 Months Free)`
+                            : `Upgrade Monthly ($${monthlyPrice.toFixed(2)}/mo)`}
                         </span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
