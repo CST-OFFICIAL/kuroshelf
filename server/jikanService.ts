@@ -506,18 +506,446 @@ export function computeExactScore(m: any): number | null {
   return null;
 }
 
-function matchesEntity(search: string, entityName?: string): boolean {
-  if (!search || !entityName) return false;
+export const STUDIO_ALIASES: Record<string, string> = {
+  'mappa': 'MAPPA',
+  'bones': 'bones',
+  'studio bones': 'bones',
+  'kyoani': 'Kyoto Animation',
+  'kyoto animation': 'Kyoto Animation',
+  'kyoto': 'Kyoto Animation',
+  'ufotable': 'ufotable',
+  'wit': 'WIT STUDIO',
+  'wit studio': 'WIT STUDIO',
+  'cloverworks': 'CloverWorks',
+  'clover works': 'CloverWorks',
+  'trigger': 'Studio Trigger',
+  'studio trigger': 'Studio Trigger',
+  'ghibli': 'Studio Ghibli',
+  'studio ghibli': 'Studio Ghibli',
+  'madhouse': 'Madhouse',
+  'a-1': 'A-1 Pictures',
+  'a1': 'A-1 Pictures',
+  'a-1 pictures': 'A-1 Pictures',
+  'a1 pictures': 'A-1 Pictures',
+  'toei': 'Toei Animation',
+  'toei animation': 'Toei Animation',
+  'pierrot': 'Studio Pierrot',
+  'studio pierrot': 'Studio Pierrot',
+  'shaft': 'Shaft',
+  'david production': 'David Production',
+  'david': 'David Production',
+  'jc staff': 'J.C.Staff',
+  'jcstaff': 'J.C.Staff',
+  'j.c.staff': 'J.C.Staff',
+  'production ig': 'Production I.G',
+  'production i.g': 'Production I.G',
+  'white fox': 'White Fox',
+  'sunrise': 'Sunrise',
+  'bandai namco': 'Sunrise',
+  'kinema citrus': 'Kinema Citrus',
+  'doga kobo': 'Doga Kobo',
+  'lerche': 'Lerche',
+  'pa works': 'P.A. Works',
+  'p.a. works': 'P.A. Works',
+  'tms': 'TMS Entertainment',
+  'tms entertainment': 'TMS Entertainment',
+  'bind': 'Studio Bind',
+  'studio bind': 'Studio Bind',
+  'comix wave': 'CoMix Wave Films',
+  'comix wave films': 'CoMix Wave Films',
+  'silver link': 'SILVER LINK.',
+  'feel': 'feel.',
+  'deen': 'Studio Deen',
+  'studio deen': 'Studio Deen',
+  'gainax': 'Gainax'
+};
+
+export const COMMON_ABBREVIATIONS: Record<string, string> = {
+  'aot': 'Attack on Titan',
+  'snk': 'Shingeki no Kyojin',
+  'mha': 'My Hero Academia',
+  'bnha': 'Boku no Hero Academia',
+  'jjk': 'Jujutsu Kaisen',
+  'fma': 'Fullmetal Alchemist',
+  'fmab': 'Fullmetal Alchemist: Brotherhood',
+  'kny': 'Demon Slayer: Kimetsu no Yaiba',
+  'ds': 'Demon Slayer',
+  'sao': 'Sword Art Online',
+  'hxh': 'Hunter x Hunter',
+  'csm': 'Chainsaw Man',
+  'sxf': 'Spy x Family',
+  'dbz': 'Dragon Ball Z',
+  'db': 'Dragon Ball',
+  'dbs': 'Dragon Ball Super',
+  'eva': 'Neon Genesis Evangelion',
+  'nge': 'Neon Genesis Evangelion',
+  'opm': 'One Punch Man',
+  'op': 'One Piece',
+  'bocchi': 'Bocchi the Rock!',
+  'rezero': 'Re:Zero',
+  'slime': 'That Time I Got Reincarnated as a Slime',
+  'danmachi': 'Is It Wrong to Try to Pick Up Girls in a Dungeon?',
+  'oregairu': 'My Teen Romantic Comedy SNAFU',
+  'snafu': 'My Teen Romantic Comedy SNAFU',
+  'mushoku': 'Mushoku Tensei'
+};
+
+export const ICONIC_CHARACTERS: Record<string, { character: string; titles: string[]; mal_ids: number[] }> = {
+  // One Piece
+  'luffy': { character: 'Monkey D. Luffy', titles: ['One Piece'], mal_ids: [21, 50410, 12859, 38234] },
+  'zoro': { character: 'Roronoa Zoro', titles: ['One Piece'], mal_ids: [21] },
+  'sanji': { character: 'Vinsmoke Sanji', titles: ['One Piece'], mal_ids: [21] },
+  'nami': { character: 'Nami', titles: ['One Piece'], mal_ids: [21] },
+  'chopper': { character: 'Tony Tony Chopper', titles: ['One Piece'], mal_ids: [21] },
+
+  // Dragon Ball
+  'goku': { character: 'Son Goku', titles: ['Dragon Ball Z', 'Dragon Ball', 'Dragon Ball Super'], mal_ids: [813, 223, 30694, 6033, 225] },
+  'vegeta': { character: 'Vegeta', titles: ['Dragon Ball Z', 'Dragon Ball Super'], mal_ids: [813, 30694] },
+  'gohan': { character: 'Son Gohan', titles: ['Dragon Ball Z'], mal_ids: [813] },
+  'piccolo': { character: 'Piccolo', titles: ['Dragon Ball Z'], mal_ids: [813, 223] },
+
+  // Attack on Titan
+  'levi': { character: 'Levi Ackerman', titles: ['Attack on Titan', 'Shingeki no Kyojin'], mal_ids: [16498, 25777, 35760, 38524, 40028] },
+  'eren': { character: 'Eren Yeager', titles: ['Attack on Titan', 'Shingeki no Kyojin'], mal_ids: [16498, 25777, 35760, 38524, 40028] },
+  'mikasa': { character: 'Mikasa Ackerman', titles: ['Attack on Titan', 'Shingeki no Kyojin'], mal_ids: [16498, 25777, 35760, 38524, 40028] },
+  'armin': { character: 'Armin Arlert', titles: ['Attack on Titan'], mal_ids: [16498, 25777, 35760] },
+
+  // Jujutsu Kaisen
+  'gojo': { character: 'Satoru Gojo', titles: ['Jujutsu Kaisen'], mal_ids: [40748, 51009, 48561] },
+  'sukuna': { character: 'Ryomen Sukuna', titles: ['Jujutsu Kaisen'], mal_ids: [40748, 51009] },
+  'yuji': { character: 'Yuji Itadori', titles: ['Jujutsu Kaisen'], mal_ids: [40748, 51009] },
+  'megumi': { character: 'Megumi Fushiguro', titles: ['Jujutsu Kaisen'], mal_ids: [40748, 51009] },
+  'nobara': { character: 'Nobara Kugisaki', titles: ['Jujutsu Kaisen'], mal_ids: [40748, 51009] },
+
+  // Naruto
+  'naruto': { character: 'Naruto Uzumaki', titles: ['Naruto', 'Naruto: Shippuuden'], mal_ids: [20, 1735] },
+  'sasuke': { character: 'Sasuke Uchiha', titles: ['Naruto', 'Naruto: Shippuuden'], mal_ids: [20, 1735] },
+  'itachi': { character: 'Itachi Uchiha', titles: ['Naruto: Shippuuden'], mal_ids: [1735, 20] },
+  'kakashi': { character: 'Kakashi Hatake', titles: ['Naruto', 'Naruto: Shippuuden'], mal_ids: [20, 1735] },
+  'madara': { character: 'Madara Uchiha', titles: ['Naruto: Shippuuden'], mal_ids: [1735] },
+  'jiraiya': { character: 'Jiraiya', titles: ['Naruto', 'Naruto: Shippuuden'], mal_ids: [20, 1735] },
+  'hinata': { character: 'Hinata Hyuga', titles: ['Naruto', 'Naruto: Shippuuden'], mal_ids: [20, 1735] },
+
+  // Demon Slayer
+  'tanjiro': { character: 'Tanjiro Kamado', titles: ['Demon Slayer', 'Kimetsu no Yaiba'], mal_ids: [38000, 40456, 47778, 49926, 51019] },
+  'nezuko': { character: 'Nezuko Kamado', titles: ['Demon Slayer', 'Kimetsu no Yaiba'], mal_ids: [38000, 40456, 47778] },
+  'zenitsu': { character: 'Zenitsu Agatsuma', titles: ['Demon Slayer'], mal_ids: [38000, 40456, 47778] },
+  'inosuke': { character: 'Inosuke Hashibira', titles: ['Demon Slayer'], mal_ids: [38000, 40456] },
+  'rengoku': { character: 'Kyojuro Rengoku', titles: ['Demon Slayer -Kimetsu no Yaiba- The Movie: Mugen Train'], mal_ids: [40456, 49926, 38000] },
+
+  // My Hero Academia
+  'deku': { character: 'Izuku Midoriya', titles: ['My Hero Academia', 'Boku no Hero Academia'], mal_ids: [31964, 33486, 36456, 38408] },
+  'all might': { character: 'All Might', titles: ['My Hero Academia'], mal_ids: [31964, 33486] },
+  'bakugo': { character: 'Katsuki Bakugo', titles: ['My Hero Academia'], mal_ids: [31964, 33486] },
+  'todoroki': { character: 'Shoto Todoroki', titles: ['My Hero Academia'], mal_ids: [31964, 33486] },
+
+  // Hunter x Hunter
+  'killua': { character: 'Killua Zoldyck', titles: ['Hunter x Hunter'], mal_ids: [11061] },
+  'gon': { character: 'Gon Freecss', titles: ['Hunter x Hunter'], mal_ids: [11061] },
+  'kurapika': { character: 'Kurapika', titles: ['Hunter x Hunter'], mal_ids: [11061] },
+  'hisoka': { character: 'Hisoka Morow', titles: ['Hunter x Hunter'], mal_ids: [11061] },
+
+  // Death Note
+  'light': { character: 'Light Yagami', titles: ['Death Note'], mal_ids: [1535] },
+  'l': { character: 'L Lawliet', titles: ['Death Note'], mal_ids: [1535] },
+  'ryuk': { character: 'Ryuk', titles: ['Death Note'], mal_ids: [1535] },
+
+  // One Punch Man
+  'saitama': { character: 'Saitama', titles: ['One Punch Man'], mal_ids: [30276, 34134] },
+  'genos': { character: 'Genos', titles: ['One Punch Man'], mal_ids: [30276] },
+
+  // Fullmetal Alchemist
+  'edward': { character: 'Edward Elric', titles: ['Fullmetal Alchemist: Brotherhood'], mal_ids: [5114, 121] },
+  'edward elric': { character: 'Edward Elric', titles: ['Fullmetal Alchemist: Brotherhood'], mal_ids: [5114, 121] },
+  'alphonse': { character: 'Alphonse Elric', titles: ['Fullmetal Alchemist: Brotherhood'], mal_ids: [5114] },
+  'mustang': { character: 'Roy Mustang', titles: ['Fullmetal Alchemist: Brotherhood'], mal_ids: [5114] },
+
+  // Bleach
+  'ichigo': { character: 'Ichigo Kurosaki', titles: ['Bleach'], mal_ids: [269, 41467, 52647] },
+  'aizen': { character: 'Sosuke Aizen', titles: ['Bleach'], mal_ids: [269, 41467] },
+  'rukia': { character: 'Rukia Kuchiki', titles: ['Bleach'], mal_ids: [269, 41467] },
+
+  // Code Geass
+  'lelouch': { character: 'Lelouch Lamperouge', titles: ['Code Geass'], mal_ids: [1575, 2904] },
+
+  // Re:Zero
+  'rem': { character: 'Rem', titles: ['Re:Zero'], mal_ids: [31240, 39587, 54857] },
+  'emilia': { character: 'Emilia', titles: ['Re:Zero'], mal_ids: [31240, 39587] },
+  'subaru': { character: 'Natsuki Subaru', titles: ['Re:Zero'], mal_ids: [31240, 39587] },
+
+  // Chainsaw Man
+  'denji': { character: 'Denji', titles: ['Chainsaw Man'], mal_ids: [44511] },
+  'makima': { character: 'Makima', titles: ['Chainsaw Man'], mal_ids: [44511] },
+  'power': { character: 'Power', titles: ['Chainsaw Man'], mal_ids: [44511] },
+
+  // Spy x Family
+  'anya': { character: 'Anya Forger', titles: ['SPY x FAMILY'], mal_ids: [50265, 53887] },
+  'loid': { character: 'Loid Forger', titles: ['SPY x FAMILY'], mal_ids: [50265] },
+  'yor': { character: 'Yor Forger', titles: ['SPY x FAMILY'], mal_ids: [50265] },
+
+  // Frieren
+  'frieren': { character: 'Frieren', titles: ["Frieren: Beyond Journey's End"], mal_ids: [52991] },
+
+  // Solo Leveling
+  'jinwoo': { character: 'Sung Jinwoo', titles: ['Solo Leveling'], mal_ids: [52299, 58567] },
+  'sung jinwoo': { character: 'Sung Jinwoo', titles: ['Solo Leveling'], mal_ids: [52299, 58567] },
+
+  // Vinland Saga
+  'thorfinn': { character: 'Thorfinn', titles: ['Vinland Saga'], mal_ids: [37521, 51535] },
+
+  // Mob Psycho 100
+  'mob': { character: 'Shigeo Kageyama', titles: ['Mob Psycho 100'], mal_ids: [32182, 37510, 50172] },
+
+  // Tokyo Ghoul
+  'kaneki': { character: 'Ken Kaneki', titles: ['Tokyo Ghoul'], mal_ids: [22319, 27899] },
+
+  // Cowboy Bebop
+  'spike': { character: 'Spike Spiegel', titles: ['Cowboy Bebop'], mal_ids: [1] },
+
+  // Neon Genesis Evangelion
+  'shinji': { character: 'Shinji Ikari', titles: ['Neon Genesis Evangelion'], mal_ids: [30] },
+  'asuka': { character: 'Asuka Langley', titles: ['Neon Genesis Evangelion'], mal_ids: [30] },
+
+  // Berserk
+  'guts': { character: 'Guts', titles: ['Berserk'], mal_ids: [33] },
+
+  // KonoSuba
+  'megumin': { character: 'Megumin', titles: ['KonoSuba'], mal_ids: [30831, 32937, 49458] },
+  'aqua': { character: 'Aqua', titles: ['KonoSuba'], mal_ids: [30831, 32937] },
+
+  // Other iconic
+  'rimuru': { character: 'Rimuru Tempest', titles: ['That Time I Got Reincarnated as a Slime'], mal_ids: [37430, 41487, 53580] },
+  'violet': { character: 'Violet Evergarden', titles: ['Violet Evergarden'], mal_ids: [33352, 37987] },
+  'violet evergarden': { character: 'Violet Evergarden', titles: ['Violet Evergarden'], mal_ids: [33352, 37987] },
+  'bocchi': { character: 'Hitori Gotoh', titles: ['Bocchi the Rock!'], mal_ids: [47917] },
+  'maomao': { character: 'Maomao', titles: ['The Apothecary Diaries'], mal_ids: [54492] },
+  'marin': { character: 'Marin Kitagawa', titles: ['My Dress-Up Darling'], mal_ids: [48736] },
+  'sailor moon': { character: 'Sailor Moon', titles: ['Sailor Moon'], mal_ids: [530] },
+  'alucard': { character: 'Alucard', titles: ['Hellsing Ultimate'], mal_ids: [777] }
+};
+
+export const ICONIC_STUDIOS: Record<string, { studio: string; mal_ids: number[] }> = {
+  'mappa': { studio: 'MAPPA', mal_ids: [40748, 44511, 40028, 51009, 51535, 46569, 48561, 37520, 32995] },
+  'bones': { studio: 'Bones', mal_ids: [5114, 31964, 32182, 31478, 3588, 20507, 24439, 20057] },
+  'ufotable': { studio: 'ufotable', mal_ids: [38000, 40456, 47778, 10087, 22297, 2593] },
+  'kyoani': { studio: 'Kyoto Animation', mal_ids: [28851, 33352, 12189, 4181, 5680, 10165, 18507, 33206, 2167] },
+  'kyoto animation': { studio: 'Kyoto Animation', mal_ids: [28851, 33352, 12189, 4181, 5680, 10165, 18507, 33206, 2167] },
+  'wit': { studio: 'WIT STUDIO', mal_ids: [16498, 25777, 35760, 37521, 50265, 40834, 46095, 28623] },
+  'wit studio': { studio: 'WIT STUDIO', mal_ids: [16498, 25777, 35760, 37521, 50265, 40834, 46095, 28623] },
+  'cloverworks': { studio: 'CloverWorks', mal_ids: [47917, 37779, 48736, 50265, 37450, 42897, 54900] },
+  'madhouse': { studio: 'Madhouse', mal_ids: [1535, 11061, 30276, 52991, 19, 22535, 19815, 29803, 889] },
+  'trigger': { studio: 'Studio Trigger', mal_ids: [18679, 42310, 33489, 52701, 2001, 35848] },
+  'studio trigger': { studio: 'Studio Trigger', mal_ids: [18679, 42310, 33489, 52701, 2001, 35848] },
+  'ghibli': { studio: 'Studio Ghibli', mal_ids: [199, 164, 431, 523, 513, 578] },
+  'studio ghibli': { studio: 'Studio Ghibli', mal_ids: [199, 164, 431, 523, 513, 578] },
+  'shaft': { studio: 'Shaft', mal_ids: [5081, 9756, 17074, 31646, 18897] },
+  'a-1 pictures': { studio: 'A-1 Pictures', mal_ids: [11757, 37999, 52299, 23273, 41457, 50709, 31043, 9989] },
+  'a1 pictures': { studio: 'A-1 Pictures', mal_ids: [11757, 37999, 52299, 23273, 41457, 50709, 31043, 9989] },
+  'toei': { studio: 'Toei Animation', mal_ids: [21, 813, 170, 530, 552, 24405] },
+  'toei animation': { studio: 'Toei Animation', mal_ids: [21, 813, 170, 530, 552, 24405] },
+  'white fox': { studio: 'White Fox', mal_ids: [9253, 31240, 22199, 15809, 38659] },
+  'sunrise': { studio: 'Sunrise', mal_ids: [1575, 1, 918, 31251, 249] },
+  'david production': { studio: 'David Production', mal_ids: [14719, 38671, 37141, 52712] },
+  'doga kobo': { studio: 'Doga Kobo', mal_ids: [52034, 27775, 23289, 55973] },
+  'pierrot': { studio: 'Studio Pierrot', mal_ids: [20, 1735, 269, 41467, 22319, 34572] },
+  'studio pierrot': { studio: 'Studio Pierrot', mal_ids: [20, 1735, 269, 41467, 22319, 34572] },
+  'production ig': { studio: 'Production I.G', mal_ids: [20583, 467, 13601, 849, 10087] }
+};
+
+export const ICONIC_LETTER_ANIME: Record<string, number[]> = {
+  'a': [16498, 28851, 22199, 24833, 6547, 11111, 47, 9989, 11759, 31580],
+  'b': [269, 33, 47917, 31964, 34572, 49596, 31478, 5081, 889, 36649],
+  'c': [44511, 1575, 1, 2167, 42310, 28999, 35507, 232],
+  'd': [1535, 38000, 813, 38691, 37520, 38668, 6880, 37055],
+  'e': [31043, 30, 226, 237, 48316, 40722],
+  'f': [5114, 52991, 10087, 6702, 38671, 24439, 227],
+  'g': [918, 2001, 245, 40052, 36028, 10793],
+  'h': [11061, 20583, 777, 42897, 12189, 46569, 11617],
+  'i': [249, 185, 38472, 34542, 40046],
+  'j': [40748, 14719, 46569, 12413],
+  'k': [37999, 18679, 30831, 5680, 11771, 38000, 28851],
+  'l': [1535, 50709, 17265, 33489, 35557, 48583],
+  'm': [31964, 32182, 39535, 34599, 19, 14513, 52211, 10620],
+  'n': [20, 1735, 19815, 20507, 30, 877, 440],
+  'o': [21, 30276, 52034, 29803, 853, 26243],
+  'p': [13601, 22535, 37779, 9756, 30240, 527],
+  'q': [38101],
+  'r': [31240, 45, 30015, 40834, 6675],
+  's': [9253, 11757, 50265, 52299, 16498, 3588, 205],
+  't': [22319, 4224, 35790, 6, 42249, 2001],
+  'u': [52712, 49889, 31064],
+  'v': [37521, 33352, 46095, 3457],
+  'w': [54900, 57793, 39597, 202, 16742],
+  'x': [861, 76],
+  'y': [32281, 23273, 392, 18179, 481],
+  'z': [54112, 23283, 14075, 250]
+};
+
+function hasExactWordMatch(text: string, queryWord: string): boolean {
+  if (!text || !queryWord) return false;
+  const regex = new RegExp('(?:^|[\\s\\-_:/(,\\[])' + queryWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:$|[\\s\\-_:!?,/)\\]])', 'i');
+  return regex.test(text);
+}
+
+export function scoreAnimeRelevance(
+  anime: any,
+  query: string,
+  isCharacterMatch = false,
+  isStudioMatch = false,
+  isIconic = false
+): number {
+  if (!query) return 0;
+  const q = query.toLowerCase().trim();
+  const qAlpha = q.replace(/[^a-z0-9]/g, '');
+  const title = (anime.title || '').toLowerCase().trim();
+  const titleEng = (anime.title_english || '').toLowerCase().trim();
+  const titleJap = (anime.title_japanese || '').toLowerCase().trim();
+  
+  let score = 0;
+
+  const isTargetStudio = isStudioMatch || Boolean(
+    STUDIO_ALIASES[q] && Array.isArray(anime.studios) && anime.studios.some((s: any) => {
+      const sName = typeof s === 'string' ? s : s?.name || '';
+      return matchesEntity(STUDIO_ALIASES[q] || q, sName);
+    })
+  );
+
+  // 1. Iconic match (flagship canonical anime for this character, studio, or letter)
+  if (isIconic) {
+    score += 25000;
+  }
+
+  // 2. Exact Title Match
+  if (title === q || titleEng === q || titleJap === q) {
+    score += 30000;
+  }
+
+  // 3. Exact Title without special characters
+  const titleAlpha = title.replace(/[^a-z0-9]/g, '');
+  const titleEngAlpha = titleEng.replace(/[^a-z0-9]/g, '');
+  if (qAlpha && (titleAlpha === qAlpha || titleEngAlpha === qAlpha)) {
+    score += 20000;
+  }
+
+  // 4. Character Appearance Match (from AniList character media)
+  if (isCharacterMatch) {
+    score += 8000;
+  }
+
+  // 5. Studio Catalog Match (anime produced by target studio)
+  if (isTargetStudio) {
+    score += 8000;
+  }
+
+  // 6. Title prefix and word matches
+  const startsWithQ = title.startsWith(q) || titleEng.startsWith(q) || (titleAlpha.startsWith(qAlpha) && qAlpha.length >= 3);
+  const wordMatch = hasExactWordMatch(title, q) || hasExactWordMatch(titleEng, q);
+
+  if (q.length === 1) {
+    // Single letter search: award heavy bonus to titles that start with that letter
+    if (startsWithQ) {
+      score += 15000;
+    } else {
+      score -= 8000; // Penalize non-matching titles
+    }
+  } else if (!isTargetStudio) {
+    if (startsWithQ) {
+      score += 12000;
+    } else if (wordMatch) {
+      score += 6000;
+    } else if (title.includes(q) || titleEng.includes(q)) {
+      score += 1200;
+    }
+  } else {
+    // In studio search, only give modest bonus for title matches so real studio anime stay on top
+    if (startsWithQ) score += 600;
+  }
+
+  // 7. Format boost: Prefer primary TV series over short OVAs / specials
+  const animeType = (anime.type || '').toUpperCase();
+  if (animeType === 'TV' || (!anime.type && !anime.chapters)) {
+    score += 2000;
+  } else if (animeType === 'MOVIE') {
+    score += 1200;
+  } else if (animeType === 'OVA' || animeType === 'SPECIAL' || animeType === 'ONA') {
+    score -= 400;
+  }
+
+  // 8. Popularity bonus (handles both AniList member count and MAL rank)
+  const pop = typeof anime.popularity === 'number' && anime.popularity > 0 ? anime.popularity : 0;
+  if (pop > 0) {
+    if (pop > 1000) {
+      // AniList member count: more members = more popular (e.g. 750,000 for One Piece)
+      score += Math.min(3000, Math.floor(pop / 250));
+    } else {
+      // MAL rank: 1 is top, 1000 is 1000th
+      score += Math.max(0, 3000 - (pop * 3));
+    }
+  }
+
+  // 9. Score quality bonus
+  const scoreVal = typeof anime.score === 'number' ? anime.score : 0;
+  if (scoreVal > 0) {
+    score += Math.round(scoreVal * 30);
+  }
+
+  return score;
+}
+
+export function matchesEntity(search: string, entityName?: string, alternatives: string[] = []): boolean {
+  if (!search) return false;
   const s = search.toLowerCase().trim();
-  const e = entityName.toLowerCase().trim();
-  if (e === s) return true;
-  const words = e.split(/[\s\-_\/]+/);
-  if (words.some(w => w === s || (s.length >= 3 && w.startsWith(s)))) return true;
-  if (e.startsWith(s) || (s.length >= 4 && s.startsWith(e))) return true;
+  const sAlpha = s.replace(/[^a-z0-9]/g, '');
+  if (!sAlpha) return false;
+
+  const names = [entityName, ...alternatives].filter(Boolean) as string[];
+  for (const rawName of names) {
+    const n = rawName.toLowerCase().trim();
+    const nAlpha = n.replace(/[^a-z0-9]/g, '');
+
+    // Exact name match
+    if (n === s || nAlpha === sAlpha) return true;
+
+    // Tokenized word match (split on all punctuation and whitespace)
+    const words = n.split(/[\s\-_\/()\[\],.:;'"!?+]+/).filter(Boolean);
+    const alphaWords = words.map(w => w.replace(/[^a-z0-9]/g, '')).filter(Boolean);
+
+    // Exact word match
+    if (alphaWords.includes(sAlpha)) return true;
+
+    // Close variation for minor spelling differences (e.g. gojo vs gojou)
+    for (const aw of alphaWords) {
+      if (Math.abs(aw.length - sAlpha.length) <= 1 && (aw.startsWith(sAlpha) || sAlpha.startsWith(aw))) {
+        return true;
+      }
+    }
+
+    // Multi-word search query match
+    const sWords = s.split(/[\s\-_\/()\[\],.:;'"!?+]+/).filter(Boolean).map(w => w.replace(/[^a-z0-9]/g, '')).filter(Boolean);
+    if (sWords.length > 1 && sWords.every(sw => alphaWords.some(aw => aw === sw || (Math.abs(aw.length - sw.length) <= 1 && aw.startsWith(sw))))) {
+      return true;
+    }
+  }
   return false;
 }
 
-async function searchAnilistFallback(query: string, page: number, limit: number, genreId?: string, typeApi: string = "ALL", statusStr?: string, orderBy?: string, originalType?: string): Promise<BaseJikanAnime[]> {
+async function searchAnilistFallback(
+  query: string,
+  page: number,
+  limit: number,
+  genreId?: string,
+  typeApi: string = "ALL",
+  statusStr?: string,
+  orderBy?: string,
+  originalType?: string
+): Promise<BaseJikanAnime[]> {
+  const cleanQuery = query?.trim() || '';
+  const lowerQuery = cleanQuery.toLowerCase();
+  
+  // Resolve abbreviations & studio aliases
+  const resolvedQuery = COMMON_ABBREVIATIONS[lowerQuery] || STUDIO_ALIASES[lowerQuery] || cleanQuery;
+  const isStudioKeyword = Boolean(STUDIO_ALIASES[lowerQuery]);
+
   const genreMeta = genreId ? resolveGenreInfo(genreId) : null;
   const genreStr = genreMeta?.isAnilistGenre ? genreMeta.name : undefined;
   const tagStr = genreMeta && !genreMeta.isAnilistGenre ? genreMeta.name : undefined;
@@ -537,88 +965,130 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
   const tagArg = tagStr ? ', $tag: String' : '';
   const tagFilter = tagStr ? ', tag: $tag' : '';
 
+  const mediaFields = `
+    idMal
+    title { romaji english native }
+    coverImage { large }
+    status
+    format
+    episodes
+    chapters
+    volumes
+    season
+    seasonYear
+    averageScore
+    popularity
+    favourites
+    stats { scoreDistribution { score amount } }
+    synopsis: description(asHtml: false)
+    genres
+    studios(isMain: true) { nodes { name } }
+  `;
+
   const anilistQuery = `
   query ($search: String, $format: MediaFormat, $status: MediaStatus, $page: Int, $perPage: Int${genreArg}${tagArg}${typeArg}) {
     Page(page: $page, perPage: $perPage) {
       media(search: $search, format: $format, status: $status, sort: [${sort}], isAdult: false, genre_not_in: ["Hentai"]${genreFilter}${tagFilter}${typeFilter}) {
-        idMal
-        title { romaji english native }
-        coverImage { large }
-        status
-        episodes
-        chapters
-        volumes
-        season
-        seasonYear
-        averageScore
-        stats { scoreDistribution { score amount } }
-        synopsis: description(asHtml: false)
-        genres
-        studios(isMain: true) { nodes { name } }
+        ${mediaFields}
       }
     }
   }
   `;
 
   try {
-    const variables: any = { page, perPage: limit };
-    if (query) variables.search = query;
+    const variables: any = { page, perPage: Math.max(limit, 24) };
+    if (resolvedQuery) variables.search = resolvedQuery;
     if (genreStr) variables.genre = genreStr;
     if (tagStr) variables.tag = tagStr;
     if (formatStr) variables.format = formatStr;
     if (statusApi) variables.status = statusApi;
     if (typeApi && typeApi !== 'ALL') variables.type = typeApi;
 
+    // Direct Media Search
     const mainPromise = fetch('https://graphql.anilist.co', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ query: anilistQuery, variables }),
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(6000)
     }).then(r => r.json()).catch(() => null);
 
-    const cleanQuery = query?.trim();
     let charPromise: Promise<any> = Promise.resolve(null);
     let studioPromise: Promise<any> = Promise.resolve(null);
+    let targetIdsPromise: Promise<any> = Promise.resolve(null);
+    let letterBrowsePromise: Promise<any> = Promise.resolve(null);
 
-    // If text search is active, simultaneously check Character and Studio matching!
-    if (cleanQuery && cleanQuery.length >= 2 && typeApi !== 'MANGA') {
+    const targetMalIds = [
+      ...(ICONIC_CHARACTERS[lowerQuery]?.mal_ids || []),
+      ...(ICONIC_STUDIOS[lowerQuery]?.mal_ids || []),
+      ...(ICONIC_LETTER_ANIME[lowerQuery] || [])
+    ];
+
+    if (targetMalIds.length > 0) {
+      const idsGql = `
+        query ($ids: [Int]) {
+          Page(page: 1, perPage: 15) {
+            media(idMal_in: $ids, type: ANIME) {
+              ${mediaFields}
+            }
+          }
+        }
+      `;
+      targetIdsPromise = fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ query: idsGql, variables: { ids: targetMalIds } }),
+        signal: AbortSignal.timeout(5000)
+      }).then(r => r.json()).catch(() => null);
+    }
+
+    // For single-letter queries (where search: "A" returns 0 due to stopword), browse popular anime starting with letter
+    if (cleanQuery.length === 1 && typeApi !== 'MANGA') {
+      const letterGql = `
+        query {
+          Page(page: 1, perPage: 50) {
+            media(type: ANIME, sort: [POPULARITY_DESC], isAdult: false) {
+              ${mediaFields}
+            }
+          }
+        }
+      `;
+      letterBrowsePromise = fetch('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ query: letterGql }),
+        signal: AbortSignal.timeout(5000)
+      }).then(r => r.json()).catch(() => null);
+    }
+
+    // If query has text, run Character and Studio entity queries in parallel
+    if (cleanQuery && typeApi !== 'MANGA') {
+      const charSearchTerm = cleanQuery;
+      const studioSearchTerm = STUDIO_ALIASES[lowerQuery] || cleanQuery;
+
       const charGql = `
         query ($search: String) {
-          Character(search: $search) {
-            name { full alternative }
-            media(sort: [POPULARITY_DESC], perPage: 10) {
-              nodes {
-                idMal
-                title { romaji english native }
-                coverImage { large }
-                status
-                episodes
-                seasonYear
-                averageScore
-                synopsis: description(asHtml: false)
-                genres
-                studios(isMain: true) { nodes { name } }
+          Page(page: 1, perPage: 4) {
+            characters(search: $search) {
+              name { full alternative native }
+              media(sort: [POPULARITY_DESC], perPage: 12) {
+                nodes {
+                  ${mediaFields}
+                }
               }
             }
           }
         }
       `;
+
       const studioGql = `
         query ($search: String) {
-          Studio(search: $search) {
-            name
-            media(sort: [POPULARITY_DESC], perPage: 12) {
-              nodes {
-                idMal
-                title { romaji english native }
-                coverImage { large }
-                status
-                episodes
-                seasonYear
-                averageScore
-                synopsis: description(asHtml: false)
-                genres
-                studios(isMain: true) { nodes { name } }
+          Page(page: 1, perPage: 3) {
+            studios(search: $search) {
+              name
+              media(sort: [POPULARITY_DESC], perPage: 18) {
+                nodes {
+                  ${mediaFields}
+                }
               }
             }
           }
@@ -628,57 +1098,104 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
       charPromise = fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query: charGql, variables: { search: cleanQuery } }),
-        signal: AbortSignal.timeout(4500)
+        body: JSON.stringify({ query: charGql, variables: { search: charSearchTerm } }),
+        signal: AbortSignal.timeout(5000)
       }).then(r => r.json()).catch(() => null);
 
       studioPromise = fetch('https://graphql.anilist.co', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ query: studioGql, variables: { search: cleanQuery } }),
-        signal: AbortSignal.timeout(4500)
+        body: JSON.stringify({ query: studioGql, variables: { search: studioSearchTerm } }),
+        signal: AbortSignal.timeout(5000)
       }).then(r => r.json()).catch(() => null);
     }
 
-    const [mainRes, charRes, studioRes] = await Promise.all([
+    const [mainRes, charRes, studioRes, targetRes, letterRes] = await Promise.all([
       mainPromise,
       charPromise,
-      studioPromise
+      studioPromise,
+      targetIdsPromise,
+      letterBrowsePromise
     ]);
 
     const directMedia = Array.isArray(mainRes?.data?.Page?.media) ? mainRes.data.Page.media : [];
-    const extraMedia: any[] = [];
-    let isStudioHit = false;
-    let isCharHit = false;
+    const targetMedia = Array.isArray(targetRes?.data?.Page?.media) ? targetRes.data.Page.media : [];
+    const characterHits: any[] = [];
+    const studioHits: any[] = [];
 
-    if (studioRes?.data?.Studio) {
-      const studio = studioRes.data.Studio;
-      if (matchesEntity(cleanQuery, studio.name) && Array.isArray(studio.media?.nodes)) {
-        isStudioHit = true;
-        extraMedia.push(...studio.media.nodes);
+    // Tag targetMedia as iconic
+    for (const m of targetMedia) {
+      if (m) m._isIconic = true;
+    }
+
+    const isIconicChar = Boolean(ICONIC_CHARACTERS[lowerQuery]);
+    const isIconicStudio = Boolean(ICONIC_STUDIOS[lowerQuery]);
+    if (isIconicChar) {
+      characterHits.unshift(...targetMedia);
+    } else if (isIconicStudio) {
+      studioHits.unshift(...targetMedia);
+    } else if (targetMedia.length > 0) {
+      directMedia.unshift(...targetMedia);
+    }
+
+    // Process letter browse fallback
+    if (cleanQuery.length === 1 && letterRes?.data?.Page?.media) {
+      const letterLetter = cleanQuery.toLowerCase();
+      const matchingLetterMedia = letterRes.data.Page.media.filter((m: any) => {
+        const tRom = (m?.title?.romaji || '').toLowerCase();
+        const tEng = (m?.title?.english || '').toLowerCase();
+        return tRom.startsWith(letterLetter) || tEng.startsWith(letterLetter);
+      });
+      directMedia.push(...matchingLetterMedia);
+    }
+
+    // Process Studio hits with strict entity matching
+    const foundStudios = studioRes?.data?.Page?.studios || [];
+    for (const st of foundStudios) {
+      if (st && Array.isArray(st.media?.nodes)) {
+        if (isStudioKeyword || matchesEntity(cleanQuery, st.name)) {
+          for (const m of st.media.nodes) {
+            if (m) m._isStudio = true;
+          }
+          studioHits.push(...st.media.nodes);
+        }
       }
     }
 
-    if (charRes?.data?.Character) {
-      const char = charRes.data.Character;
-      const charMatches = matchesEntity(cleanQuery, char.name?.full) || (char.name?.alternative || []).some((alt: string) => matchesEntity(cleanQuery, alt));
-      if (charMatches && Array.isArray(char.media?.nodes)) {
-        isCharHit = true;
-        extraMedia.push(...char.media.nodes);
+    // Process Character hits with strict entity matching
+    const foundChars = charRes?.data?.Page?.characters || [];
+    for (const ch of foundChars) {
+      if (ch && Array.isArray(ch.media?.nodes)) {
+        const alts = Array.isArray(ch.name?.alternative) ? ch.name.alternative : [];
+        if (matchesEntity(cleanQuery, ch.name?.full, alts)) {
+          for (const m of ch.media.nodes) {
+            if (m) m._isChar = true;
+          }
+          characterHits.push(...ch.media.nodes);
+        }
       }
     }
 
-    // If query matches studio or character, prioritize those hit anime first
-    const combinedMedia = (isStudioHit || isCharHit)
-      ? [...extraMedia, ...directMedia]
-      : directMedia;
+    const charIdSet = new Set(characterHits.map((m: any) => m?.idMal).filter(Boolean));
+    const studioIdSet = new Set(studioHits.map((m: any) => m?.idMal).filter(Boolean));
+    const iconicIdSet = new Set(targetMedia.map((m: any) => m?.idMal).filter(Boolean));
 
-    if (combinedMedia.length === 0) return [];
+    // Combine all sources:
+    let pool: any[] = [];
+    if (isStudioKeyword) {
+      pool = [...studioHits, ...characterHits, ...directMedia];
+    } else if (characterHits.length > 0) {
+      pool = [...characterHits, ...directMedia, ...studioHits];
+    } else {
+      pool = [...directMedia, ...studioHits, ...characterHits];
+    }
+
+    if (pool.length === 0) return [];
 
     const seenIds = new Set<number>();
     const isManga = typeApi === 'MANGA';
 
-    return combinedMedia
+    const mapped = pool
       .filter((m: any) => {
         if (!m || !m.idMal || seenIds.has(m.idMal)) return false;
         seenIds.add(m.idMal);
@@ -693,6 +1210,10 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
           if (m.status === 'NOT_YET_RELEASED') status = 'Not yet aired';
         }
 
+        const isChar = charIdSet.has(m.idMal) || Boolean(m._isChar);
+        const isStudio = studioIdSet.has(m.idMal) || Boolean(m._isStudio);
+        const isIconic = iconicIdSet.has(m.idMal) || Boolean(m._isIconic);
+
         return {
           mal_id: m.idMal,
           url: `https://myanimelist.net/${isManga ? 'manga' : 'anime'}/${m.idMal}`,
@@ -700,11 +1221,11 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
           title_english: m.title.english || null,
           title_japanese: m.title.native || null,
           images: {
-            jpg: { image_url: m.coverImage.large, large_image_url: m.coverImage.large, small_image_url: m.coverImage.large },
-            webp: { image_url: m.coverImage.large, large_image_url: m.coverImage.large, small_image_url: m.coverImage.large }
+            jpg: { image_url: m.coverImage?.large, large_image_url: m.coverImage?.large, small_image_url: m.coverImage?.large },
+            webp: { image_url: m.coverImage?.large, large_image_url: m.coverImage?.large, small_image_url: m.coverImage?.large }
           },
           synopsis: cleanOfficialText(m.synopsis) || null,
-          type: isManga ? 'Manga' : (formatStr || 'TV'),
+          type: isManga ? 'Manga' : (m.format === 'MOVIE' ? 'Movie' : formatStr || 'TV'),
           episodes: isManga ? undefined : (m.episodes || null),
           chapters: isManga ? (m.chapters || null) : undefined,
           volumes: isManga ? (m.volumes || null) : undefined,
@@ -712,15 +1233,42 @@ async function searchAnilistFallback(query: string, page: number, limit: number,
           airing: !isManga && m.status === 'RELEASING',
           publishing: isManga && m.status === 'RELEASING',
           score: computeExactScore(m),
+          popularity: m.popularity || 0,
           year: m.seasonYear || null,
           genres: (m.genres || []).map((g: string) => ({
             mal_id: Number(GENRE_NAME_TO_MAL_ID[g.toLowerCase()]) || 0,
             type: isManga ? 'manga' : 'anime',
             name: g,
             url: ''
-          }))
+          })),
+          studios: (m.studios?.nodes || []).map((s: any) => ({ mal_id: 0, name: s.name })),
+          _isChar: isChar,
+          _isStudio: isStudio,
+          _isIconic: isIconic,
+          _relevance: scoreAnimeRelevance(
+            { 
+              title: m.title.romaji, 
+              title_english: m.title.english, 
+              title_japanese: m.title.native,
+              type: isManga ? 'Manga' : (m.format === 'MOVIE' ? 'Movie' : formatStr || 'TV'),
+              popularity: m.popularity, 
+              score: computeExactScore(m),
+              studios: m.studios?.nodes || []
+            },
+            resolvedQuery || cleanQuery,
+            isChar,
+            isStudio,
+            isIconic
+          )
         };
       });
+
+    // Sort by relevance score
+    if (cleanQuery) {
+      mapped.sort((a, b) => (b._relevance || 0) - (a._relevance || 0));
+    }
+
+    return mapped;
   } catch (err) {
     console.warn('[Anilist Fallback] Error:', err);
     return [];
@@ -769,24 +1317,40 @@ export async function serverSearchAnime(options: SearchAnimeOptions): Promise<{ 
 
   const endpoint = `${baseEndpoint}?${params.toString()}`;
   try {
-    // We can fallback to Anilist right away for BOTH anime/manga if query is present, because Anilist's search is way better!
-    // But let's try Jikan first.
-    let jikanData = null;
+    let jikanData: BaseJikanAnime[] | null = null;
     let pagination = null;
-    try {
-      const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, SEARCH_CACHE_TTL_MS);
-      if (res && Array.isArray(res.data) && res.data.length > 0) {
-        jikanData = deduplicateByMalId(res.data);
-        pagination = res.pagination;
-      }
-    } catch(e) {}
+
+    // Jikan requires at least 3 characters for text search queries. Skip Jikan if < 3 chars.
+    if (!clean || clean.length >= 3) {
+      try {
+        const res = await fetchFromJikan<BaseJikanAnime[]>(endpoint, SEARCH_CACHE_TTL_MS);
+        if (res && Array.isArray(res.data) && res.data.length > 0) {
+          jikanData = deduplicateByMalId(res.data);
+          pagination = res.pagination;
+        }
+      } catch(e) {}
+    }
     
-    // If search query is present or Jikan returns empty/sparse, fetch AniList character/studio/media results
+    // If search query is present (for character/studio/letter/title matching) or Jikan returns empty/sparse:
     if (clean || !jikanData || jikanData.length === 0) {
        const anilistData = await searchAnilistFallback(clean, page, limit, options.genres, anilistType, options.status, options.orderBy, options.type);
        if (anilistData && anilistData.length > 0) {
-          // If query was studio/character/title, prioritize anilistData (which ranks entity matches first) and combine with Jikan
+          // Combine and rank both sources by relevance
           const combined = deduplicateByMalId([...anilistData, ...(jikanData || [])]);
+          if (clean) {
+            combined.sort((a: any, b: any) => {
+              const isCharA = (a as any)._isChar || false;
+              const isStudioA = (a as any)._isStudio || false;
+              const isIconicA = (a as any)._isIconic || false;
+              const isCharB = (b as any)._isChar || false;
+              const isStudioB = (b as any)._isStudio || false;
+              const isIconicB = (b as any)._isIconic || false;
+              const relA = a._relevance ?? scoreAnimeRelevance(a, clean, isCharA, isStudioA, isIconicA);
+              const relB = b._relevance ?? scoreAnimeRelevance(b, clean, isCharB, isStudioB, isIconicB);
+              return relB - relA;
+            });
+          }
+
           return {
             data: combined.slice(0, limit),
             pagination: {

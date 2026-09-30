@@ -157,6 +157,9 @@ export interface OtakuBadge {
   color: string;
 }
 
+export type PortalMode = 'anime' | 'books';
+export type BookFormat = 'all' | 'manga' | 'manhwa' | 'manhua' | 'novel';
+
 export interface MangaItem {
   mal_id: number;
   url: string;
@@ -165,6 +168,7 @@ export interface MangaItem {
   title_english?: string;
   title_japanese?: string;
   type?: string;
+  format?: string;
   chapters?: number;
   volumes?: number;
   status?: string;
@@ -176,6 +180,8 @@ export interface MangaItem {
   synopsis?: string;
   genres?: JikanGenre[];
   authors?: { mal_id: number; name: string; type: string }[];
+  countryOfOrigin?: string;
+  bannerImage?: string;
 }
 
 export interface CharacterItem {
@@ -232,6 +238,7 @@ export interface PredictionPollOption {
 export interface PredictionPoll {
   id: string;
   animeTitle?: string;
+  category?: string;
   animeId?: number;
   question: string;
   options: PredictionPollOption[];

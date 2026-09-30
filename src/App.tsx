@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AnimatePresence } from 'motion/react';
-import { AnimeItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll, AuthUser, DailyStreakInfo, ThemeMode } from './types';
+import { AnimeItem, MangaItem, ShelfStatus, ShelfEntry, UserActivity, PredictionPoll, AuthUser, DailyStreakInfo, ThemeMode, PortalMode } from './types';
 import { 
   getTopAnime,
   getTopAnimePaginated,
@@ -47,7 +47,8 @@ import { AnimeDetailModal } from './components/AnimeDetailModal';
 import { AnimeFullPage } from './components/AnimeFullPage';
 import { ShelfView, ShelfViewFilterTab } from './components/ShelfView';
 import { PollsView } from './components/PollsView';
-import { MangaSection } from './components/MangaSection';
+import { BooksPortalView } from './components/BooksPortalView';
+import { BookDetailModal } from './components/BookDetailModal';
 import { ScheduleView } from './components/ScheduleView';
 import { CharacterDetailModal } from './components/CharacterDetailModal';
 import { VoiceActorModal } from './components/VoiceActorModal';
@@ -112,6 +113,34 @@ export function App() {
   const [activeTab, setActiveTab] = useState<string>(() => initialRoute.type === 'tab' ? initialRoute.tab : 'home');
   const [shelfSubTab, setShelfSubTab] = useState<ShelfViewFilterTab>('all');
   const [infoModalType, setInfoModalType] = useState<InfoModalType>(() => initialRoute.type === 'info' ? (initialRoute.infoType as InfoModalType) : null);
+
+  // Dual Portal State: Anime vs Books
+  const [portalMode, setPortalMode] = useState<PortalMode>(() => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname;
+      if (p.startsWith('/books') || p.startsWith('/manga') || window.location.search.includes('portal=books')) {
+        return 'books';
+      }
+    }
+    return initialRoute.type === 'tab' && (initialRoute.tab.startsWith('books') || initialRoute.tab === 'manga') ? 'books' : 'anime';
+  });
+  const [selectedBookForModal, setSelectedBookForModal] = useState<MangaItem | null>(null);
+
+  const handlePortalChange = (newPortal: PortalMode) => {
+    setPortalMode(newPortal);
+    setSearchQuery('');
+    setDebouncedQuery('');
+    if (newPortal === 'books') {
+      if (!activeTab.startsWith('books') && activeTab !== 'shelf' && activeTab !== 'profile') {
+        setActiveTab('books');
+      }
+    } else {
+      if (activeTab.startsWith('books') || activeTab === 'manga') {
+        setActiveTab('home');
+      }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [searchPage, setSearchPage] = useState(1);
@@ -310,17 +339,50 @@ export function App() {
       };
       pageTitle = `${titleMap[infoModalType] || infoModalType} – Kuro Shelf`;
     } else if (activeTab !== 'home') {
-      targetUrl = `/${activeTab}`;
+      const tabUrlMap: Record<string, string> = {
+        schedule: '/schedule',
+        rankings: '/rankings',
+        seasonal: '/seasonal',
+        explore: '/explore',
+        discover: '/discover',
+        polls: '/polls',
+        shelf: '/shelf',
+        profile: '/profile',
+        books: '/library',
+        'books-all': '/library',
+        'books-catalog': '/library/catalog',
+        'books-seasons': '/library/seasons',
+        'books-manga': '/library/catalog',
+        'books-manhwa': '/library/catalog',
+        'books-manhua': '/library/catalog',
+        'books-novel': '/library/catalog',
+        'books-rankings': '/library/rankings',
+        'books-schedule': '/library/schedule',
+        'books-polls': '/library/predictions',
+        'books-genres': '/library/genres',
+      };
+      targetUrl = tabUrlMap[activeTab] || `/${activeTab}`;
       const tabTitleMap: Record<string, string> = {
         schedule: 'Weekly Anime Airing Schedule – Kuro Shelf',
         rankings: 'Top Anime Rankings & Hall of Fame – Kuro Shelf',
         seasonal: 'Seasonal Anime Catalog – Kuro Shelf',
         explore: 'Explore Anime Genres & Themes – Kuro Shelf',
         discover: 'Discover Anime & Hidden Gems – Kuro Shelf',
-        manga: 'Manga & Manhwa Explorer – Kuro Shelf',
         polls: 'Community Predictions & Anime Polls – Kuro Shelf',
-        shelf: 'My Anime & Manga Shelf – Kuro Shelf',
+        shelf: 'My Anime & Books Shelf – Kuro Shelf',
         profile: 'User Profile & Collection – Kuro Shelf',
+        books: 'Library: Manga, Manhwa, Manhua & Novels – Kuro Shelf',
+        'books-all': 'Library: Manga, Manhwa, Manhua & Novels – Kuro Shelf',
+        'books-catalog': 'Manga, Manhwa & Light Novel Catalog – Kuro Shelf',
+        'books-seasons': 'This Season’s Manga & Book Releases – Kuro Shelf',
+        'books-manga': 'Manga Catalog – Kuro Shelf',
+        'books-manhwa': 'Manhwa Catalog – Kuro Shelf',
+        'books-manhua': 'Manhua Catalog – Kuro Shelf',
+        'books-novel': 'Light Novels Catalog – Kuro Shelf',
+        'books-rankings': 'Top Manga & Books Rankings – Kuro Shelf',
+        'books-schedule': 'Weekly Manga & Webtoon Release Schedule – Kuro Shelf',
+        'books-polls': 'Manga & Literary Community Predictions – Kuro Shelf',
+        'books-genres': 'Explore Books by Genre – Kuro Shelf',
       };
       pageTitle = tabTitleMap[activeTab] || `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} – Kuro Shelf`;
     }
@@ -357,6 +419,11 @@ export function App() {
         setFullPageAnime(null);
         setInfoModalType(null);
         setActiveTab(route.tab);
+        if (route.tab.startsWith('books') || route.tab === 'manga') {
+          setPortalMode('books');
+        } else if (route.tab !== 'shelf' && route.tab !== 'profile') {
+          setPortalMode('anime');
+        }
       } else {
         setSelectedAnime(null);
         setFullPageAnime(null);
@@ -760,7 +827,11 @@ export function App() {
 
   const handleNavigateToManga = (mangaTitle: string) => {
     setMangaSearchQuery(mangaTitle);
-    setActiveTab('manga');
+    setPortalMode('books');
+    setActiveTab('books');
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', '/books');
+    }
     window.scrollTo(0, 0);
   };
 
@@ -1238,7 +1309,7 @@ export function App() {
     return shelfMap.get(`${mediaType}_${animeId}`);
   }, [shelfMap]);
 
-  const isSearchActive = debouncedQuery.trim().length > 0;
+  const isSearchActive = portalMode === 'anime' && debouncedQuery.trim().length > 0;
 
   return (
     <div className="min-h-screen w-full bg-[var(--color-bg-base)] text-[var(--color-text-main)] flex flex-col font-sans selection:bg-orange-500/30 selection:text-orange-400 transition-colors duration-200">
@@ -1276,6 +1347,8 @@ export function App() {
           setSelectedAnnouncementId(null);
           setAnnouncementsModalOpen(true);
         }}
+        portalMode={portalMode}
+        onPortalChange={handlePortalChange}
       />
 
       {/* Dedicated AnimeFullPage OR Main Content Area */}
@@ -1315,8 +1388,8 @@ export function App() {
           {/* Center Main Stage */}
           <main className="flex-1 min-w-0 max-w-6xl xl:max-w-7xl w-full px-4 sm:px-6 lg:px-8 space-y-8 transition-all">
           <div className="w-full space-y-8">
-            {/* Search & Genre Bar (Moved from Top Shelf for spacious, high-contrast readability and direct genre access) */}
-            {!['profile', 'advanced', 'manga', 'polls', 'admin'].includes(activeTab) && (
+            {/* Search & Genre Bar (Shown only in Anime portal, excluded on Rankings, Catalog, Polls, Profile, Shelf, and Library) */}
+            {portalMode === 'anime' && !['profile', 'advanced', 'manga', 'polls', 'admin', 'rankings', 'shelf'].includes(activeTab) && !activeTab.startsWith('books') && (
               <SearchAndGenreBar
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
@@ -1381,7 +1454,7 @@ export function App() {
 
             {loadingSearch ? (
               <div className="space-y-3">
-                <p className="text-xs text-neutral-400 animate-pulse">Searching anime titles...</p>
+                <p className="text-xs text-neutral-400 animate-pulse">Searching anime, characters, studios, and titles...</p>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                   {Array.from({ length: 12 }).map((_, i) => (
                     <div
@@ -1406,10 +1479,10 @@ export function App() {
             ) : searchResults.length === 0 ? (
               <div className="p-16 text-center rounded-xl bg-neutral-900/30 border border-neutral-800/60 space-y-2">
                 <p className="text-neutral-300 text-sm font-medium">
-                  No titles matching &ldquo;{debouncedQuery || searchQuery}&rdquo; were found.
+                  No anime matching &ldquo;{debouncedQuery || searchQuery}&rdquo; were found.
                 </p>
                 <p className="text-neutral-400 text-xs max-w-md mx-auto">
-                  Try searching with the Japanese romaji title (e.g. Shingeki no Kyojin, Kimetsu no Yaiba) or checking for spelling errors.
+                  Try searching by title, character (e.g. Levi, Gojo, Goku), studio (e.g. Mappa, Bones, Ufotable), letter, or abbreviation (e.g. AOT, JJK, MHA).
                 </p>
               </div>
             ) : (
@@ -1514,6 +1587,12 @@ export function App() {
                     onSelectGenre={(g) => handleSelectDiscoverGenre(g)}
                     onNextSpotlight={handleNextSpotlight}
                     onPrevSpotlight={handlePrevSpotlight}
+                    onSelectIndex={(idx) => {
+                      if (spotlightCandidates[idx]) {
+                        setSpotlightIndex(idx);
+                        setSpotlightAnime(spotlightCandidates[idx]);
+                      }
+                    }}
                     spotlightIndex={spotlightIndex}
                     totalSpotlights={spotlightCandidates.length}
                   />
@@ -2137,7 +2216,7 @@ export function App() {
                                     </div>
                                   )}
                                 </div>
-                                <div className="relative w-16 h-24 sm:w-20 sm:h-28 rounded-lg overflow-hidden shrink-0 shadow-sm">
+                                <div className="relative w-20 h-28 rounded-xl overflow-hidden shrink-0 shadow-sm">
                                   <img 
                                     src={anime.images?.webp?.image_url || anime.images?.jpg?.image_url} 
                                     alt={anime.title}
@@ -2155,30 +2234,47 @@ export function App() {
                                 </div>
                               </div>
                               
-                              <div className="flex-1 min-w-0 hidden sm:flex flex-col gap-1.5">
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors line-clamp-1">{anime.title}</h3>
-                                {anime.title_english && anime.title_english !== anime.title && (
-                                  <p className="text-xs text-slate-500 dark:text-neutral-400 line-clamp-1">{anime.title_english}</p>
-                                )}
-
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-600 dark:text-neutral-300">
-                                  <span className="font-medium px-2 py-0.5 bg-slate-100 dark:bg-neutral-950 rounded border border-slate-200 dark:border-neutral-800">{anime.type || 'TV'}</span>
-                                  {anime.year && <span>{anime.year}</span>}
-                                  {anime.episodes && <span>• {anime.episodes} eps</span>}
-                                  <span className="text-slate-400 dark:text-neutral-500">•</span>
-                                  <span className={anime.status === 'Currently Airing' ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}>
-                                    {anime.status}
-                                  </span>
+                              <div className="flex-1 min-w-0 hidden sm:flex flex-col justify-between h-28 py-0.5">
+                                <div>
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 bg-slate-100 dark:bg-neutral-800 rounded border border-slate-200 dark:border-neutral-700 text-slate-700 dark:text-neutral-300">
+                                      {anime.type || 'TV'}
+                                    </span>
+                                    {anime.year && <span className="text-xs text-slate-500">{anime.year}</span>}
+                                    {anime.episodes && <span className="text-xs text-slate-500">• {anime.episodes} eps</span>}
+                                    <span className={`text-xs ${anime.status === 'Currently Airing' ? 'text-emerald-500 font-medium' : 'text-slate-500'}`}>
+                                      • {anime.status}
+                                    </span>
+                                  </div>
+                                  <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors line-clamp-1">
+                                    {anime.title}
+                                  </h3>
                                 </div>
-                                {anime.genres && anime.genres.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {anime.genres.slice(0, 4).map((g, i) => (
-                                      <span key={`rank-card-genre-${g.name || i}-${i}`} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800/80 text-slate-600 dark:text-neutral-400 border border-slate-200 dark:border-neutral-800">
+
+                                {/* Reserved description slot: ... if no space, space stays if too short */}
+                                <div className="h-9 sm:h-10 overflow-hidden my-auto">
+                                  <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-snug">
+                                    {anime.synopsis ? anime.synopsis : <span className="italic text-slate-400 dark:text-slate-600">No synopsis available for this title.</span>}
+                                  </p>
+                                </div>
+
+                                {/* Genre listing at exact same place */}
+                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                  {anime.genres && anime.genres.length > 0 ? (
+                                    anime.genres.slice(0, 4).map((g, i) => (
+                                      <span
+                                        key={`rank-card-genre-${g.name || i}-${i}`}
+                                        className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800/80 text-slate-600 dark:text-neutral-400 border border-slate-200 dark:border-neutral-800 shrink-0"
+                                      >
                                         {g.name}
                                       </span>
-                                    ))}
-                                  </div>
-                                )}
+                                    ))
+                                  ) : (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800/80 text-slate-500 border border-slate-200 dark:border-neutral-800 shrink-0">
+                                      General
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               <div className="hidden sm:flex flex-col items-end gap-2 shrink-0 pl-4 border-l border-slate-200 dark:border-neutral-800 min-w-[120px]">
@@ -2220,44 +2316,64 @@ export function App() {
               </div>
             )}
 
-            {/* 5. TAB: MANGA */}
-            {activeTab === 'manga' && (
-              <MangaSection
+            {/* 5. TAB: BOOKS & MANGA PORTAL PAGES */}
+            {(activeTab.startsWith('books') || activeTab === 'manga' || (portalMode === 'books' && !['shelf', 'profile', 'admin'].includes(activeTab))) && (
+              <BooksPortalView
                 shelf={shelf}
-                isPremium={isPremium}
-                onAddToShelf={(manga, status) => {
+                activeTab={activeTab}
+                onNavigateTab={(tab) => {
+                  setActiveTab(tab);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onAddToShelf={(book, status) => {
                   if (!currentUser) {
-                    openAuthWithReason('Please open an account or sign in to start making your manga library!');
+                    openAuthWithReason('Please open an account or sign in to start making your books library!');
                     return;
                   }
                   const poster =
-                    manga.images.webp?.large_image_url ||
-                    manga.images.jpg.large_image_url ||
-                    manga.images.jpg.image_url;
-                  const existing = shelf.find((s) => s.id === manga.mal_id && s.mediaType === 'manga');
+                    book.images.webp?.large_image_url ||
+                    book.images.jpg.large_image_url ||
+                    book.images.jpg.image_url;
+                  const existing = shelf.find((s) => s.id === book.mal_id && s.mediaType === 'manga');
                   saveShelfEntry({
-                    id: manga.mal_id,
+                    id: book.mal_id,
                     mediaType: 'manga',
-                    title: manga.title,
+                    title: book.title,
                     image: poster,
                     status,
                     progress: existing?.progress || 0,
-                    totalUnits: manga.chapters,
+                    totalUnits: book.chapters,
                     isLiked: existing?.isLiked || false,
                     userRating: existing?.userRating,
                   });
                   setShelf(getStoredShelf());
                   setActivities(getStoredActivities());
                 }}
-                onToggleLike={(id, mediaType, title, image) => {
+                onUpdateProgress={(id, progress) => {
+                  const target = shelf.find((s) => s.id === id && s.mediaType === 'manga');
+                  if (target) {
+                    updateShelfProgress(id, 'manga', progress);
+                    setShelf(getStoredShelf());
+                    setActivities(getStoredActivities());
+                  }
+                }}
+                onToggleLike={(id, title, image) => {
                   if (!currentUser) {
-                    openAuthWithReason('Please open an account or sign in to save manga to your favorites library!');
+                    openAuthWithReason('Please open an account or sign in to favorite books!');
                     return;
                   }
-                  const updated = toggleShelfLike(id, mediaType, title, image);
+                  const updated = toggleShelfLike(id, 'manga', title, image);
                   setShelf(updated);
                   setActivities(getStoredActivities());
                 }}
+                currentUser={currentUser}
+                isPremium={isPremium}
+                onOpenMembershipModal={() => {
+                  setMembershipModalInitialTab('membership');
+                  setMembershipModalOpen(true);
+                }}
+                onOpenAuth={() => openAuthWithReason('Please open an account or sign in to access your library!')}
+                onOpenShelf={() => setActiveTab('shelf')}
                 initialSearchQuery={mangaSearchQuery}
               />
             )}
@@ -2337,11 +2453,24 @@ export function App() {
                 onTabChange={(tab) => setShelfSubTab(tab)}
                 onOpenStats={() => setStatsModalOpen(true)}
                 onOpenImportExport={() => setImportExportModalOpen(true)}
-                onSelectMedia={async (id) => {
-                  const item = shelf.find((s) => s.id === id);
+                initialMediaFilter={portalMode === 'books' ? 'manga' : 'all'}
+                onSelectMedia={async (id, mediaType) => {
+                  const item = shelf.find((s) => s.id === id && s.mediaType === mediaType);
                   if (item) {
-                    if (item.mediaType === 'manga') {
-                      handleNavigateToManga(item.title);
+                    if (mediaType === 'manga') {
+                      setSelectedBookForModal({
+                        mal_id: item.id,
+                        url: `https://anilist.co/manga/${item.id}`,
+                        images: {
+                          jpg: { image_url: item.image, large_image_url: item.image },
+                          webp: { image_url: item.image, large_image_url: item.image },
+                        },
+                        title: item.title,
+                        type: 'Manga',
+                        chapters: item.totalUnits,
+                        publishing: true,
+                        synopsis: item.notes || '',
+                      });
                       return;
                     }
                     try {
@@ -2445,6 +2574,58 @@ export function App() {
       </AnimatePresence>
 
       {/* Character Profile Modal */}
+      {selectedBookForModal && (
+        <BookDetailModal
+          book={selectedBookForModal}
+          shelf={shelf}
+          onClose={() => setSelectedBookForModal(null)}
+          onUpdateStatus={(id, status) => {
+            const target = shelf.find((s) => s.id === id && s.mediaType === 'manga');
+            if (target) {
+              saveShelfEntry({ ...target, status });
+            } else if (selectedBookForModal) {
+              const poster =
+                selectedBookForModal.images.webp?.large_image_url ||
+                selectedBookForModal.images.jpg.large_image_url ||
+                selectedBookForModal.images.jpg.image_url;
+              saveShelfEntry({
+                id: selectedBookForModal.mal_id,
+                mediaType: 'manga',
+                title: selectedBookForModal.title,
+                image: poster,
+                status,
+                progress: 0,
+                totalUnits: selectedBookForModal.chapters,
+                isLiked: false,
+              });
+            }
+            setShelf(getStoredShelf());
+            setActivities(getStoredActivities());
+          }}
+          onUpdateProgress={(id, progress) => {
+            updateShelfProgress(id, 'manga', progress);
+            setShelf(getStoredShelf());
+            setActivities(getStoredActivities());
+          }}
+          onToggleLike={(id, title, image) => {
+            if (!currentUser) {
+              openAuthWithReason('Please open an account or sign in to favorite books!');
+              return;
+            }
+            const updated = toggleShelfLike(id, 'manga', title, image);
+            setShelf(updated);
+            setActivities(getStoredActivities());
+          }}
+          onRemoveFromShelf={(id) => {
+            removeShelfEntry(id, 'manga');
+            setShelf(getStoredShelf());
+            setActivities(getStoredActivities());
+          }}
+          isLoggedIn={Boolean(currentUser)}
+          onRequireAuth={() => openAuthWithReason('Please open an account to track books in your library!')}
+        />
+      )}
+
       {selectedCharacter && (
         <CharacterDetailModal
           characterId={selectedCharacter.id}

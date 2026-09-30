@@ -1,5 +1,6 @@
 import { CommentSection } from './CommentSection';
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { cleanSynopsis } from '../utils/textUtils';
 import { formatOverallRank } from '../utils/rankHelper';
 import {
@@ -369,9 +370,9 @@ export function AnimeDetailModal({
     { value: 'dropped', label: 'Dropped' },
   ];
 
-  return (
+  const modalJSX = (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 overscroll-contain"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 overscroll-contain animate-in fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -1505,4 +1506,6 @@ export function AnimeDetailModal({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalJSX, document.body) : modalJSX;
 }

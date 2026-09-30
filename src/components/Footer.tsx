@@ -34,11 +34,11 @@ export function Footer({ onNavigateTab, onOpenInfoModal, onOpenMembershipModal, 
               onClick={() => handleNavClick('home')}
               className="flex items-center gap-2 cursor-pointer group select-none inline-flex"
             >
-              <span className="w-6 h-6 rounded bg-rose-600 flex items-center justify-center text-white text-xs font-black shadow-sm group-hover:scale-105 transition-transform">
+              <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#1c2230] to-[#0a0d14] border border-slate-700 flex items-center justify-center text-white text-xs font-black shadow-sm group-hover:scale-105 transition-transform">
                 黒
               </span>
-              <span className="font-brand font-black text-white text-base tracking-tight group-hover:text-rose-400 transition-colors">
-                KURO<span className="text-rose-500">SHELF</span>
+              <span className="font-brand font-black text-white text-base tracking-tight group-hover:text-red-400 transition-colors">
+                KURO<span className="text-red-500">SHELF</span>
               </span>
             </div>
             <p className="text-neutral-400 text-[11px] leading-relaxed">
@@ -59,7 +59,14 @@ export function Footer({ onNavigateTab, onOpenInfoModal, onOpenMembershipModal, 
                   onClick={(e) => { e.preventDefault(); handleNavClick('home'); }}
                   className="text-neutral-400 hover:text-white transition-colors text-left"
                 >
-                  Discover
+                  Discover Anime
+                </a>
+                <a
+                  href="/books"
+                  onClick={(e) => { e.preventDefault(); handleNavClick('books'); }}
+                  className="text-emerald-400 hover:text-emerald-300 font-semibold transition-colors text-left flex items-center gap-1"
+                >
+                  <span>Books Portal (Manga)</span>
                 </a>
                 <a
                   href="/seasonal"
@@ -157,9 +164,9 @@ export function Footer({ onNavigateTab, onOpenInfoModal, onOpenMembershipModal, 
                     <button
                       type="button"
                       onClick={() => onOpenMembershipModal('donate')}
-                      className="text-rose-400 hover:text-rose-300 transition-colors text-left flex items-center gap-1"
+                      className="text-red-400 hover:text-red-300 transition-colors text-left flex items-center gap-1 cursor-pointer"
                     >
-                      <Heart className="w-3 h-3 text-rose-500 fill-current" />
+                      <Heart className="w-3 h-3 text-red-500 fill-current" />
                       <span>Help KuroShelf Grow</span>
                     </button>
                   </>
@@ -247,7 +254,7 @@ export function Footer({ onNavigateTab, onOpenInfoModal, onOpenMembershipModal, 
                         rel="noreferrer"
                         className="text-neutral-400 hover:text-white transition-colors flex items-center gap-1.5"
                       >
-                        <Icon className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                        <Icon className="w-3.5 h-3.5 text-red-500 shrink-0" />
                         <span>{social.name}</span>
                         <ExternalLink className="w-2.5 h-2.5 opacity-60" />
                       </a>

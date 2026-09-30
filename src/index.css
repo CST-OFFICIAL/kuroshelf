@@ -18,8 +18,11 @@
   --color-text-main: #0f172a;
   --color-text-muted: #475569;
   --color-text-subtle: #64748b;
-  --color-accent: #f97316;
-  --color-accent-hover: #ea580c;
+  --color-accent: #dc2626; /* Japanese Crimson / Tokyo Red */
+  --color-accent-hover: #b91c1c;
+  --color-accent-subtle: rgba(220, 38, 38, 0.1);
+  --color-accent-border: rgba(220, 38, 38, 0.25);
+  --color-books-accent: #059669; /* Library Emerald */
   --app-scale: 0.82;
 }
 
@@ -27,21 +30,22 @@ html {
   zoom: 82%;
 }
 
-/* OLED Pitch & Akane Sunset Theme (Manga Reader / Warm Vibe) */
+/* Kuro Obsidian & Crimson Prestige Theme */
 html.dark {
-  --color-bg-base: #000000; /* Pure True OLED Pitch Black */
-  --color-bg-card: #0a0d14; /* Deep Obsidian Slate */
-  --color-bg-surface: #10141f; /* Surface card */
-  --color-bg-subtle: #161b26; /* Subtle graphite */
-  --color-border-subtle: #1f2535; /* Crisp dark border */
-  --color-border-medium: #2c3548;
+  --color-bg-base: #07090e; /* Deep Obsidian Pitch */
+  --color-bg-card: #0d111a; /* Sleek Dark Slate */
+  --color-bg-surface: #121724; /* Surface card */
+  --color-bg-subtle: #171d2c; /* Subtle graphite */
+  --color-border-subtle: #1e2638; /* Crisp dark border */
+  --color-border-medium: #2a354c;
   --color-text-main: #f8fafc;
   --color-text-muted: #94a3b8;
   --color-text-subtle: #64748b;
-  --color-accent: #f97316; /* Akane Sunset Orange */
-  --color-accent-hover: #ea580c;
-  --color-accent-subtle: rgba(249, 115, 22, 0.12);
-  --color-accent-border: rgba(249, 115, 22, 0.28);
+  --color-accent: #ef4444; /* Tokyo Crimson / Scarlet Red */
+  --color-accent-hover: #dc2626;
+  --color-accent-subtle: rgba(239, 68, 68, 0.12);
+  --color-accent-border: rgba(239, 68, 68, 0.28);
+  --color-books-accent: #10b981; /* Library Emerald */
 }
 
 /* Universal high-contrast, crisp text & placeholder readability */
@@ -110,12 +114,12 @@ html.dark .main-search-input,
 
 /* Global Accessibility Improvements */
 :focus-visible {
-  outline: 2px solid #f97316;
+  outline: 2px solid var(--color-accent);
   outline-offset: 3px;
   border-radius: 4px;
 }
 input:focus-visible, button:focus-visible, a:focus-visible {
-  outline: 2px solid #f97316;
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 

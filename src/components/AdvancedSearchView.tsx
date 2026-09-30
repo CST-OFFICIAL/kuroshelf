@@ -3,7 +3,7 @@ import { Search, Loader2 } from 'lucide-react';
 import { AnimeItem, ShelfStatus } from '../types';
 import { AnimeCard } from './AnimeCard';
 import { searchAnimePaginated, getTopAnimePaginated } from '../services/jikan';
-
+import { ALL_EXPLORE_GENRES } from './ExploreView';
 
 interface AdvancedSearchViewProps {
   onSelectAnime: (anime: AnimeItem) => void;
@@ -28,6 +28,7 @@ export function AdvancedSearchView({
   const [hasMore, setHasMore] = useState(true);
 
   // Advanced filters
+  const [genre, setGenre] = useState('');
   const [status, setStatus] = useState('');
   const [type, setType] = useState('');
   const [orderBy, setOrderBy] = useState('popularity');
@@ -53,6 +54,7 @@ export function AdvancedSearchView({
 
       const hasFilters =
         Boolean(debouncedQuery.trim()) ||
+        Boolean(genre) ||
         Boolean(status) ||
         Boolean(type);
 
@@ -65,6 +67,7 @@ export function AdvancedSearchView({
           query: debouncedQuery.trim(),
           page: nextPage,
           limit: 24,
+          genres: genre || undefined,
           status: status || undefined,
           type: type || undefined,
           orderBy: orderBy || undefined,
@@ -106,6 +109,7 @@ export function AdvancedSearchView({
     }
   }, [
     debouncedQuery,
+    genre,
     status,
     type,
     orderBy,
@@ -116,12 +120,12 @@ export function AdvancedSearchView({
   useEffect(() => {
     setResults([]);
     fetchResults(false);
-  }, [debouncedQuery, status, type, orderBy, sort]); // initial fetch
+  }, [debouncedQuery, genre, status, type, orderBy, sort]); // initial fetch
 
   return (
     <div className="space-y-6">
       <div className="border-b border-neutral-800 pb-6">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-display">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-display hover:text-rose-500 transition-colors cursor-default">
           Anime Catalog
         </h1>
         <p className="text-sm text-neutral-400 mt-1">
@@ -171,10 +175,24 @@ export function AdvancedSearchView({
         </form>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Genre Dropdown Menu */}
+          <select 
+            value={genre} 
+            onChange={(e) => setGenre(e.target.value)}
+            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500 cursor-pointer"
+          >
+            <option value="">All Genres</option>
+            {ALL_EXPLORE_GENRES.map((g) => (
+              <option key={g.mal_id} value={String(g.mal_id)}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+
           <select 
             value={status} 
             onChange={(e) => setStatus(e.target.value)}
-            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500"
+            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500 cursor-pointer"
           >
             <option value="">Any Status</option>
             <option value="airing">Airing</option>
@@ -184,7 +202,7 @@ export function AdvancedSearchView({
           <select 
             value={type} 
             onChange={(e) => setType(e.target.value)}
-            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500"
+            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500 cursor-pointer"
           >
             <option value="">Any Type</option>
             <option value="tv">TV</option>
@@ -195,7 +213,7 @@ export function AdvancedSearchView({
           <select 
             value={orderBy} 
             onChange={(e) => setOrderBy(e.target.value)}
-            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500"
+            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500 cursor-pointer"
           >
             <option value="popularity">Popularity</option>
             <option value="score">Score</option>
@@ -206,7 +224,7 @@ export function AdvancedSearchView({
           <select 
             value={sort} 
             onChange={(e) => setSort(e.target.value)}
-            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500"
+            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500 cursor-pointer"
           >
             <option value="asc">Ascending</option>
             <option value="desc">Descending</option>

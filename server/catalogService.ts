@@ -1,7 +1,21 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import type { AnimeItem, JikanPagination } from '../src/types';
-import { serverSearchAnime as jikanSearch, serverGetAnimeDetails as jikanGetById, serverGetTopAnime, serverGetSeasonalAnime, serverGetUpcomingAnime, isNsfwOrAdult, resolveGenreInfo } from './jikanService';
+import { 
+  serverSearchAnime as jikanSearch, 
+  serverGetAnimeDetails as jikanGetById, 
+  serverGetTopAnime, 
+  serverGetSeasonalAnime, 
+  serverGetUpcomingAnime, 
+  isNsfwOrAdult, 
+  resolveGenreInfo,
+  scoreAnimeRelevance,
+  STUDIO_ALIASES,
+  COMMON_ABBREVIATIONS,
+  ICONIC_CHARACTERS,
+  ICONIC_STUDIOS,
+  ICONIC_LETTER_ANIME
+} from './jikanService';
 import { ingestAnimeList } from './ingestionService';
 import { cleanOfficialText } from './officialSynopsisService';
 
@@ -164,8 +178,20 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
     query = supabase.from('anime').select('*, anime_genres(genres(*)), anime_studios(studios(*)), anime_streaming(url, streaming_providers(name))', { count: 'exact' });
   }
 
+  const cleanLower = clean.toLowerCase();
+  const resolvedTerm = COMMON_ABBREVIATIONS[cleanLower] || STUDIO_ALIASES[cleanLower] || clean;
+  const isStudioSearch = Boolean(STUDIO_ALIASES[cleanLower]);
+
   if (clean) {
-    query = query.or(`title.ilike.%${clean}%,title_english.ilike.%${clean}%,title_japanese.ilike.%${clean}%`);
+    if (clean.length === 1) {
+      // Single letter search: prioritize titles starting with that letter
+      query = query.or(`title.ilike.${clean}%,title_english.ilike.${clean}%`);
+    } else if (isStudioSearch) {
+      const targetStudioName = STUDIO_ALIASES[cleanLower] || clean;
+      query = query.or(`title.ilike.%${clean}%,title_english.ilike.%${clean}%,anime_studios.studios.name.ilike.%${targetStudioName}%`);
+    } else {
+      query = query.or(`title.ilike.%${clean}%,title_english.ilike.%${clean}%,title_japanese.ilike.%${clean}%,title.ilike.%${resolvedTerm}%,title_english.ilike.%${resolvedTerm}%`);
+    }
   }
   
   if (options.status && options.status !== 'all') {
@@ -199,34 +225,92 @@ export async function searchCatalogAnime(options: any): Promise<{ data: AnimeIte
 
   const localItems: AnimeItem[] = (data || []).filter(item => !isNsfwOrAdult(item)).map(mapDbToAnime) as any[];
 
-  // If local DB is empty or has fewer items than limit for a search/genre query, trigger Live API fallback to supplement!
-  const hasSearchOrFilter = Boolean(clean || (options.genres && options.genres !== 'all') || (options.status && options.status !== 'all') || (options.type && options.type !== 'all'));
-  if (localItems.length < limit) {
+  // When a text search query is given, or local results are sparse, trigger live search for character, studio, and canonical anime results
+  const shouldFetchLive = Boolean(clean || localItems.length < limit || (options.genres && options.genres !== 'all'));
+  if (shouldFetchLive) {
      try {
-       console.log('[Catalog] Local DB results sparse (' + localItems.length + '/' + limit + '), triggering live API fallback...');
-       const jikanResult = await jikanSearch(options);
-       if (jikanResult.data && jikanResult.data.length > 0) {
-         // Ingest in background
-         ingestAnimeList(jikanResult.data as any).catch(() => {});
-         
-         const existingIds = new Set(localItems.map(item => item.mal_id));
-         const safeFallbackItems = (jikanResult.data as any[])
-           .filter(item => !isNsfwOrAdult(item) && !existingIds.has(item.mal_id));
+       const jikanResult = await jikanSearch({
+         ...options,
+         query: resolvedTerm || clean
+       });
 
-         const combinedItems = [...localItems, ...safeFallbackItems].slice(0, limit);
+       const targetMalIds = [
+         ...(ICONIC_CHARACTERS[cleanLower]?.mal_ids || []),
+         ...(ICONIC_STUDIOS[cleanLower]?.mal_ids || []),
+         ...(ICONIC_LETTER_ANIME[cleanLower] || [])
+       ];
+
+       let iconicItems: any[] = [];
+       if (targetMalIds.length > 0 && isSupabaseConfigured) {
+         try {
+           const { data: iconicDb } = await supabase
+             .from('anime')
+             .select('*, anime_genres(genres(*)), anime_studios(studios(*)), anime_streaming(url, streaming_providers(name))')
+             .in('mal_id', targetMalIds);
+           if (iconicDb && iconicDb.length > 0) {
+             iconicItems = iconicDb.filter(i => !isNsfwOrAdult(i)).map(mapDbToAnime).map(item => ({
+               ...item,
+               _isChar: Boolean(ICONIC_CHARACTERS[cleanLower]),
+               _isStudio: Boolean(ICONIC_STUDIOS[cleanLower])
+             }));
+           }
+         } catch(e) {}
+       }
+
+       const jikanDataList = (jikanResult.data || []) as any[];
+       if (jikanDataList.length > 0 || iconicItems.length > 0) {
+         // Ingest in background
+         if (jikanDataList.length > 0) {
+           ingestAnimeList(jikanDataList).catch(() => {});
+         }
+         
+         const existingIds = new Set<number>();
+         const safeFallbackItems = jikanDataList
+           .filter(item => !isNsfwOrAdult(item));
+
+         // Merge candidate items: iconic hits + fallback results + local items
+         const combined = [...iconicItems, ...safeFallbackItems, ...localItems].filter(item => {
+           if (!item || !item.mal_id || existingIds.has(item.mal_id)) return false;
+           existingIds.add(item.mal_id);
+           return true;
+         });
+
+         if (clean) {
+           combined.sort((a: any, b: any) => {
+             const isCharA = (a as any)._isChar || false;
+             const isStudioA = isStudioSearch || (a as any)._isStudio || false;
+             const isIconicA = (a as any)._isIconic || false;
+             const isCharB = (b as any)._isChar || false;
+             const isStudioB = isStudioSearch || (b as any)._isStudio || false;
+             const isIconicB = (b as any)._isIconic || false;
+             const relA = a._relevance ?? scoreAnimeRelevance(a, clean, isCharA, isStudioA, isIconicA);
+             const relB = b._relevance ?? scoreAnimeRelevance(b, clean, isCharB, isStudioB, isIconicB);
+             return relB - relA;
+           });
+         }
+
+         const pagedSlice = combined.slice(0, limit);
          return {
-           data: combinedItems,
+           data: pagedSlice,
            pagination: {
-             last_visible_page: Math.max(Math.ceil(((count || 0) + safeFallbackItems.length) / limit), 1),
-             has_next_page: jikanResult.pagination?.has_next_page || combinedItems.length === limit,
+             last_visible_page: Math.max(Math.ceil(((count || 0) + safeFallbackItems.length + iconicItems.length) / limit), 1),
+             has_next_page: jikanResult.pagination?.has_next_page || combined.length >= limit,
              current_page: page,
-             items: { count: combinedItems.length, total: Math.max(count || 0, combinedItems.length), per_page: limit }
+             items: { count: pagedSlice.length, total: Math.max(count || 0, combined.length), per_page: limit }
            }
          };
        }
      } catch (err) {
        // Live API failed (rate limits), silent fallback to existing local items
      }
+  }
+
+  if (clean && localItems.length > 0) {
+    localItems.sort((a: any, b: any) => {
+      const relA = scoreAnimeRelevance(a, clean, false, isStudioSearch);
+      const relB = scoreAnimeRelevance(b, clean, false, isStudioSearch);
+      return relB - relA;
+    });
   }
 
   return {

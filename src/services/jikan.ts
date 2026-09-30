@@ -272,8 +272,8 @@ async function routeToDirectJikan<T>(endpoint: string): Promise<{ data: T; pagin
       }
     }
 
-    // Try Jikan if healthy
-    if (isJikanHealthy()) {
+    // Try Jikan if healthy and query length is >= 3 (Jikan v4 API rejects queries < 3 chars with 400)
+    if (isJikanHealthy() && (!q || q.trim().length >= 3)) {
       const searchParams = new URLSearchParams();
       if (q) searchParams.set('q', q);
       searchParams.set('page', String(page));

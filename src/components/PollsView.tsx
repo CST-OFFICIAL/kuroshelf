@@ -9,6 +9,7 @@ import {
   Crown,
   Sparkles,
   User,
+  TrendingUp,
 } from 'lucide-react';
 import { getWeeklyPollStatus } from '../services/membershipService';
 
@@ -197,10 +198,10 @@ export function PollsView({
         </div>
       </div>
 
-      {/* Polls list */}
-      <div className="space-y-6">
+      {/* Polls 2-Column Responsive Grid (Matches Library Predictions Layout) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {filteredPolls.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl bg-neutral-900/40 border border-neutral-800 space-y-3">
+          <div className="col-span-full p-12 text-center rounded-3xl bg-[#10141e] border border-slate-800 space-y-3">
             <Vote className="w-10 h-10 text-neutral-600 mx-auto" />
             <h3 className="text-base font-bold text-white">No prediction polls found</h3>
             <p className="text-xs text-neutral-400 max-w-sm mx-auto">
@@ -212,7 +213,7 @@ export function PollsView({
               <button
                 type="button"
                 onClick={() => setFilterMode('all')}
-                className="px-4 py-1.5 rounded-lg bg-neutral-800 text-neutral-200 font-semibold text-xs hover:bg-neutral-700 transition-colors"
+                className="px-4 py-1.5 rounded-xl bg-neutral-800 text-neutral-200 font-semibold text-xs hover:bg-neutral-700 transition-colors"
               >
                 View All Polls
               </button>
@@ -234,29 +235,26 @@ export function PollsView({
             return (
               <div
                 key={poll.id}
-                className="p-6 rounded-2xl bg-neutral-900 border border-neutral-800/80 space-y-5 shadow-lg hover:border-neutral-700/80 transition-all"
+                className="p-5 sm:p-6 rounded-3xl bg-[#10141e] border border-slate-800 shadow-md space-y-4 hover:border-rose-500/40 transition-all flex flex-col justify-between"
               >
-                {/* Poll Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      {poll.animeTitle && (
-                        <span className="text-xs font-bold text-rose-400 uppercase tracking-wide">
+                <div className="space-y-3">
+                  {/* Poll Header: Category + Timer */}
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {poll.animeTitle ? (
+                        <span className="px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 font-bold border border-rose-500/30 text-xs">
                           {poll.animeTitle}
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 font-bold border border-rose-500/30 text-xs">
+                          {poll.category || 'General Anime'}
                         </span>
                       )}
 
                       {poll.isVipPoll && (
-                        <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[9px] font-extrabold uppercase tracking-wide border border-amber-500/30 flex items-center gap-1">
+                        <span className="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-extrabold uppercase tracking-wide border border-amber-500/30 flex items-center gap-1">
                           <Crown className="w-2.5 h-2.5 text-amber-400" />
-                          VIP Creator
-                        </span>
-                      )}
-
-                      {poll.creatorName && (
-                        <span className="text-[10px] text-neutral-400 flex items-center gap-1">
-                          <User className="w-3 h-3 text-neutral-500" />
-                          <span>by {poll.creatorName}</span>
+                          VIP
                         </span>
                       )}
 
@@ -264,7 +262,7 @@ export function PollsView({
                         <button
                           type="button"
                           onClick={() => onSelectAnime(poll.animeId, poll.animeTitle)}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-[10px] font-medium border border-rose-500/20 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-[10px] font-medium border border-rose-500/20 transition-colors cursor-pointer"
                           title={`Inspect ${poll.animeTitle}`}
                         >
                           <span>Inspect Title</span>
@@ -273,28 +271,19 @@ export function PollsView({
                       )}
                     </div>
 
-                    <h3 className="text-base sm:text-lg font-bold text-white leading-snug">
-                      {poll.question}
-                    </h3>
+                    <span className="flex items-center gap-1 font-semibold text-slate-400 shrink-0">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>{new Date(poll.endsAt).toLocaleDateString()}</span>
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 text-xs">
-                    <span className="flex items-center gap-1 text-neutral-400 px-2.5 py-1 rounded-md bg-neutral-950 border border-neutral-800">
-                      <Clock className="w-3.5 h-3.5 text-neutral-400" />
-                      <span>
-                        {poll.totalVotes === 0
-                          ? 'No votes yet'
-                          : `${poll.totalVotes.toLocaleString()} votes`}
-                      </span>
-                    </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      {poll.status}
-                    </span>
-                  </div>
+                  <h3 className="text-base sm:text-lg font-black text-white leading-snug">
+                    {poll.question}
+                  </h3>
                 </div>
 
-                {/* Options */}
-                <div className="space-y-3">
+                {/* Options with live percentage bars */}
+                <div className="space-y-2.5 pt-1">
                   {poll.options.map((opt) => {
                     const percent =
                       poll.totalVotes > 0
@@ -306,6 +295,7 @@ export function PollsView({
                       <button
                         key={opt.id}
                         disabled={hasVoted}
+                        type="button"
                         onClick={() => {
                           if (!currentUser) {
                             onOpenAuthModal?.();
@@ -313,55 +303,37 @@ export function PollsView({
                           }
                           onVote(poll.id, opt.id);
                         }}
-                        className={`relative w-full text-left p-3.5 rounded-xl border transition-all overflow-hidden ${
+                        className={`relative w-full text-left p-3.5 rounded-2xl border transition-all overflow-hidden ${
                           isSelected
-                            ? 'border-rose-500 bg-rose-950/20 shadow-sm'
+                            ? 'bg-rose-950/40 border-rose-500 text-white shadow-md shadow-rose-950/30'
                             : hasVoted
-                            ? 'border-neutral-800 bg-neutral-950/80 cursor-default'
-                            : 'border-neutral-800 bg-neutral-950 hover:border-neutral-700 hover:bg-neutral-800/60 cursor-pointer'
+                            ? 'bg-slate-900/90 border-slate-800 text-slate-300 cursor-default'
+                            : 'bg-slate-900/90 hover:bg-slate-850 border-slate-800 text-slate-300 hover:text-white cursor-pointer'
                         }`}
                       >
-                        {/* Visual progress bar when voted */}
+                        {/* Progress fill bar */}
                         {hasVoted && (
                           <div
-                            className={`absolute inset-y-0 left-0 transition-all duration-500 ${
-                              isSelected ? 'bg-rose-500/25' : 'bg-neutral-800/40'
+                            className={`absolute inset-0 opacity-20 pointer-events-none transition-all duration-500 ${
+                              isSelected ? 'bg-rose-500' : 'bg-slate-600'
                             }`}
                             style={{ width: `${percent}%` }}
                           />
                         )}
 
-                        <div className="relative z-10 flex items-center justify-between gap-4 text-xs sm:text-sm">
-                          <div className="flex items-center gap-2.5">
-                            <div
-                              className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                                isSelected
-                                  ? 'border-rose-500 bg-rose-500 text-white'
-                                  : 'border-neutral-700 bg-neutral-900'
-                              }`}
-                            >
-                              {isSelected && <CheckCircle2 className="w-3 h-3 text-white" />}
-                            </div>
-                            <span
-                              className={`font-medium ${
-                                isSelected ? 'text-white' : 'text-neutral-200'
-                              }`}
-                            >
-                              {opt.text}
-                            </span>
-                          </div>
-
+                        <div className="relative z-10 flex items-center justify-between gap-3 text-xs sm:text-sm">
+                          <span className="font-bold flex items-center gap-2">
+                            {isSelected ? (
+                              <CheckCircle2 className="w-4 h-4 text-rose-400 shrink-0" />
+                            ) : (
+                              <div className="w-3.5 h-3.5 rounded-full border border-slate-600 shrink-0" />
+                            )}
+                            <span>{opt.text}</span>
+                          </span>
                           {hasVoted && (
-                            <div className="flex items-center gap-2 shrink-0 font-bold">
-                              <span
-                                className={isSelected ? 'text-rose-400' : 'text-neutral-400'}
-                              >
-                                {percent}%
-                              </span>
-                              <span className="text-[11px] text-neutral-400 font-normal">
-                                ({opt.votes})
-                              </span>
-                            </div>
+                            <span className="font-mono font-black text-xs shrink-0 text-slate-400">
+                              {percent}% ({opt.votes})
+                            </span>
                           )}
                         </div>
                       </button>
@@ -369,21 +341,16 @@ export function PollsView({
                   })}
                 </div>
 
-                {/* Footer status text */}
-                <div className="text-[11px] text-neutral-400 flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-1">
-                  {hasVoted ? (
-                    <span className="text-emerald-400 flex items-center gap-1 font-medium">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Vote registered! You have participated in this prediction.
-                    </span>
-                  ) : (
-                    <span>
-                      {!currentUser
-                        ? 'Open an account to participate and cast your prediction vote.'
-                        : 'Click any option to cast your prediction vote.'}
-                    </span>
-                  )}
-                  <span>Closes {new Date(poll.endsAt).toLocaleDateString()}</span>
+                {/* Footer attribution & Total Votes */}
+                <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-800/80 font-medium">
+                  <span className="flex items-center gap-1">
+                    <User className="w-3 h-3 text-neutral-500" />
+                    <span>By {poll.creatorName || 'Otaku Analyst'}</span>
+                  </span>
+                  <span className="flex items-center gap-1 font-semibold text-slate-400">
+                    <TrendingUp className="w-3.5 h-3.5 text-rose-400" />
+                    {poll.totalVotes} total votes
+                  </span>
                 </div>
               </div>
             );
