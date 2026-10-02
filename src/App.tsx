@@ -38,7 +38,6 @@ import {
 } from './services/themeService';
 
 import { Navbar } from './components/Navbar';
-import { SearchAndGenreBar } from './components/SearchAndGenreBar';
 import { HeroBanner } from './components/HeroBanner';
 import { ExploreView } from './components/ExploreView';
 import { AdvancedSearchView } from './components/AdvancedSearchView';
@@ -55,6 +54,7 @@ import { VoiceActorModal } from './components/VoiceActorModal';
 import { ShelfStatsModal } from './components/ShelfStatsModal';
 import { ShelfImportExportModal } from './components/ShelfImportExportModal';
 import { Footer } from './components/Footer';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { InfoModal, InfoModalType } from './components/InfoModal';
 import { AuthModal } from './components/AuthModal';
 import { ProfileView } from './components/ProfileView';
@@ -83,10 +83,12 @@ import {
   Compass,
   X,
   ChevronRight,
-  Loader2
+  Loader2,
+  ListPlus,
 } from 'lucide-react';
 import { parseRoute, getAnimeUrl } from './utils/urlHelper';
 import { AdBanner } from './components/AdBanner';
+import { isEligibleForMonthlyRecommendations, getEligibleAnimeCount, getCurrentMonthYear } from './services/playlistService';
 
 const DISCOVER_GENRE_PILLS = [
   { name: 'Sports', value: '30' },
@@ -301,7 +303,7 @@ export function App() {
   };
 
   // Card grid layout: crisp, spacious, beautifully responsive columns with locked 82% view scale
-  const cardGridClass = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-5 sm:gap-6';
+  const cardGridClass = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5 lg:gap-6';
 
   // Modal detail view
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
@@ -1312,7 +1314,7 @@ export function App() {
   const isSearchActive = portalMode === 'anime' && debouncedQuery.trim().length > 0;
 
   return (
-    <div className="min-h-screen w-full bg-[var(--color-bg-base)] text-[var(--color-text-main)] flex flex-col font-sans selection:bg-orange-500/30 selection:text-orange-400 transition-colors duration-200">
+    <div className="min-h-screen w-full bg-[var(--color-bg-base)] text-[var(--color-text-main)] flex flex-col font-sans selection:bg-orange-500/30 selection:text-orange-400 transition-colors duration-200 pb-16 md:pb-0">
       {/* Top Navigation */}
       <Navbar
         activeTab={fullPageAnime ? '' : isSearchActive ? '' : activeTab}
@@ -1388,28 +1390,6 @@ export function App() {
           {/* Center Main Stage */}
           <main className="flex-1 min-w-0 max-w-6xl xl:max-w-7xl w-full px-4 sm:px-6 lg:px-8 space-y-8 transition-all">
           <div className="w-full space-y-8">
-            {/* Search & Genre Bar (Shown only in Anime portal, excluded on Rankings, Catalog, Polls, Profile, Shelf, and Library) */}
-            {portalMode === 'anime' && !['profile', 'advanced', 'manga', 'polls', 'admin', 'rankings', 'shelf'].includes(activeTab) && !activeTab.startsWith('books') && (
-              <SearchAndGenreBar
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                onSearchSubmit={handleSearchSubmit}
-                onClearSearch={handleClearSearch}
-                selectedGenre={discoverGenre}
-                onSelectGenre={(genreVal) => {
-                  handleSelectDiscoverGenre(genreVal);
-                  if (activeTab !== 'home' && !isSearchActive) {
-                    setActiveTab('home');
-                  }
-                }}
-                onOpenExploreGenre={handleOpenGenreInExplore}
-                onOpenAllGenres={() => {
-                  setActiveTab('explore');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-              />
-            )}
-
         {/* Error banner if API is down */}
         {apiError && (
           <div className="p-4 rounded-xl bg-red-950/40 border border-red-900/80 flex items-center justify-between gap-4 text-xs text-red-300">
@@ -1658,6 +1638,46 @@ export function App() {
                       })}
                     </div>
                   </div>
+
+                  {/* Monthly Watchlist Recommendation Drop Banner on Home */}
+                  <section className="relative overflow-hidden rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-purple-950/70 via-purple-900/35 to-neutral-900/80 border border-purple-500/25 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-300 shrink-0">
+                        <Sparkles className="w-5 h-5 text-amber-300" />
+                      </div>
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500 text-white">
+                            1st of Every Month
+                          </span>
+                          <span className="text-xs font-bold text-purple-200">
+                            {getCurrentMonthYear()} Drop
+                          </span>
+                        </div>
+                        <h3 className="text-sm sm:text-base font-extrabold text-white truncate">
+                          For {currentUser ? (currentUser.display_name || currentUser.username) : 'You'}
+                        </h3>
+                        <p className="text-[11px] sm:text-xs text-purple-200/75 max-w-xl">
+                          {isEligibleForMonthlyRecommendations(shelf)
+                            ? 'Your personalized monthly watchlist drop is ready! Click to explore recommendations and save them to your account.'
+                            : `Add at least 10 anime to your watchlist, watching, or completed list to unlock your 1st of every month recommendation (${getEligibleAnimeCount(shelf)}/10 added).`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('shelf');
+                        setShelfSubTab('watchlists');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="self-start sm:self-center shrink-0 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs sm:text-sm transition-all shadow-md shadow-purple-950/40 cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+                    >
+                      <ListPlus className="w-4 h-4" />
+                      <span>{isEligibleForMonthlyRecommendations(shelf) ? 'View Watchlist Drop' : 'Open Watchlists'}</span>
+                    </button>
+                  </section>
 
                   {/* Dynamic View: If a Genre is Selected, Show Genre Results */}
                   {discoverGenre ? (
@@ -2082,8 +2102,9 @@ export function App() {
                   </div>
 
                   {/* Filter chips & Dropdowns */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                    <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-neutral-900 p-1 rounded-xl border border-slate-200 dark:border-neutral-800 shadow-xs">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                    {/* Category tabs: horizontal swipeable strip on mobile, neat bar on desktop */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth p-1 rounded-xl bg-slate-100 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 shadow-xs max-w-full">
                       {[
                         { id: 'bypopularity', label: 'Popularity' },
                         { id: 'airing', label: 'Top Airing' },
@@ -2094,7 +2115,7 @@ export function App() {
                         <button
                           key={f.id}
                           onClick={() => setRankingFilter(f.id as typeof rankingFilter)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 whitespace-nowrap transition-all cursor-pointer ${
                             rankingFilter === f.id
                               ? 'bg-rose-600 text-white shadow-xs'
                               : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-neutral-200'
@@ -2105,11 +2126,11 @@ export function App() {
                       ))}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <select 
                         value={rankingGenre}
                         onChange={(e) => setRankingGenre(e.target.value)}
-                        className="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-800 dark:text-neutral-300 text-xs rounded-xl px-3 py-2 outline-none focus:border-rose-500 cursor-pointer shadow-xs"
+                        className="flex-1 sm:flex-none bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-800 dark:text-neutral-300 text-xs font-semibold rounded-xl px-3 py-2 outline-none focus:border-rose-500 cursor-pointer shadow-xs"
                       >
                         <option value="all">All Genres</option>
                         <option value="Action">Action</option>
@@ -2128,7 +2149,7 @@ export function App() {
                       <select 
                         value={rankingYear}
                         onChange={(e) => setRankingYear(e.target.value)}
-                        className="bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-800 dark:text-neutral-300 text-xs rounded-xl px-3 py-2 outline-none focus:border-rose-500 cursor-pointer shadow-xs"
+                        className="flex-1 sm:flex-none bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 text-slate-800 dark:text-neutral-300 text-xs font-semibold rounded-xl px-3 py-2 outline-none focus:border-rose-500 cursor-pointer shadow-xs"
                       >
                         <option value="all">All Time</option>
                         <option value="2026">2026</option>
@@ -2183,108 +2204,105 @@ export function App() {
                 ) : (
                   <>
                     {rankingViewMode === 'list' ? (
-                      <div className="flex flex-col gap-3 max-w-4xl mx-auto">
+                      <div className="flex flex-col gap-2.5 sm:gap-3 max-w-4xl mx-auto w-full">
                         {topRankedAnime.map((anime, idx) => {
                           return (
                             <div 
                               key={`top100-${anime.mal_id}-${idx}`}
                               onClick={() => setSelectedAnime(anime)}
-                              className="group flex flex-col sm:flex-row items-start sm:items-center gap-4 p-3 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-xl hover:bg-slate-50 dark:hover:bg-neutral-800/80 hover:border-slate-300 dark:hover:border-neutral-700 transition-all cursor-pointer shadow-xs hover:shadow-lg hover:-translate-y-0.5"
+                              className="group flex items-center gap-3 sm:gap-4 p-2.5 sm:p-3 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 rounded-xl hover:bg-slate-50 dark:hover:bg-neutral-800/80 hover:border-slate-300 dark:hover:border-neutral-700 transition-all cursor-pointer shadow-xs hover:shadow-lg hover:-translate-y-0.5"
                             >
-                              <div className="flex items-center gap-4 w-full sm:w-auto">
-                                <div className="flex flex-col items-center justify-center w-11 sm:w-14 shrink-0">
-                                  {idx === 0 ? (
-                                    <div className="flex flex-col items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-500/20 border border-amber-400/50 shadow-sm shadow-amber-950/20">
-                                      <span className="text-[8px] sm:text-[9px] uppercase tracking-wider font-extrabold text-amber-600 dark:text-amber-400 leading-none">TOP</span>
-                                      <span className="text-base sm:text-lg font-black font-display text-amber-600 dark:text-amber-300 leading-tight">1</span>
-                                    </div>
-                                  ) : idx === 1 ? (
-                                    <div className="flex flex-col items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-slate-300/30 border border-slate-400/50 shadow-sm">
-                                      <span className="text-[8px] sm:text-[9px] uppercase tracking-wider font-extrabold text-slate-700 dark:text-slate-300 leading-none">TOP</span>
-                                      <span className="text-base sm:text-lg font-black font-display text-slate-800 dark:text-slate-100 leading-tight">2</span>
-                                    </div>
-                                  ) : idx === 2 ? (
-                                    <div className="flex flex-col items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-700/20 border border-amber-600/50 shadow-sm">
-                                      <span className="text-[8px] sm:text-[9px] uppercase tracking-wider font-extrabold text-amber-700 dark:text-amber-500 leading-none">TOP</span>
-                                      <span className="text-base sm:text-lg font-black font-display text-amber-700 dark:text-amber-400 leading-tight">3</span>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-slate-100 dark:bg-neutral-950/80 border border-slate-200 dark:border-neutral-800/80 text-slate-700 dark:text-neutral-300 group-hover:border-slate-300 dark:group-hover:border-neutral-700 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                                      <span className="text-sm sm:text-base font-bold font-mono tracking-tight">
-                                        {idx + 1}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="relative w-20 h-28 rounded-xl overflow-hidden shrink-0 shadow-sm">
-                                  <img 
-                                    src={anime.images?.webp?.image_url || anime.images?.jpg?.image_url} 
-                                    alt={anime.title}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                    loading="lazy"
-                                  />
-                                </div>
-                                
-                                <div className="flex flex-col flex-1 sm:hidden">
-                                  <h3 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-2 leading-tight">{anime.title}</h3>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-                                    <span className="text-amber-600 dark:text-amber-400 font-bold text-xs">{anime.score ? anime.score.toFixed(2) : 'N/A'}</span>
+                              {/* Rank number badge */}
+                              <div className="flex flex-col items-center justify-center w-8 sm:w-12 shrink-0">
+                                {idx === 0 ? (
+                                  <div className="flex flex-col items-center justify-center w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-amber-500/20 border border-amber-400/50 shadow-sm shadow-amber-950/20">
+                                    <span className="text-[7px] sm:text-[9px] uppercase tracking-wider font-extrabold text-amber-600 dark:text-amber-400 leading-none">TOP</span>
+                                    <span className="text-sm sm:text-lg font-black font-display text-amber-600 dark:text-amber-300 leading-tight">1</span>
                                   </div>
-                                </div>
+                                ) : idx === 1 ? (
+                                  <div className="flex flex-col items-center justify-center w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-slate-300/30 border border-slate-400/50 shadow-sm">
+                                    <span className="text-[7px] sm:text-[9px] uppercase tracking-wider font-extrabold text-slate-700 dark:text-slate-300 leading-none">TOP</span>
+                                    <span className="text-sm sm:text-lg font-black font-display text-slate-800 dark:text-slate-100 leading-tight">2</span>
+                                  </div>
+                                ) : idx === 2 ? (
+                                  <div className="flex flex-col items-center justify-center w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-amber-700/20 border border-amber-600/50 shadow-sm">
+                                    <span className="text-[7px] sm:text-[9px] uppercase tracking-wider font-extrabold text-amber-700 dark:text-amber-500 leading-none">TOP</span>
+                                    <span className="text-sm sm:text-lg font-black font-display text-amber-700 dark:text-amber-400 leading-tight">3</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-center w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-slate-100 dark:bg-neutral-950/80 border border-slate-200 dark:border-neutral-800/80 text-slate-700 dark:text-neutral-300 group-hover:border-slate-300 dark:group-hover:border-neutral-700 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                                    <span className="text-xs sm:text-base font-bold font-mono tracking-tight">
+                                      {idx + 1}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Poster Image */}
+                              <div className="relative w-14 h-20 sm:w-20 sm:h-28 rounded-lg sm:rounded-xl overflow-hidden shrink-0 shadow-sm bg-neutral-950">
+                                <img 
+                                  src={anime.images?.webp?.image_url || anime.images?.jpg?.image_url} 
+                                  alt={anime.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                  loading="lazy"
+                                />
                               </div>
                               
-                              <div className="flex-1 min-w-0 hidden sm:flex flex-col justify-between h-28 py-0.5">
+                              {/* Metadata & Synopsis Details */}
+                              <div className="flex-1 min-w-0 flex flex-col justify-between h-20 sm:h-28 py-0.5">
                                 <div>
-                                  <div className="flex items-center gap-2 mb-0.5">
-                                    <span className="font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 bg-slate-100 dark:bg-neutral-800 rounded border border-slate-200 dark:border-neutral-700 text-slate-700 dark:text-neutral-300">
+                                  <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 flex-wrap">
+                                    <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider px-1.5 py-0.2 sm:px-2 sm:py-0.5 bg-slate-100 dark:bg-neutral-800 rounded border border-slate-200 dark:border-neutral-700 text-slate-700 dark:text-neutral-300">
                                       {anime.type || 'TV'}
                                     </span>
-                                    {anime.year && <span className="text-xs text-slate-500">{anime.year}</span>}
-                                    {anime.episodes && <span className="text-xs text-slate-500">• {anime.episodes} eps</span>}
-                                    <span className={`text-xs ${anime.status === 'Currently Airing' ? 'text-emerald-500 font-medium' : 'text-slate-500'}`}>
+                                    {anime.year && <span className="text-[11px] sm:text-xs text-slate-500 font-medium">{anime.year}</span>}
+                                    {anime.episodes && <span className="text-[11px] sm:text-xs text-slate-500 font-medium">• {anime.episodes} eps</span>}
+                                    <span className={`text-[11px] sm:text-xs truncate ${anime.status === 'Currently Airing' ? 'text-emerald-500 font-medium' : 'text-slate-500'}`}>
                                       • {anime.status}
                                     </span>
                                   </div>
-                                  <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors line-clamp-1">
+                                  <h3 className="text-xs sm:text-base font-bold text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors line-clamp-1">
                                     {anime.title}
                                   </h3>
                                 </div>
 
-                                {/* Reserved description slot: ... if no space, space stays if too short */}
-                                <div className="h-9 sm:h-10 overflow-hidden my-auto">
+                                {/* Synopsis: hidden on very small phones, clamp-2 on tablet/desktop */}
+                                <div className="hidden sm:block h-9 sm:h-10 overflow-hidden my-auto">
                                   <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-snug">
                                     {anime.synopsis ? anime.synopsis : <span className="italic text-slate-400 dark:text-slate-600">No synopsis available for this title.</span>}
                                   </p>
                                 </div>
 
-                                {/* Genre listing at exact same place */}
-                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                {/* Genre badges */}
+                                <div className="flex items-center gap-1 sm:gap-1.5 overflow-hidden">
                                   {anime.genres && anime.genres.length > 0 ? (
-                                    anime.genres.slice(0, 4).map((g, i) => (
+                                    anime.genres.slice(0, 3).map((g, i) => (
                                       <span
                                         key={`rank-card-genre-${g.name || i}-${i}`}
-                                        className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800/80 text-slate-600 dark:text-neutral-400 border border-slate-200 dark:border-neutral-800 shrink-0"
+                                        className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800/80 text-slate-600 dark:text-neutral-400 border border-slate-200 dark:border-neutral-800 shrink-0 truncate max-w-[90px]"
                                       >
                                         {g.name}
                                       </span>
                                     ))
                                   ) : (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800/80 text-slate-500 border border-slate-200 dark:border-neutral-800 shrink-0">
+                                    <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-neutral-800/80 text-slate-500 border border-slate-200 dark:border-neutral-800 shrink-0">
                                       General
                                     </span>
                                   )}
                                 </div>
                               </div>
 
-                              <div className="hidden sm:flex flex-col items-end gap-2 shrink-0 pl-4 border-l border-slate-200 dark:border-neutral-800 min-w-[120px]">
-                                <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/25 rounded-lg">
-                                  <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
-                                  <span className="text-amber-600 dark:text-amber-400 font-black text-lg">{anime.score ? anime.score.toFixed(2) : 'N/A'}</span>
+                              {/* Right: Score Column */}
+                              <div className="flex flex-col items-end justify-center gap-1 shrink-0 pl-2 sm:pl-4 border-l border-slate-200 dark:border-neutral-800 min-w-[65px] sm:min-w-[110px]">
+                                <div className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-1 bg-amber-500/10 border border-amber-500/25 rounded-lg">
+                                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0" />
+                                  <span className="text-amber-600 dark:text-amber-400 font-black text-xs sm:text-lg leading-none">
+                                    {anime.score ? anime.score.toFixed(2) : 'N/A'}
+                                  </span>
                                 </div>
                                 {anime.scored_by && (
-                                  <span className="text-[10px] text-slate-500 dark:text-neutral-500 font-medium uppercase tracking-wider">
-                                    {(anime.scored_by / 1000).toFixed(1)}k users
+                                  <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-neutral-500 font-medium uppercase tracking-wider">
+                                    {(anime.scored_by / 1000).toFixed(1)}k
                                   </span>
                                 )}
                               </div>
@@ -2456,32 +2474,32 @@ export function App() {
                 initialMediaFilter={portalMode === 'books' ? 'manga' : 'all'}
                 onSelectMedia={async (id, mediaType) => {
                   const item = shelf.find((s) => s.id === id && s.mediaType === mediaType);
-                  if (item) {
-                    if (mediaType === 'manga') {
-                      setSelectedBookForModal({
-                        mal_id: item.id,
-                        url: `https://anilist.co/manga/${item.id}`,
-                        images: {
-                          jpg: { image_url: item.image, large_image_url: item.image },
-                          webp: { image_url: item.image, large_image_url: item.image },
-                        },
-                        title: item.title,
-                        type: 'Manga',
-                        chapters: item.totalUnits,
-                        publishing: true,
-                        synopsis: item.notes || '',
-                      });
+                  if (mediaType === 'manga') {
+                    setSelectedBookForModal({
+                      mal_id: id,
+                      url: `https://anilist.co/manga/${id}`,
+                      images: {
+                        jpg: { image_url: item?.image || '', large_image_url: item?.image || '' },
+                        webp: { image_url: item?.image || '', large_image_url: item?.image || '' },
+                      },
+                      title: item?.title || 'Book Title',
+                      type: 'Manga',
+                      chapters: item?.totalUnits,
+                      publishing: true,
+                      synopsis: item?.notes || '',
+                    });
+                    return;
+                  }
+                  try {
+                    const fullAnime = await getAnimeById(id);
+                    if (fullAnime) {
+                      setSelectedAnime(fullAnime);
                       return;
                     }
-                    try {
-                      const fullAnime = await getAnimeById(id);
-                      if (fullAnime) {
-                        setSelectedAnime(fullAnime);
-                        return;
-                      }
-                    } catch {
-                      // fallback to minimal object
-                    }
+                  } catch {
+                    // fallback to minimal object
+                  }
+                  if (item) {
                     setSelectedAnime({
                       mal_id: item.id,
                       url: '',
@@ -2690,6 +2708,36 @@ export function App() {
           handleClearSearch();
         }}
         onOpenInfoModal={(type) => setInfoModalType(type)}
+        onOpenMembershipModal={(tab) => {
+          setMembershipModalInitialTab(tab || 'membership');
+          setMembershipModalOpen(true);
+        }}
+        onOpenAnnouncements={() => {
+          setSelectedAnnouncementId(null);
+          setAnnouncementsModalOpen(true);
+        }}
+      />
+
+      {/* Floating Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        activeTab={fullPageAnime ? '' : isSearchActive ? '' : activeTab}
+        onTabChange={(tab) => {
+          setFullPageAnime(null);
+          setActiveTab(tab);
+          handleClearSearch();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        portalMode={portalMode}
+        onPortalChange={handlePortalChange}
+        shelfCount={shelf.length}
+        currentUser={currentUser}
+        onOpenAuth={() => setAuthModalOpen(true)}
+        streakInfo={streakInfo}
+        onOpenStreakModal={() => setStreakModalOpen(true)}
+        themeMode={themeMode}
+        onToggleTheme={handleToggleTheme}
+        onOpenAppearanceModal={() => setAppearanceModalOpen(true)}
+        isPremium={isPremium}
         onOpenMembershipModal={(tab) => {
           setMembershipModalInitialTab(tab || 'membership');
           setMembershipModalOpen(true);

@@ -1979,7 +1979,7 @@ export async function serverGetTop100Anime(options: {
     if (filter === 'upcoming') statusApi = 'NOT_YET_RELEASED';
 
     const isIsekai = genre?.toLowerCase() === 'isekai';
-    const anilistGenre = isIsekai ? undefined : genre;
+    const anilistGenre = isIsekai ? undefined : (genre && genre !== 'all' ? genre : undefined);
     const anilistTag = isIsekai ? 'Isekai' : undefined;
 
     const anilistQuery = `
@@ -2041,7 +2041,7 @@ export async function serverGetTop100Anime(options: {
       if (m.status === 'RELEASING') st = 'Currently Airing';
       if (m.status === 'NOT_YET_RELEASED') st = 'Not yet aired';
 
-      const malId = m.idMal || (m.id ? m.id + 1000000 : Math.floor(Math.random() * 900000 + 100000));
+      const malId = m.idMal || m.id || Math.floor(Math.random() * 900000 + 100000);
       return {
         mal_id: malId,
         url: `https://myanimelist.net/anime/${malId}`,
@@ -2067,33 +2067,40 @@ export async function serverGetTop100Anime(options: {
 
     let unique = deduplicateByMalId(allMedia.map(mapMediaItem));
 
-    // If specific restrictions (e.g. status or year) left fewer than targetLimit (100) items,
-    // top up with the top anime of this genre so the rankings table always displays 100 anime
+    // If specific restrictions (e.g. status or narrow genre) left fewer than targetLimit (100) items,
+    // supplement with freshest releases of THAT SAME GENRE so the rankings table always displays 100 anime
     if (unique.length < targetLimit && targetLimit >= 50) {
       try {
         const topupQuery = `
           query ($genre: String, $tag: String, $page: Int, $perPage: Int) {
             Page(page: $page, perPage: $perPage) {
-              media(genre: $genre, tag: $tag, sort: [POPULARITY_DESC, SCORE_DESC], isAdult: false, genre_not_in: ["Hentai"], type: ANIME) {
+              media(genre: $genre, tag: $tag, sort: [START_DATE_DESC, POPULARITY_DESC], isAdult: false, genre_not_in: ["Hentai"], type: ANIME) {
                 idMal id title { romaji english native } coverImage { large } status episodes season seasonYear averageScore stats { scoreDistribution { score amount } } popularity synopsis: description(asHtml: false) genres studios(isMain: true) { nodes { name } }
               }
             }
           }
         `;
-        const topupRes = await fetch('https://graphql.anilist.co', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          body: JSON.stringify({
-            query: topupQuery,
-            variables: { genre: anilistGenre, tag: anilistTag, page: 1, perPage: 50 }
-          }),
-          signal: AbortSignal.timeout(4000)
-        }).then(r => r.json()).catch(() => null);
+        const topupPages = [1, 2];
+        const topupResponses = await Promise.all(
+          topupPages.map(p =>
+            fetch('https://graphql.anilist.co', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify({
+                query: topupQuery,
+                variables: { genre: anilistGenre, tag: anilistTag, page: p, perPage: 50 }
+              }),
+              signal: AbortSignal.timeout(4000)
+            }).then(r => r.json()).catch(() => null)
+          )
+        );
 
-        const topupItems = topupRes?.data?.Page?.media;
-        if (Array.isArray(topupItems) && topupItems.length > 0) {
-          const topupMapped = topupItems.map(mapMediaItem);
-          unique = deduplicateByMalId([...unique, ...topupMapped]);
+        for (const topupRes of topupResponses) {
+          const topupItems = topupRes?.data?.Page?.media;
+          if (Array.isArray(topupItems) && topupItems.length > 0) {
+            const topupMapped = topupItems.map(mapMediaItem);
+            unique = deduplicateByMalId([...unique, ...topupMapped]);
+          }
         }
       } catch (topupErr) {
         console.warn('[Top100] Topup fetch note:', topupErr);

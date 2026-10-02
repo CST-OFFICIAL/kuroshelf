@@ -17,6 +17,7 @@ import {
   Building2,
   Info,
   Radio,
+  ListPlus,
 } from 'lucide-react';
 import { AnimeItem, CharacterItem, ShelfStatus, RecommendedAnimeItem, AuthUser, WatchPlatform } from '../types';
 import { getAnimeCharacters, getAnimeById, getAnimeRecommendations } from '../services/jikan';
@@ -25,6 +26,7 @@ import { CommentSection } from './CommentSection';
 import { cleanSynopsis } from '../utils/textUtils';
 import { formatOverallRank } from '../utils/rankHelper';
 import { getFranchiseSeasons, FranchiseSeasonItem } from '../services/franchiseService';
+import { AddToPlaylistModal } from './AddToPlaylistModal';
 
 interface AnimeFullPageProps {
   anime: AnimeItem;
@@ -68,6 +70,7 @@ export function AnimeFullPage({
   const [liveSynopsis, setLiveSynopsis] = useState<string | null>(initialAnime?.synopsis || null);
   const [franchiseSeasons, setFranchiseSeasons] = useState<FranchiseSeasonItem[]>([]);
   const [loadingSeasons, setLoadingSeasons] = useState(false);
+  const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
 
   // Sync initial anime & scroll to top
   useEffect(() => {
@@ -336,6 +339,17 @@ export function AnimeFullPage({
                   title={isLiked ? 'Remove from favorites' : 'Add to favorites'}
                 >
                   <Heart className={`w-4 h-4 ${isLiked ? 'fill-rose-500' : ''}`} />
+                </button>
+
+                {/* Add to Watchlist Playlist */}
+                <button
+                  type="button"
+                  onClick={() => setPlaylistModalOpen(true)}
+                  className="p-2.5 rounded-xl border border-slate-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-slate-600 dark:text-neutral-300 hover:text-purple-600 dark:hover:text-purple-400 hover:border-purple-500/50 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-all cursor-pointer flex items-center gap-1.5"
+                  title="Add to Watchlist Playlist"
+                >
+                  <ListPlus className="w-4 h-4 text-purple-500" />
+                  <span className="hidden sm:inline text-xs font-semibold">Playlist</span>
                 </button>
               </div>
 
@@ -1010,6 +1024,21 @@ export function AnimeFullPage({
           </div>
         )}
       </div>
+
+      {/* Add To Custom Playlist Modal */}
+      <AddToPlaylistModal
+        isOpen={playlistModalOpen}
+        onClose={() => setPlaylistModalOpen(false)}
+        item={anime ? {
+          id: anime.mal_id,
+          mediaType: 'anime',
+          title: anime.title,
+          image: anime.images.jpg.image_url,
+          score: anime.score,
+          genres: anime.genres?.map((g) => g.name),
+        } : null}
+        userId={currentUser?.id}
+      />
     </div>
   );
 }

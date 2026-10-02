@@ -12,7 +12,6 @@ import { BookDetailModal } from './BookDetailModal';
 import { MediaImage } from './MediaImage';
 import {
   BookOpen,
-  Search,
   Star,
   Bookmark,
   Sparkles,
@@ -1236,71 +1235,51 @@ export function BooksPortalView({
       )}
 
       {/* ========================================================================= */}
-      {/* 3. SEARCH, SORT & GENRE FILTER TOOLBAR (Hidden in Rankings, Schedule, Polls, Seasons)*/}
+      {/* 3. SORT & GENRE FILTER TOOLBAR (Hidden in Rankings, Schedule, Polls, Seasons)*/}
       {/* ========================================================================= */}
       {!isRankingsPage && !isSchedulePage && !isPredictionsPage && !isSeasonsPage && (
         <section 
-          aria-label="Books Search and Genre Filters"
-          className="p-4 sm:p-5 rounded-2xl bg-[#0e121b] border border-slate-800 shadow-sm space-y-4"
+          aria-label="Books Filter Options"
+          className="p-3.5 sm:p-4 rounded-2xl bg-[#0e121b] border border-slate-800 shadow-sm space-y-3"
         >
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-emerald-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search manga, manhwa, novels by title (e.g. Solo Leveling, Berserk, Omniscient Reader)..."
-                className="w-full h-11 pl-10 pr-10 rounded-xl bg-slate-900 border border-slate-700/80 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all truncate"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white cursor-pointer"
-                  aria-label="Clear search"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Publication Status Selector */}
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedStatus}
-                onChange={(e) => {
-                  setSelectedStatus(e.target.value);
-                  setPage(1);
-                }}
-                className="h-11 px-3 rounded-xl bg-slate-900 border border-slate-700/80 text-xs font-bold text-slate-300 focus:outline-none focus:border-emerald-500 cursor-pointer"
-              >
-                <option value="all">All Statuses</option>
-                <option value="RELEASING">Publishing</option>
-                <option value="FINISHED">Finished</option>
-              </select>
-            </div>
-
-            {/* Sub-format filter selector if in Genres page */}
-            {isGenresPage && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Publication Status Selector */}
               <div className="flex items-center gap-2">
                 <select
-                  value={selectedFormat}
+                  value={selectedStatus}
                   onChange={(e) => {
-                    setSelectedFormat(e.target.value as BookFormat);
+                    setSelectedStatus(e.target.value);
                     setPage(1);
                   }}
-                  className="h-11 px-3 rounded-xl bg-slate-900 border border-slate-700/80 text-xs font-bold text-slate-300 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  className="h-10 sm:h-11 px-3 rounded-xl bg-slate-900 border border-slate-700/80 text-xs font-bold text-slate-300 focus:outline-none focus:border-emerald-500 cursor-pointer"
                 >
-                  <option value="all">All Formats</option>
-                  <option value="manga">Manga Only</option>
-                  <option value="manhwa">Manhwa Only</option>
-                  <option value="manhua">Manhua Only</option>
-                  <option value="novel">Novels Only</option>
+                  <option value="all">All Statuses</option>
+                  <option value="RELEASING">Publishing</option>
+                  <option value="FINISHED">Finished</option>
                 </select>
               </div>
-            )}
+
+              {/* Sub-format filter selector if in Genres page */}
+              {isGenresPage && (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selectedFormat}
+                    onChange={(e) => {
+                      setSelectedFormat(e.target.value as BookFormat);
+                      setPage(1);
+                    }}
+                    className="h-10 sm:h-11 px-3 rounded-xl bg-slate-900 border border-slate-700/80 text-xs font-bold text-slate-300 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  >
+                    <option value="all">All Formats</option>
+                    <option value="manga">Manga Only</option>
+                    <option value="manhwa">Manhwa Only</option>
+                    <option value="manhua">Manhua Only</option>
+                    <option value="novel">Novels Only</option>
+                  </select>
+                </div>
+              )}
+            </div>
 
             {/* Sort Selector */}
             <div className="flex items-center gap-2">

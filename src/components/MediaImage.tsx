@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Tv, BookOpen, User, Film, Sparkles } from 'lucide-react';
 import { JikanImages } from '../types';
 import { getImageCandidates } from '../utils/imageUtils';
@@ -41,8 +41,13 @@ export const MediaImage = React.memo(function MediaImage({
   ]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isLoaded, setIsLoaded] = useState(false);
   const activeUrl = candidates[currentIndex] || null;
   const isFailed = !activeUrl || currentIndex >= candidates.length;
+
+  useEffect(() => {
+    setIsLoaded(false);
+  }, [activeUrl]);
 
   const handleError = () => {
     if (currentIndex < candidates.length) {
@@ -102,15 +107,19 @@ export const MediaImage = React.memo(function MediaImage({
   }
 
   return (
-    <div className={`relative w-full h-full overflow-hidden bg-neutral-950 ${containerClassName}`}>
+    <div className={`relative w-full h-full overflow-hidden bg-slate-100 dark:bg-neutral-900 ${containerClassName}`}>
+      {!isLoaded && !isFailed && (
+        <div className="absolute inset-0 bg-slate-200 dark:bg-neutral-800/60 animate-pulse pointer-events-none" />
+      )}
       <img
         src={activeUrl}
         alt={alt}
         loading={loading}
         decoding="async"
         referrerPolicy="no-referrer"
+        onLoad={() => setIsLoaded(true)}
         onError={handleError}
-        className={`${className} absolute inset-0 w-full h-full object-cover`}
+        className={`${className} absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
         {...rest}
       />
     </div>

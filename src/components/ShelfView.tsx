@@ -16,11 +16,18 @@ import {
   Sparkles,
   Tv,
   BookOpen,
-  Layers
+  Layers,
+  ListPlus
 } from 'lucide-react';
 import { MediaImage } from './MediaImage';
+import { WatchlistPlaylistsView } from './WatchlistPlaylistsView';
+import { 
+  getEligibleAnimeCount, 
+  isEligibleForMonthlyRecommendations, 
+  getCurrentMonthYear 
+} from '../services/playlistService';
 
-export type ShelfViewFilterTab = 'all' | ShelfStatus | 'favorites' | 'bookmarks' | 'rated' | 'profile';
+export type ShelfViewFilterTab = 'all' | ShelfStatus | 'favorites' | 'bookmarks' | 'rated' | 'profile' | 'watchlists';
 
 interface ShelfViewProps {
   shelf: ShelfEntry[];
@@ -179,6 +186,7 @@ export function ShelfView({
 
   const tabs: { id: ShelfViewFilterTab; label: string; count?: number; icon?: typeof User }[] = [
     { id: 'all', label: 'All Items', count: counts.all },
+    { id: 'watchlists', label: 'Watchlists & Drops', icon: ListPlus },
     { id: 'profile', label: 'Shelf Analytics', icon: User },
     { id: 'watching', label: mediaFilter === 'manga' ? 'Reading' : mediaFilter === 'anime' ? 'Watching' : 'In Progress', count: counts.watching },
     { id: 'bookmarks', label: mediaFilter === 'manga' ? 'Plan to Read' : 'Plan to Watch', count: counts.bookmarks },
@@ -317,7 +325,15 @@ export function ShelfView({
         })}
       </div>
 
-      {filterTab === 'profile' ? (
+      {filterTab === 'watchlists' ? (
+        <WatchlistPlaylistsView
+          shelf={shelf}
+          userId={currentUser.id}
+          userName={currentUser.display_name || currentUser.username || currentUser.email?.split('@')[0]}
+          onSelectMedia={onSelectMedia}
+          onAddToShelf={(item, status) => onUpdateStatus(item.id, item.mediaType, status)}
+        />
+      ) : filterTab === 'profile' ? (
         /* Analytics View with Dual Anime & Books Breakdown */
         <div className="space-y-6 animate-in fade-in">
           {/* User Profile Card */}
@@ -468,6 +484,40 @@ export function ShelfView({
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
           {/* Shelf Items Grid (3 columns on lg) */}
           <div className="lg:col-span-3 space-y-4">
+            {/* Monthly AI Watchlist Drop Mini Banner */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-purple-950/60 via-purple-900/30 to-neutral-900 border border-purple-500/25 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-300 shrink-0">
+                  <Sparkles className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="text-xs sm:text-sm font-bold text-white">
+                      For {currentUser.display_name || currentUser.username || 'You'} • {getCurrentMonthYear()} Watchlist Drop
+                    </h4>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                      isEligibleForMonthlyRecommendations(shelf)
+                        ? 'bg-purple-500 text-white'
+                        : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                    }`}>
+                      {isEligibleForMonthlyRecommendations(shelf) ? 'Ready' : `${getEligibleAnimeCount(shelf)}/10 Anime Added`}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-purple-200/70 mt-0.5">
+                    {isEligibleForMonthlyRecommendations(shelf)
+                      ? 'Your personalized monthly watchlist drop is ready! Click to view and add to your account.'
+                      : `Add at least 10 anime to your watchlist, watching, or completed list combined to unlock monthly drops.`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleTabClick('watchlists')}
+                className="self-start sm:self-center px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all shadow-sm cursor-pointer whitespace-nowrap"
+              >
+                {isEligibleForMonthlyRecommendations(shelf) ? 'View Drop' : 'Check Progress'}
+              </button>
+            </div>
             {filteredItems.length === 0 ? (
               <div className="p-12 text-center rounded-2xl bg-slate-50 dark:bg-neutral-900/40 border border-dashed border-slate-300 dark:border-neutral-800 space-y-3">
                 <Bookmark className="w-8 h-8 text-slate-400 dark:text-neutral-600 mx-auto" />

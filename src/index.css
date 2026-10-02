@@ -23,11 +23,31 @@
   --color-accent-subtle: rgba(220, 38, 38, 0.1);
   --color-accent-border: rgba(220, 38, 38, 0.25);
   --color-books-accent: #059669; /* Library Emerald */
-  --app-scale: 0.82;
+  --app-scale: 0.88;
 }
 
-html {
-  zoom: 82%;
+@media (min-width: 769px) {
+  html {
+    zoom: 88%;
+  }
+}
+
+@media (max-width: 768px) {
+  html {
+    zoom: 100%;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile smooth momentum scrolling */
+.overflow-x-auto,
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Kuro Obsidian & Crimson Prestige Theme */
@@ -249,5 +269,81 @@ h6:not(.truncate):not([class*="line-clamp-"]),
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+/* Mobile Drawer & Modal Animation Keyframes */
+@keyframes drawerSlideUp {
+  0% {
+    transform: translateY(100%);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes drawerSlideDown {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes backdropFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes backdropFadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes popupSlideDown {
+  0% {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-drawer-in {
+  animation: drawerSlideUp 0.34s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-drawer-out {
+  animation: drawerSlideDown 0.28s cubic-bezier(0.4, 0, 1, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.animate-backdrop-in {
+  animation: backdropFadeIn 0.25s ease-out forwards;
+}
+
+.animate-backdrop-out {
+  animation: backdropFadeOut 0.22s ease-in forwards;
+}
+
+.animate-popup-down {
+  animation: popupSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
 
 

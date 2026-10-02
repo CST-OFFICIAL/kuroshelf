@@ -153,19 +153,85 @@ export async function ingestAnimeList(
           .update(animeData)
           .eq('id', animeId);
         
-        if (updateErr) throw updateErr;
-        result.recordsUpdated++;
+        if (updateErr) {
+          if (updateErr.code === '23505' || updateErr.message?.includes('anime_mal_id_key')) {
+            // Target the existing record with this mal_id
+            const { data: targetAnime } = await supabase
+              .from('anime')
+              .select('id')
+              .eq('mal_id', item.mal_id)
+              .maybeSingle();
+
+            if (targetAnime?.id) {
+              animeId = targetAnime.id;
+              await supabase.from('anime').update(animeData).eq('id', animeId);
+              result.recordsUpdated++;
+            } else {
+              throw updateErr;
+            }
+          } else {
+            throw updateErr;
+          }
+        } else {
+          result.recordsUpdated++;
+        }
       } else {
-        // Insert new canonical anime
-        const { data: newAnime, error: insertErr } = await supabase
+        // Upsert canonical anime using mal_id unique constraint to prevent race condition violations
+        if (item.mal_id) {
+          const { data: upsertedAnime, error: upsertErr } = await supabase
+            .from('anime')
+            .upsert(animeData, { onConflict: 'mal_id' })
+            .select('id')
+            .maybeSingle();
+
+          if (upsertErr) {
+            if (upsertErr.code === '23505' || upsertErr.message?.includes('anime_mal_id_key')) {
+              const { data: existingAnime } = await supabase
+                .from('anime')
+                .select('id')
+                .eq('mal_id', item.mal_id)
+                .maybeSingle();
+
+              if (existingAnime?.id) {
+                animeId = existingAnime.id;
+                await supabase.from('anime').update(animeData).eq('id', animeId);
+                result.recordsUpdated++;
+              } else {
+                throw upsertErr;
+              }
+            } else {
+              throw upsertErr;
+            }
+          } else if (upsertedAnime?.id) {
+            animeId = upsertedAnime.id;
+            result.recordsInserted++;
+          }
+        } else {
+          const { data: newAnime, error: insertErr } = await supabase
+            .from('anime')
+            .insert(animeData)
+            .select('id')
+            .single();
+          
+          if (insertErr || !newAnime) throw insertErr || new Error("Failed to insert anime");
+          animeId = newAnime.id;
+          result.recordsInserted++;
+        }
+      }
+
+      if (!animeId && item.mal_id) {
+        const { data: fallbackAnime } = await supabase
           .from('anime')
-          .insert(animeData)
           .select('id')
-          .single();
-        
-        if (insertErr || !newAnime) throw insertErr || new Error("Failed to insert anime");
-        animeId = newAnime.id;
-        result.recordsInserted++;
+          .eq('mal_id', item.mal_id)
+          .maybeSingle();
+        if (fallbackAnime?.id) {
+          animeId = fallbackAnime.id;
+        }
+      }
+
+      if (!animeId) {
+        continue;
       }
 
       // 3. Ensure anime_sources mapping exists
@@ -199,10 +265,15 @@ export async function ingestAnimeList(
              if (!genreId) {
                 const { data: newGenre } = await supabase
                   .from('genres')
-                  .insert({ name: gName, type: g.type || 'anime', mal_id: derivedMalId })
+                  .upsert({ name: gName, type: g.type || 'anime', mal_id: derivedMalId }, { onConflict: 'name' })
                   .select('id')
-                  .single();
-                if (newGenre) genreId = newGenre.id;
+                  .maybeSingle();
+                if (newGenre) {
+                  genreId = newGenre.id;
+                } else {
+                  const { data: gRefetch } = await supabase.from('genres').select('id').eq('name', gName).maybeSingle();
+                  if (gRefetch) genreId = gRefetch.id;
+                }
              } else if (!genreData.mal_id && derivedMalId) {
                 await supabase.from('genres').update({ mal_id: derivedMalId }).eq('id', genreId);
              }
@@ -230,10 +301,15 @@ export async function ingestAnimeList(
              if (!studioId) {
                 const { data: newStudio } = await supabase
                   .from('studios')
-                  .insert({ name: s.name, mal_id: s.mal_id })
+                  .upsert({ name: s.name, mal_id: s.mal_id }, { onConflict: 'name' })
                   .select('id')
-                  .single();
-                if (newStudio) studioId = newStudio.id;
+                  .maybeSingle();
+                if (newStudio) {
+                  studioId = newStudio.id;
+                } else {
+                  const { data: sRefetch } = await supabase.from('studios').select('id').eq('name', s.name).maybeSingle();
+                  if (sRefetch) studioId = sRefetch.id;
+                }
              }
 
              if (studioId) {
@@ -259,10 +335,15 @@ export async function ingestAnimeList(
                if (!providerId) {
                   const { data: newProvider } = await supabase
                     .from('streaming_providers')
-                    .insert({ name: st.name })
+                    .upsert({ name: st.name }, { onConflict: 'name' })
                     .select('id')
-                    .single();
-                  if (newProvider) providerId = newProvider.id;
+                    .maybeSingle();
+                  if (newProvider) {
+                    providerId = newProvider.id;
+                  } else {
+                    const { data: pRefetch } = await supabase.from('streaming_providers').select('id').eq('name', st.name).maybeSingle();
+                    if (pRefetch) providerId = pRefetch.id;
+                  }
                }
 
                if (providerId) {
@@ -305,10 +386,21 @@ export async function ingestAnimeList(
     } catch (err: any) {
       if (err?.code === '42501') {
         // Suppress RLS errors in environments without the service role key
+      } else if (err?.code === '23505' || err?.message?.includes('anime_mal_id_key')) {
+        // Gracefully recover from duplicate key unique constraint collisions
+        try {
+          if (item.mal_id) {
+            await supabase.from('anime').update({
+              updated_at: new Date().toISOString(),
+              last_synced_at: new Date().toISOString()
+            }).eq('mal_id', item.mal_id);
+            result.recordsUpdated++;
+          }
+        } catch {}
       } else {
         console.log(`[Ingestion] Failed to ingest anime ${item.mal_id}:`, err.message || err.code || err);
+        result.failures++;
       }
-      result.failures++;
     }
     // Rate limit buffer for AI generation
     await sleep(250);

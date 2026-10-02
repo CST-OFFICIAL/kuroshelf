@@ -164,8 +164,24 @@ async function routeToDirectJikan<T>(endpoint: string): Promise<{ data: T; pagin
     }
   }
 
-  // 3. /api/anime/top or /api/anime/top100
-  if (path === '/api/anime/top' || path === '/api/anime/top100') {
+  // 3. /api/anime/top100 dedicated top rankings route
+  if (path === '/api/anime/top100') {
+    const filter = params.get('filter') || 'bypopularity';
+    const limit = Number(params.get('limit')) || 100;
+    const genre = params.get('genre') || undefined;
+    const year = params.get('year') || undefined;
+    try {
+      const direct = await fetchAniListTop100(filter, genre, year, limit);
+      if (direct && direct.length > 0) {
+        return { data: direct as unknown as T };
+      }
+    } catch (err) {
+      console.warn('[Direct AniList Top100 Error]:', err);
+    }
+  }
+
+  // 3b. /api/anime/top standard pagination route
+  if (path === '/api/anime/top') {
     const filter = params.get('filter') || 'bypopularity';
     const page = Number(params.get('page')) || 1;
     const limit = Number(params.get('limit')) || 24;
@@ -208,6 +224,7 @@ async function routeToDirectJikan<T>(endpoint: string): Promise<{ data: T; pagin
 
       const anilistRes = await fetchAniListAnimeList({
         status: anilistStatus,
+        genre: genre && genre !== 'all' ? genre : undefined,
         sort: anilistSort,
         page,
         perPage: limit,

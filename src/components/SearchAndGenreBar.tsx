@@ -41,6 +41,7 @@ export function SearchAndGenreBar({
 }: SearchAndGenreBarProps) {
   const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  const [isMobileExpanded, setIsMobileExpanded] = useState(() => searchQuery.trim().length > 0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,6 +50,13 @@ export function SearchAndGenreBar({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Expand automatically if searchQuery is updated from outside
+  useEffect(() => {
+    if (searchQuery.trim().length > 0) {
+      setIsMobileExpanded(true);
+    }
+  }, [searchQuery]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -80,8 +88,36 @@ export function SearchAndGenreBar({
       aria-label="Search and Genre Discovery" 
       className="w-full bg-white dark:bg-[#12151f] rounded-2xl border-2 border-slate-200/90 dark:border-neutral-800 p-3 sm:p-4 shadow-sm transition-all"
     >
-      {/* Primary Search & Genre Actions Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+      {/* On Mobile: Compact Collapsed Search Bar Button */}
+      {!isMobileExpanded && !searchQuery.trim() && (
+        <div className="sm:hidden w-full">
+          <button
+            type="button"
+            id="mobile-search-expand-trigger"
+            onClick={() => {
+              setIsMobileExpanded(true);
+              setTimeout(() => {
+                inputRef.current?.focus();
+              }, 50);
+            }}
+            className="w-full h-11 px-3.5 rounded-xl bg-slate-100/90 dark:bg-neutral-900 border border-slate-300 dark:border-neutral-800 text-slate-500 dark:text-neutral-400 flex items-center justify-between shadow-inner hover:border-red-500/50 transition-all cursor-pointer text-left active:scale-[0.99]"
+            aria-label="Tap to search anime"
+          >
+            <div className="flex items-center gap-2.5 truncate">
+              <Search className="w-4 h-4 text-red-500 shrink-0" />
+              <span className="text-xs font-semibold text-slate-600 dark:text-neutral-300 truncate">
+                {currentGenreName ? `Search in ${currentGenreName}...` : 'Search anime, characters, studios...'}
+              </span>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-red-600/10 text-red-500 border border-red-500/20 shrink-0">
+              Tap to search
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Primary Search & Genre Actions Bar (Hidden on Mobile unless clicked / expanded) */}
+      <div className={`${!isMobileExpanded && !searchQuery.trim() ? 'hidden sm:flex' : 'flex'} flex-col sm:flex-row items-stretch sm:items-center gap-2.5 animate-in fade-in duration-150`}>
         {/* Search Input Container */}
         <form 
           onSubmit={handleSubmit} 
@@ -128,6 +164,20 @@ export function SearchAndGenreBar({
             </button>
           </div>
         </form>
+
+        {/* Mobile Cancel / Collapse Button */}
+        {isMobile && (
+          <button
+            type="button"
+            onClick={() => {
+              setIsMobileExpanded(false);
+              onClearSearch();
+            }}
+            className="sm:hidden px-2.5 py-1.5 self-end rounded-lg text-xs font-semibold text-slate-500 dark:text-neutral-400 hover:text-slate-800 dark:hover:text-white transition-colors"
+          >
+            Cancel
+          </button>
+        )}
 
         {/* Genre Selector Dropdown Button (Moved from Top Shelf) */}
         <div ref={dropdownRef} className="relative shrink-0 flex items-center gap-2 w-full sm:w-auto">

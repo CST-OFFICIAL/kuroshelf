@@ -205,6 +205,28 @@ export interface CharacterItem {
 
 export type ShelfStatus = 'watching' | 'plan_to_watch' | 'completed' | 'on_hold' | 'dropped';
 
+export interface WatchlistItem {
+  id: number;
+  mediaType: 'anime' | 'manga';
+  title: string;
+  image: string;
+  score?: number;
+  genres?: string[];
+  reason?: string; // Reason badge for AI recommendations e.g. "Matches your Dark Fantasy favorites"
+  addedAt: number;
+}
+
+export interface WatchlistPlaylist {
+  id: string;
+  name: string;
+  description?: string;
+  isAiCurated?: boolean;
+  monthYear?: string; // e.g. "October 2026"
+  items: WatchlistItem[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface ShelfEntry {
   id: number;
   mediaType: 'anime' | 'manga';

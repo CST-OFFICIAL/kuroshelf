@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Filter,
   Compass, 
@@ -75,15 +75,41 @@ export function Navbar({
   onPortalChange,
 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchBarOpen, setSearchBarOpen] = useState(false);
+  const [localSearch, setLocalSearch] = useState(searchQuery || '');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const effectiveIsDonor = isDonor ?? (currentUser ? isUserDonor(currentUser.id) : isUserDonor());
 
-  const handleMobileSearchClick = () => {
-    const input = document.getElementById('global-search-input') as HTMLInputElement | null;
-    if (input) {
-      input.focus();
-      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      setMobileMenuOpen(true);
+  useEffect(() => {
+    setLocalSearch(searchQuery || '');
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (searchBarOpen) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+    }
+  }, [searchBarOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSearchBarOpen(false);
+      }
+    };
+    if (searchBarOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchBarOpen]);
+
+  const handleSearchFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = localSearch.trim();
+    if (trimmed) {
+      onSearchSubmit(trimmed);
+      setSearchBarOpen(false);
     }
   };
 
@@ -196,8 +222,31 @@ export function Navbar({
           </div>
         </div>
 
-        {/* Top Header Utilities: Support, Notices, Day/Night Theme, Account Switcher, Profile */}
+          {/* Top Header Utilities: Search, Support, Notices, Day/Night Theme, Account Switcher, Profile */}
         <div className="hidden sm:flex items-center gap-2">
+          {/* Search Trigger on Branding Bar */}
+          <button
+            type="button"
+            id="nav-search-button"
+            onClick={() => setSearchBarOpen(!searchBarOpen)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all duration-200 active:scale-95 cursor-pointer ${
+              searchBarOpen
+                ? portalMode === 'books'
+                  ? 'bg-emerald-600 border-emerald-500 text-white shadow-md shadow-emerald-950/30'
+                  : 'bg-red-600 border-red-500 text-white shadow-md shadow-red-950/30'
+                : 'bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-neutral-300'
+            }`}
+            title="Search"
+            aria-label="Toggle search bar"
+          >
+            {searchBarOpen ? (
+              <X className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+            ) : (
+              <Search className={`w-3.5 h-3.5 ${portalMode === 'books' ? 'text-emerald-500' : 'text-red-500'}`} />
+            )}
+            <span>{searchBarOpen ? 'Close' : 'Search'}</span>
+          </button>
+
           {/* Kuro VIP & Support Trigger */}
           {onOpenMembershipModal && (
             <button
@@ -358,18 +407,27 @@ export function Navbar({
             )}
           </button>
 
-          {portalMode === 'anime' && !['profile', 'advanced', 'polls', 'admin', 'rankings', 'shelf'].includes(activeTab) && !activeTab.startsWith('books') && (
-            <button
-              id="mobile-search-toggle"
-              type="button"
-              onClick={handleMobileSearchClick}
-              className="p-2 rounded-lg text-slate-600 dark:text-neutral-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 cursor-pointer flex items-center justify-center"
-              aria-label="Open search"
-              title="Search"
-            >
-              <Search className="w-4 h-4 text-red-500" />
-            </button>
-          )}
+          {/* Mobile Search Button on Branding Bar */}
+          <button
+            id="mobile-search-toggle"
+            type="button"
+            onClick={() => setSearchBarOpen(!searchBarOpen)}
+            className={`p-2 rounded-xl border transition-all duration-200 active:scale-90 cursor-pointer flex items-center justify-center ${
+              searchBarOpen
+                ? portalMode === 'books'
+                  ? 'bg-emerald-600 border-emerald-500 text-white shadow-md shadow-emerald-950/40 ring-2 ring-emerald-500/30'
+                  : 'bg-red-600 border-red-500 text-white shadow-md shadow-red-950/40 ring-2 ring-red-500/30'
+                : 'text-slate-600 dark:text-neutral-400 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900 border-slate-200 dark:border-slate-800'
+            }`}
+            aria-label="Toggle search bar"
+            title="Search"
+          >
+            {searchBarOpen ? (
+              <X className="w-4 h-4 text-white stroke-[2.5]" />
+            ) : (
+              <Search className={`w-4 h-4 ${portalMode === 'books' ? 'text-emerald-500' : 'text-red-500'}`} />
+            )}
+          </button>
 
           <button
             id="mobile-menu-toggle"
@@ -382,8 +440,88 @@ export function Navbar({
         </div>
       </div>
 
+      {/* Pop-up Search Bar (Drops down directly below the Branding Bar with Smooth Backdrop) */}
+      {searchBarOpen && (
+        <>
+          {/* Mobile Dim Backdrop with smooth fade */}
+          <div
+            onClick={() => setSearchBarOpen(false)}
+            className="fixed inset-0 top-16 bg-black/60 backdrop-blur-xs z-40 transition-opacity duration-300 animate-in fade-in"
+            aria-hidden="true"
+          />
+
+          <div
+            id="navbar-search-popup"
+            className="relative z-50 w-full border-b border-slate-200/90 dark:border-neutral-800 bg-white/98 dark:bg-[#0c0f17]/98 backdrop-blur-xl shadow-2xl py-3 px-3 sm:px-6 lg:px-8 transition-all animate-in slide-in-from-top-3 duration-250 ease-out"
+          >
+            <div className="max-w-4xl mx-auto flex items-center gap-2 sm:gap-3">
+              <form
+                onSubmit={handleSearchFormSubmit}
+                className="relative flex-1 flex items-center min-w-0"
+              >
+                <Search
+                  className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
+                    portalMode === 'books' ? 'text-emerald-500' : 'text-red-500'
+                  }`}
+                />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={localSearch}
+                  onChange={(e) => {
+                    setLocalSearch(e.target.value);
+                    onSearchChange(e.target.value);
+                  }}
+                  placeholder={
+                    portalMode === 'books'
+                      ? 'Search manga, manhwa, novels, authors (e.g. Solo Leveling, Berserk)...'
+                      : 'Search anime, characters, studios, movies (e.g. Gojo, Mappa, AOT)...'
+                  }
+                  className="w-full h-11 sm:h-12 pl-10 pr-20 sm:pr-24 rounded-xl bg-slate-100 dark:bg-neutral-900 border border-slate-300 dark:border-neutral-700 text-sm sm:text-base font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500/30 dark:focus:ring-red-500/20 transition-all shadow-inner"
+                />
+
+                {localSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLocalSearch('');
+                      onSearchChange('');
+                    }}
+                    className="absolute right-14 sm:right-16 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+
+                <button
+                  type="submit"
+                  className={`absolute right-1.5 top-1/2 -translate-y-1/2 h-8 sm:h-9 px-3 sm:px-4 rounded-lg text-white font-bold text-xs sm:text-sm flex items-center gap-1 shadow-sm transition-all duration-150 active:scale-95 cursor-pointer ${
+                    portalMode === 'books'
+                      ? 'bg-emerald-600 hover:bg-emerald-500'
+                      : 'bg-red-600 hover:bg-red-500'
+                  }`}
+                >
+                  <span>Search</span>
+                </button>
+              </form>
+
+              <button
+                type="button"
+                onClick={() => setSearchBarOpen(false)}
+                className="p-2 sm:p-2.5 rounded-xl text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors active:scale-95 cursor-pointer shrink-0"
+                title="Close search bar"
+                aria-label="Close search bar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Descended Navigation Tabs Panel */}
-      <div className="w-full border-t border-slate-200/80 dark:border-[#161c28] bg-slate-50/95 dark:bg-[#07090e]/95 backdrop-blur-md">
+      <div className="hidden md:block w-full border-t border-slate-200/80 dark:border-[#161c28] bg-slate-50/95 dark:bg-[#07090e]/95 backdrop-blur-md">
         <div className="w-full max-w-[1920px] mx-auto px-3 sm:px-6 lg:px-8 flex items-center justify-between">
           <nav 
             aria-label="Main Navigation Tabs"

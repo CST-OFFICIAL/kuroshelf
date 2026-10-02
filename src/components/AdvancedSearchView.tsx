@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Search, Loader2, Filter, ChevronDown, Sparkles, Check } from 'lucide-react';
 import { AnimeItem, ShelfStatus } from '../types';
 import { AnimeCard } from './AnimeCard';
 import { searchAnimePaginated, getTopAnimePaginated } from '../services/jikan';
@@ -34,6 +34,22 @@ export function AdvancedSearchView({
   const [orderBy, setOrderBy] = useState('popularity');
   const [sort, setSort] = useState('asc');
 
+  // Interactive Genre Dropdown State
+  const [genreDropdownOpen, setGenreDropdownOpen] = useState(false);
+  const [genreSearch, setGenreSearch] = useState('');
+  const genreDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close genre dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (genreDropdownRef.current && !genreDropdownRef.current.contains(e.target as Node)) {
+        setGenreDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(query);
@@ -45,6 +61,14 @@ export function AdvancedSearchView({
     e.preventDefault();
     setDebouncedQuery(query.trim());
   };
+
+  const currentGenreName = genre
+    ? ALL_EXPLORE_GENRES.find((g) => String(g.mal_id) === genre)?.name || genre
+    : null;
+
+  const filteredGenres = ALL_EXPLORE_GENRES.filter((g) =>
+    g.name.toLowerCase().includes(genreSearch.toLowerCase().trim())
+  );
 
   const fetchResults = useCallback(async (isLoadMore = false) => {
     setLoading(true);
@@ -174,25 +198,112 @@ export function AdvancedSearchView({
           </button>
         </form>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Genre Dropdown Menu */}
-          <select 
-            value={genre} 
-            onChange={(e) => setGenre(e.target.value)}
-            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500 cursor-pointer"
-          >
-            <option value="">All Genres</option>
-            {ALL_EXPLORE_GENRES.map((g) => (
-              <option key={g.mal_id} value={String(g.mal_id)}>
-                {g.name}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          {/* Interactive Custom Genre Dropdown Menu */}
+          <div ref={genreDropdownRef} className="relative">
+            <button
+              type="button"
+              id="catalog-genre-dropdown-trigger"
+              onClick={() => setGenreDropdownOpen(!genreDropdownOpen)}
+              className={`h-9 px-3.5 rounded-lg border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-xs ${
+                genre
+                  ? 'bg-rose-500/15 border-rose-500/50 text-rose-400'
+                  : 'bg-neutral-950 border-neutral-800 text-neutral-300 hover:border-neutral-700 hover:text-white'
+              }`}
+              aria-expanded={genreDropdownOpen}
+              title="Filter catalog by genre"
+            >
+              <Filter className={`w-3.5 h-3.5 ${genre ? 'text-rose-500' : 'text-neutral-400'}`} />
+              <span className="truncate max-w-[140px] sm:max-w-[180px]">
+                {currentGenreName ? `Genre: ${currentGenreName}` : 'All Genres'}
+              </span>
+              <ChevronDown className={`w-3.5 h-3.5 text-neutral-400 transition-transform ${genreDropdownOpen ? 'rotate-180 text-rose-500' : ''}`} />
+            </button>
+
+            {/* Dropdown Popover */}
+            {genreDropdownOpen && (
+              <div className="absolute left-0 top-full mt-2 w-72 sm:w-80 p-3 rounded-xl bg-neutral-900 border border-neutral-700 shadow-2xl z-50 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-800">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-rose-500" />
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">
+                      Select Anime Genre
+                    </span>
+                  </div>
+                  {genre && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGenre('');
+                        setGenreDropdownOpen(false);
+                      }}
+                      className="text-[11px] text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {/* Genre Search Input */}
+                <div className="relative mb-2">
+                  <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={genreSearch}
+                    onChange={(e) => setGenreSearch(e.target.value)}
+                    placeholder="Search genres (Action, Romance, Isekai...)"
+                    className="w-full h-8 pl-8 pr-2 rounded-lg bg-neutral-950 border border-neutral-800 text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                {/* Genre List Grid */}
+                <div className="grid grid-cols-2 gap-1 max-h-56 overflow-y-auto pr-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGenre('');
+                      setGenreDropdownOpen(false);
+                    }}
+                    className={`text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center justify-between ${
+                      !genre
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'text-neutral-300 hover:bg-neutral-800'
+                    }`}
+                  >
+                    <span>All Genres</span>
+                    {!genre && <Check className="w-3 h-3 text-white" />}
+                  </button>
+
+                  {filteredGenres.map((g) => {
+                    const isSelected = genre === String(g.mal_id);
+                    return (
+                      <button
+                        key={g.mal_id}
+                        type="button"
+                        onClick={() => {
+                          setGenre(isSelected ? '' : String(g.mal_id));
+                          setGenreDropdownOpen(false);
+                        }}
+                        className={`text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-rose-600 text-white shadow-xs'
+                            : 'text-neutral-300 hover:bg-neutral-800'
+                        }`}
+                      >
+                        <span className="truncate">{g.name}</span>
+                        {isSelected && <Check className="w-3 h-3 text-white shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
           <select 
             value={status} 
             onChange={(e) => setStatus(e.target.value)}
-            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500 cursor-pointer"
+            className="h-9 bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs font-medium rounded-lg px-3 outline-none focus:border-rose-500 cursor-pointer shadow-xs"
           >
             <option value="">Any Status</option>
             <option value="airing">Airing</option>
@@ -202,7 +313,7 @@ export function AdvancedSearchView({
           <select 
             value={type} 
             onChange={(e) => setType(e.target.value)}
-            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500 cursor-pointer"
+            className="h-9 bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs font-medium rounded-lg px-3 outline-none focus:border-rose-500 cursor-pointer shadow-xs"
           >
             <option value="">Any Type</option>
             <option value="tv">TV</option>
@@ -213,7 +324,7 @@ export function AdvancedSearchView({
           <select 
             value={orderBy} 
             onChange={(e) => setOrderBy(e.target.value)}
-            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500 cursor-pointer"
+            className="h-9 bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs font-medium rounded-lg px-3 outline-none focus:border-rose-500 cursor-pointer shadow-xs"
           >
             <option value="popularity">Popularity</option>
             <option value="score">Score</option>
@@ -224,11 +335,43 @@ export function AdvancedSearchView({
           <select 
             value={sort} 
             onChange={(e) => setSort(e.target.value)}
-            className="bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs rounded-lg px-3 py-2 outline-none focus:border-rose-500 cursor-pointer"
+            className="h-9 bg-neutral-950 border border-neutral-800 text-neutral-300 text-xs font-medium rounded-lg px-3 outline-none focus:border-rose-500 cursor-pointer shadow-xs"
           >
             <option value="asc">Ascending</option>
             <option value="desc">Descending</option>
           </select>
+        </div>
+
+        {/* Quick Genre Pills Bar */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar border-t border-neutral-800/80 pt-3">
+          <button
+            type="button"
+            onClick={() => setGenre('')}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+              !genre
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'bg-neutral-950 text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-700'
+            }`}
+          >
+            All Genres
+          </button>
+          {ALL_EXPLORE_GENRES.slice(0, 14).map((g) => {
+            const isSelected = genre === String(g.mal_id);
+            return (
+              <button
+                key={`catalog-chip-${g.mal_id}`}
+                type="button"
+                onClick={() => setGenre(isSelected ? '' : String(g.mal_id))}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'bg-neutral-950 text-neutral-400 hover:text-white border border-neutral-800 hover:border-neutral-700'
+                }`}
+              >
+                {g.name}
+              </button>
+            );
+          })}
         </div>
       </div>
 

@@ -105,15 +105,16 @@ export const AnimeCard = React.memo(function AnimeCard({
         <div className="absolute bottom-2 right-2 flex items-center gap-1.5 z-10">
           {onToggleLike && (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleLike(anime);
               }}
               title={isLiked ? 'Unlike' : 'Favorite'}
-              className={`p-1.5 rounded-lg border transition-colors cursor-pointer backdrop-blur-xs ${
+              className={`w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg border transition-all cursor-pointer backdrop-blur-md active:scale-95 ${
                 isLiked
-                  ? 'bg-red-600 border-red-500 text-white shadow-sm'
-                  : 'bg-white/95 dark:bg-slate-900/90 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-red-500 hover:border-red-400'
+                  ? 'bg-red-600 border-red-500 text-white shadow-md shadow-red-950/40'
+                  : 'bg-white/95 dark:bg-slate-900/95 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-red-500 hover:border-red-400'
               }`}
             >
               <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-white' : ''}`} />
@@ -123,44 +124,46 @@ export const AnimeCard = React.memo(function AnimeCard({
           {onUpdateShelfStatus && (
             <div className="relative">
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowStatusMenu(!showStatusMenu);
                 }}
                 title="Update Shelf Status"
-                className={`p-1.5 rounded-lg border transition-colors cursor-pointer backdrop-blur-xs ${
+                className={`w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg border transition-all cursor-pointer backdrop-blur-md active:scale-95 ${
                   shelfStatus
-                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm'
-                    : 'bg-white/95 dark:bg-slate-900/90 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-emerald-500 hover:border-emerald-400'
+                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-md shadow-emerald-950/40'
+                    : 'bg-white/95 dark:bg-slate-900/95 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:text-emerald-500 hover:border-emerald-400'
                 }`}
               >
-                {shelfStatus ? <Check className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
+                {shelfStatus ? <Check className="w-3.5 h-3.5 stroke-[2.5]" /> : <Bookmark className="w-3.5 h-3.5" />}
               </button>
 
               {/* Status Dropdown Menu */}
               {showStatusMenu && (
                 <div 
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute bottom-full right-0 mb-2 w-38 py-1 bg-white dark:bg-[#10141e] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-30"
+                  className="absolute bottom-full right-0 mb-2 w-44 py-1.5 bg-white dark:bg-[#10141e] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-30 animate-in fade-in zoom-in-95 duration-150"
                 >
-                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+                  <div className="px-3.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
                     Add to Shelf
                   </div>
                   {statuses.map((st) => (
                     <button
                       key={st.value}
+                      type="button"
                       onClick={() => {
                         onUpdateShelfStatus(anime, st.value);
                         setShowStatusMenu(false);
                       }}
-                      className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between hover:bg-slate-50 dark:hover:bg-[#161c2b] transition-colors cursor-pointer ${
+                      className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between hover:bg-slate-50 dark:hover:bg-[#161c2b] transition-colors cursor-pointer ${
                         shelfStatus === st.value 
                           ? 'text-red-600 dark:text-red-400 font-bold bg-red-50/60 dark:bg-red-950/20' 
                           : 'text-slate-700 dark:text-slate-200'
                       }`}
                     >
                       <span>{st.label}</span>
-                      {shelfStatus === st.value && <Check className="w-3 h-3 text-red-500" />}
+                      {shelfStatus === st.value && <Check className="w-3.5 h-3.5 text-red-500 stroke-[2.5]" />}
                     </button>
                   ))}
                 </div>
@@ -171,7 +174,7 @@ export const AnimeCard = React.memo(function AnimeCard({
       </div>
 
       {/* Card Info Area */}
-      <div className="p-3 flex flex-col flex-1 justify-between gap-2 relative z-10 bg-white dark:bg-[#10141e] min-w-0">
+      <div className="p-2 sm:p-3 flex flex-col flex-1 justify-between gap-1.5 sm:gap-2 relative z-10 bg-white dark:bg-[#10141e] min-w-0">
         <div className="min-w-0">
           <a
             href={getAnimeUrl(anime.mal_id, anime.title)}
@@ -182,7 +185,7 @@ export const AnimeCard = React.memo(function AnimeCard({
             className="block"
           >
             <h3 
-              className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug min-h-[2.4rem] group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors cursor-pointer break-words"
+              className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug min-h-[2.1rem] sm:min-h-[2.4rem] group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors cursor-pointer break-words"
               title={anime.title}
             >
               {anime.title}

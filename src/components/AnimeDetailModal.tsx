@@ -24,6 +24,7 @@ import {
   Mic,
   Compass,
   ArrowRight,
+  ListPlus,
 } from 'lucide-react';
 import { AnimeItem, CharacterItem, ShelfStatus, WatchPlatform, RecommendedAnimeItem } from '../types';
 import { getAnimeCharacters, getAnimeById, getAnimeRecommendations } from '../services/jikan';
@@ -31,6 +32,7 @@ import { getFranchiseSeasons, FranchiseSeasonItem } from '../services/franchiseS
 import { siteConfig } from '../config/site';
 
 import { MediaImage } from './MediaImage';
+import { AddToPlaylistModal } from './AddToPlaylistModal';
 
 import { AuthUser } from '../types';
 
@@ -89,6 +91,7 @@ export function AnimeDetailModal({
   const [franchiseSeasons, setFranchiseSeasons] = useState<FranchiseSeasonItem[]>([]);
   const [loadingSeasons, setLoadingSeasons] = useState(false);
   const [visibleCharCount, setVisibleCharCount] = useState(36);
+  const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
 
   // Load all franchise seasons (Season 1, Season 2, Sequels, Movies, etc.)
   useEffect(() => {
@@ -746,18 +749,31 @@ export function AnimeDetailModal({
                     </select>
                   </div>
 
-                  {/* Favorite Like button */}
-                  <button
-                    onClick={() => onToggleLike(anime)}
-                    className={`p-1.5 rounded-lg border transition-all ${
-                      isLiked
-                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
-                        : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:text-neutral-200 hover:border-neutral-500'
-                    }`}
-                    title={isLiked ? 'Remove from favorites' : 'Add to favorites'}
-                  >
-                    <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Add to Playlist button */}
+                    <button
+                      type="button"
+                      onClick={() => setPlaylistModalOpen(true)}
+                      className="px-2.5 py-1.5 rounded-lg border bg-neutral-900 border-neutral-700 hover:border-purple-500/50 hover:bg-purple-950/30 text-neutral-300 hover:text-white transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                      title="Add to Watchlist Playlist"
+                    >
+                      <ListPlus className="w-3.5 h-3.5 text-purple-400" />
+                      <span className="hidden sm:inline">Add to Playlist</span>
+                    </button>
+
+                    {/* Favorite Like button */}
+                    <button
+                      onClick={() => onToggleLike(anime)}
+                      className={`p-1.5 rounded-lg border transition-all ${
+                        isLiked
+                          ? 'bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/20'
+                          : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:text-neutral-200 hover:border-neutral-500'
+                      }`}
+                      title={isLiked ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                      <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Star Rating System 1 to 10 */}
@@ -1504,6 +1520,21 @@ export function AnimeDetailModal({
           )}
         </div>
       </div>
+
+      {/* Add To Custom Playlist Modal */}
+      <AddToPlaylistModal
+        isOpen={playlistModalOpen}
+        onClose={() => setPlaylistModalOpen(false)}
+        item={anime ? {
+          id: anime.mal_id,
+          mediaType: 'anime',
+          title: anime.title,
+          image: anime.images.jpg.image_url,
+          score: anime.score,
+          genres: anime.genres?.map((g) => g.name),
+        } : null}
+        userId={currentUser?.id}
+      />
     </div>
   );
 

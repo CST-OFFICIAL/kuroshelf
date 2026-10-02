@@ -703,7 +703,7 @@ export async function fetchAniListTop100(
     }
 
     const seenIds = new Set<number>();
-    const animeList = allMedia
+    let animeList = allMedia
       .filter((m: any) => {
         const id = m.idMal || m.id;
         if (!id || seenIds.has(id)) return false;
@@ -712,6 +712,53 @@ export async function fetchAniListTop100(
       })
       .map(mapAniListMediaToAnimeItem)
       .filter((item: AnimeItem) => !isNsfwOrAdultClient(item));
+
+    // If specific restrictions (e.g. narrow airing or upcoming genre) left fewer than limit (100) items,
+    // supplement with freshest releases of THAT SAME GENRE so the rankings table always displays 100 anime
+    if (animeList.length < limit && limit >= 50) {
+      try {
+        const suppQuery = `
+          query ($genre: String, $tag: String, $page: Int) {
+            Page(page: $page, perPage: 50) {
+              media(genre: $genre, tag: $tag, sort: [START_DATE_DESC, POPULARITY_DESC], isAdult: false, genre_not_in: ["Hentai"], type: ANIME) {
+                idMal id title { romaji english native } coverImage { large extraLarge } bannerImage status episodes duration averageScore meanScore stats { scoreDistribution { score amount } } popularity favourites description(asHtml: false) genres studios(isMain: true) { nodes { id name } }
+              }
+            }
+          }
+        `;
+        const suppPages = [1, 2];
+        const suppResponses = await Promise.all(
+          suppPages.map(p =>
+            fetch(ANILIST_GRAPHQL_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({
+                query: suppQuery,
+                variables: { genre: anilistGenre, tag: anilistTag, page: p }
+              })
+            }).then(r => r.ok ? r.json() : null).catch(() => null)
+          )
+        );
+
+        for (const sRes of suppResponses) {
+          const sItems = sRes?.data?.Page?.media;
+          if (Array.isArray(sItems)) {
+            for (const sm of sItems) {
+              const sid = sm.idMal || sm.id;
+              if (sid && !seenIds.has(sid)) {
+                seenIds.add(sid);
+                const mapped = mapAniListMediaToAnimeItem(sm);
+                if (!isNsfwOrAdultClient(mapped)) {
+                  animeList.push(mapped);
+                }
+              }
+            }
+          }
+        }
+      } catch (suppErr) {
+        console.warn('[AniListTop100 Client] Supplement note:', suppErr);
+      }
+    }
 
     return animeList.slice(0, limit);
   } catch (err) {

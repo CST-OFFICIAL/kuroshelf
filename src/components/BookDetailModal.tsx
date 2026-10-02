@@ -14,10 +14,12 @@ import {
   Layers,
   ShoppingBag,
   Trash2,
+  ListPlus,
 } from 'lucide-react';
 import { siteConfig } from '../config/site';
 import { cleanSynopsis } from '../utils/textUtils';
 import { MediaImage } from './MediaImage';
+import { AddToPlaylistModal } from './AddToPlaylistModal';
 
 interface BookDetailModalProps {
   book: MangaItem | null;
@@ -44,6 +46,7 @@ export function BookDetailModal({
 }: BookDetailModalProps) {
   const shelfItem = (shelf || []).find((s) => s.id === book?.mal_id && s.mediaType === 'manga');
   const [currentProgress, setCurrentProgress] = useState(shelfItem?.progress || 0);
+  const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
 
   useEffect(() => {
     setCurrentProgress(shelfItem?.progress || 0);
@@ -247,6 +250,17 @@ export function BookDetailModal({
                   </button>
                 )}
 
+                {/* Add to Playlist button */}
+                <button
+                  type="button"
+                  onClick={() => setPlaylistModalOpen(true)}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:border-purple-500/50 hover:bg-purple-950/30 transition-all cursor-pointer"
+                  title="Add to Watchlist Playlist"
+                >
+                  <ListPlus className="w-4 h-4 text-purple-400" />
+                  <span className="hidden sm:inline">Add to Playlist</span>
+                </button>
+
                 {/* Remove button if on shelf */}
                 {shelfItem && onRemoveFromShelf && (
                   <button
@@ -362,6 +376,20 @@ export function BookDetailModal({
             </a>
           </div>
         </div>
+
+        {/* Add To Custom Playlist Modal */}
+        <AddToPlaylistModal
+          isOpen={playlistModalOpen}
+          onClose={() => setPlaylistModalOpen(false)}
+          item={book ? {
+            id: book.mal_id,
+            mediaType: 'manga',
+            title: book.title,
+            image: poster,
+            score: book.score,
+            genres: book.genres?.map((g) => g.name),
+          } : null}
+        />
       </div>
     </div>
   );

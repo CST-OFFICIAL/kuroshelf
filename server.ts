@@ -433,83 +433,9 @@ export async function createApp() {
       const filter = req.query.filter ? String(req.query.filter) : 'top100';
       const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 100);
 
-      // Check if Supabase has items
-      let supabaseItems: any[] = [];
-      if (isSupabaseConfigured) {
-        try {
-          let query = supabase.from('anime').select('*, anime_genres!inner(genres!inner(name)), anime_studios(studios(name)), anime_streaming(url, streaming_providers(name))').neq('rating', 'Rx - Hentai');
-          
-          if (year && year !== 'all') query = query.eq('year', Number(year));
-          if (genre && genre !== 'all') query = query.eq('anime_genres.genres.name', genre);
-          if (filter === 'airing') query = query.eq('status', 'Currently Airing');
-          if (filter === 'upcoming') query = query.eq('status', 'Not yet aired');
-          
-          const { data, error } = await query.order('score', { ascending: false, nullsFirst: false }).limit(limit);
-          
-          if (!error && data && data.length > 0) {
-            const safeData = data.filter(item => {
-              if (isNsfwOrAdult(item)) return false;
-              if (item.rating && (item.rating.includes('Rx') || item.rating.includes('Hentai'))) return false;
-              if (item.anime_genres && Array.isArray(item.anime_genres)) {
-                for (const ag of item.anime_genres) {
-                  const gName = ag.genres?.name?.toLowerCase() || '';
-                  if (gName.includes('hentai') || gName.includes('erotica') || gName.includes('adult cast')) return false;
-                }
-              }
-              return true;
-            });
-
-            supabaseItems = safeData.map(item => {
-              const cleaned = { ...item };
-              delete cleaned.anime_genres;
-              delete cleaned.anime_studios;
-              cleaned.images = cleaned.images_json;
-              if (item.anime_studios && Array.isArray(item.anime_studios)) {
-                cleaned.studios = item.anime_studios.map((as: any) => as.studios).filter(Boolean);
-              }
-              if (item.anime_streaming && Array.isArray(item.anime_streaming)) {
-                cleaned.streaming = item.anime_streaming.map((as: any) => ({
-                  name: as.streaming_providers?.name || 'Unknown',
-                  url: as.url
-                })).filter(Boolean);
-              }
-              delete cleaned.anime_streaming;
-              return cleaned;
-            });
-          }
-        } catch (dbErr) {
-          console.warn('[API /api/anime/top100] Supabase query notice:', dbErr);
-        }
-      }
-
-      // If Supabase already provided the full list (e.g. 100 items), return it directly
-      if (supabaseItems.length >= limit) {
-        res.json({ success: true, data: supabaseItems.slice(0, limit) });
-        return;
-      }
-
-      // Fetch external items to guarantee a full list of 100 items
-      const externalItems = await serverGetTop100Anime({ filter, genre, year, limit });
-
-      // Merge Supabase items and external items without duplicates
-      const seenIds = new Set<number>();
-      const combined: any[] = [];
-
-      for (const item of supabaseItems) {
-        if (item.mal_id && !seenIds.has(item.mal_id) && !isNsfwOrAdult(item)) {
-          seenIds.add(item.mal_id);
-          combined.push(item);
-        }
-      }
-
-      for (const item of externalItems) {
-        if (item.mal_id && !seenIds.has(item.mal_id) && !isNsfwOrAdult(item)) {
-          seenIds.add(item.mal_id);
-          combined.push(item);
-        }
-      }
-
-      res.json({ success: true, data: combined.slice(0, limit) });
+      // Directly fetch top 100 items from the dedicated rankings engine
+      const topItems = await serverGetTop100Anime({ filter, genre, year, limit });
+      res.json({ success: true, data: topItems });
     } catch (err) {
       console.warn('[API /api/anime/top100] Error:', err);
       res.status(500).json({ success: false, data: [], error: 'Failed to fetch Top 100' });

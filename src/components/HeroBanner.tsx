@@ -76,7 +76,7 @@ export function HeroBanner({
       aria-label="Daily Spotlight • Best of Anime"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="relative w-full rounded-3xl overflow-hidden bg-[#0e121b] border border-slate-800 shadow-2xl min-h-[380px] sm:min-h-[440px] flex items-center group transition-all"
+      className="relative w-full rounded-2xl sm:rounded-3xl overflow-hidden bg-[#0e121b] border border-slate-800 shadow-2xl min-h-[290px] sm:min-h-[440px] flex items-center group transition-all"
     >
       {/* Immersive Full-Bleed Backdrop Image with Books-matched Dual Gradients */}
       <div className="absolute inset-0 z-0">
@@ -92,29 +92,29 @@ export function HeroBanner({
       </div>
 
       {/* Hero Content Panel (Identical typography, layout, and colour grading to Library) */}
-      <div className="relative z-10 p-6 sm:p-10 lg:p-12 max-w-3xl space-y-4">
+      <div className="relative z-10 p-3.5 sm:p-10 lg:p-12 max-w-3xl space-y-2.5 sm:space-y-4">
         {/* Badges Row */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-red-600 text-white flex items-center gap-1.5 shadow-sm">
-            <Sparkles className="w-3.5 h-3.5" />
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-black uppercase tracking-wider bg-red-600 text-white flex items-center gap-1.5 shadow-sm">
+            <Sparkles className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
             Daily Spotlight • Best of Anime
           </span>
 
           {anime.type && (
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800/90 text-slate-300 border border-slate-700">
+            <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-semibold bg-slate-800/90 text-slate-300 border border-slate-700">
               {anime.type}
             </span>
           )}
 
           {typeof anime.score === 'number' && (
-            <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            <span className="flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+              <Star className="w-3 sm:w-3.5 h-3 sm:h-3.5 fill-amber-400 text-amber-400" />
               {anime.score.toFixed(2)}
             </span>
           )}
 
           {anime.status && (
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800/90 text-slate-300 border border-slate-700">
+            <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-semibold bg-slate-800/90 text-slate-300 border border-slate-700">
               {anime.status}
             </span>
           )}
@@ -131,7 +131,7 @@ export function HeroBanner({
               key={g.name}
               type="button"
               onClick={() => onSelectGenre?.(g.name)}
-              className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-red-300 border border-slate-800 transition-colors cursor-pointer"
+              className="px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-red-300 border border-slate-800 transition-colors cursor-pointer"
               title={`Explore ${g.name} anime`}
             >
               {g.name}
@@ -143,12 +143,12 @@ export function HeroBanner({
         <div>
           <h1 
             onClick={() => onSelect(anime)}
-            className="text-2xl sm:text-4xl lg:text-5xl font-black font-display text-white tracking-tight leading-tight cursor-pointer hover:text-red-400 transition-colors"
+            className="text-xl sm:text-4xl lg:text-5xl font-black font-display text-white tracking-tight leading-tight cursor-pointer hover:text-red-400 transition-colors"
           >
             {anime.title}
           </h1>
           {anime.title_english && anime.title_english !== anime.title && (
-            <p className="text-xs sm:text-sm text-slate-400 font-medium mt-1">
+            <p className="text-[11px] sm:text-sm text-slate-400 font-medium mt-0.5 sm:mt-1">
               {anime.title_english}
             </p>
           )}
@@ -156,30 +156,30 @@ export function HeroBanner({
 
         {/* Synopsis Paragraph */}
         {anime.synopsis && (
-          <p className="text-xs sm:text-sm text-slate-300 line-clamp-3 leading-relaxed max-w-2xl">
+          <p className="text-xs sm:text-sm text-slate-300 line-clamp-2 sm:line-clamp-3 leading-relaxed max-w-2xl">
             {cleanSynopsis(anime.synopsis)}
           </p>
         )}
 
         {/* Broadcast Countdown notice if available */}
         {countdown && (
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 text-xs text-red-300">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-xs text-red-300">
             <Clock className="w-3.5 h-3.5 text-red-400 shrink-0" />
             <span>{countdown}</span>
           </div>
         )}
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-3 pt-2">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 pt-1">
           {/* Read Overview Button - Opens Anime Overview Details Modal */}
           <button
             id="hero-read-overview-btn"
             type="button"
             onClick={() => onSelect(anime)}
-            className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs sm:text-sm transition-all shadow-lg shadow-red-950/40 cursor-pointer flex items-center gap-2"
+            className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs sm:text-sm transition-all shadow-lg shadow-red-950/40 cursor-pointer flex items-center gap-2"
             title="Read Overview & Details"
           >
-            <BookOpen className="w-4 h-4" />
+            <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Read Overview</span>
           </button>
 
@@ -188,7 +188,7 @@ export function HeroBanner({
             id="hero-shelf-toggle-btn"
             type="button"
             onClick={() => onAddToShelf(anime, isSavedInShelf ? 'plan_to_watch' : 'watching')}
-            className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all border cursor-pointer flex items-center gap-2 ${
+            className={`px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all border cursor-pointer flex items-center gap-2 ${
               isSavedInShelf
                 ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/40'
                 : 'bg-slate-800/90 hover:bg-slate-700 text-white border-slate-700'
